@@ -1,0 +1,8 @@
+{
+  "name": "Workout Logger",
+  "short_name": "Workout",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eef3ff",
+  "theme_color": "#3b82f6"
+}
