@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Workout Logger">
+<meta name="theme-color" content="#3b82f6">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
   :root{
     --bg:#eef3ff; --bg-accent:#e6edff; --card:#ffffff; --line:#dfe6f5;
@@ -142,6 +144,15 @@
   .icon.small{ padding:.35rem .5rem; font-size:1rem; }
   .icon.danger{ background: var(--danger-weak); color:#b91c1c; border-color:#f7c3c3; }
 </style>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
+  
 </head>
 <body>
   <div class="title-wrap">
