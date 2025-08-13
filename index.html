@@ -147,7 +147,131 @@
   .icon.danger{ background: var(--danger-weak); color:#b91c1c; border-color:#f7c3c3; }
 </style>
 
+
 <script>
+// ---- Simple IndexedDB key/value store ----
+const IDB_DB   = 'workoutdb';
+const IDB_STORE= 'kv';
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+async function idbSet(key, val){
+  const db = await idbOpen();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).put(val, key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => reject(tx.error);
+  });
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(IDB_STORE,'readonly');
+    const req = tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+async function idbDel(key){
+  const db = await idbOpen();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => reject(tx.error);
+  });
+}
+async function idbClear(){
+  const db = await idbOpen();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).clear();
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => reject(tx.error);
+  });
+}
+// Persist everything you need to restore the app
+async function save(){
+  try {
+    const payload = {
+      state,                  // your routines, sessions, etc.
+      prefs,                  // your settings
+      theme: document.body.getAttribute('data-theme') || 'light',
+      ver: 'local-v1'
+    };
+    await idbSet('app', payload);
+  } catch(e){
+    console.warn('Local save failed', e);
+  }
+}
+
+// Load on startup (call this once on page load)
+async function load(){
+  try {
+    const data = await idbGet('app');
+    if (!data) return;
+    if (data.state) Object.assign(state, data.state);
+    if (data.prefs) Object.assign(prefs, data.prefs);
+    if (data.theme) document.body.setAttribute('data-theme', data.theme);
+  } catch(e){
+    console.warn('Local load failed', e);
+  }
+}
+async function requestPersistentStorage(){
+  if (navigator.storage && navigator.storage.persist) {
+    try {
+      const granted = await navigator.storage.persist();
+      console.log('Persistent storage', granted ? 'GRANTED' : 'denied');
+      if (!granted) alert('Heads up: iOS may clear data if storage is tight. Use Export in Settings as a backup.');
+    } catch(e){ /* ignore */ }
+  }
+}
+// Auto-ask once on first run:
+requestPersistentStorage();
+
+function exportJSON(){
+  const payload = { state, prefs, theme: document.body.getAttribute('data-theme')||'light' };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'workout_backup.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(file){
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const obj = JSON.parse(reader.result);
+      if (obj.state) Object.assign(state, obj.state);
+      if (obj.prefs) Object.assign(prefs, obj.prefs);
+      if (obj.theme) document.body.setAttribute('data-theme', obj.theme);
+      await save();
+      // re-render your UI:
+      applyTheme && applyTheme();
+      applyAccent && applyAccent();
+      renderSelectors && renderSelectors();
+      buildLog && buildLog();
+      buildTrends && buildTrends();
+      renderRoutinesList && renderRoutinesList();
+      alert('Import complete.');
+    } catch(e){ alert('Bad file.'); }
+  };
+  reader.readAsText(file);
+}
+// Save when leaving the app:
+window.addEventListener('pagehide', save);
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') save();
+});
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>{});
