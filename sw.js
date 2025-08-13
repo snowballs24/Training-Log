@@ -1,5 +1,11 @@
-const CACHE = 'workout-cache-v1';
-const ASSETS = ['./','./index.html','./manifest.webmanifest'];
+const CACHE = 'workout-cache-v2'; // bump this when you change core assets
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -16,10 +22,12 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
-  );
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin === location.origin) {
+    e.respondWith(caches.match(req).then(cached => cached || fetch(req)));
+  }
 });
 
 self.addEventListener('message', e => {
