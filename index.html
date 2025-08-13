@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Workout Logger – v12.1</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Workout Logger">
@@ -147,11 +149,24 @@
 
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  window.addEventListener('load', async () => {
+    const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    if (!reg) return;
+    // Show an "update available" prompt when you push new code
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      nw && nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+          if (confirm('Update available. Reload now?')) {
+            nw.postMessage({ action: 'skipWaiting' });
+          }
+        }
+      });
+    });
   });
 }
 </script>
+
   
 </head>
 <body>
