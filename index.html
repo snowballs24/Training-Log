@@ -556,7 +556,7 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
       </div>
     </section>
 
-    <nav class="card" style="position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px solid var(--line);">
+    <nav class="card">
       <div style="display:flex; gap:10px; justify-content:space-between;">
         <button class="ghost" type="button" data-action="navLog">Log</button>
         <button class="ghost" type="button" data-action="navRoutines">Routines</button>
@@ -566,6 +566,17 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
     </nav>
   </div>
 
+<div id="modalRoot" class="app-modal hidden" aria-hidden="true">
+  <div class="app-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle">Notice</h3>
+    <div id="modalMsg" class="msg"></div>
+    <input id="modalInput" class="hidden" />
+    <div class="app-actions">
+      <button id="modalCancel" class="secondary" type="button">Cancel</button>
+      <button id="modalOK" type="button">OK</button>
+    </div>
+  </div>
+</div>
 <!-- (Optional) Firebase scripts only if you already wired cloud backup; safe if missing) -->
 
 <script>
@@ -718,7 +729,7 @@ function showPage(which){
   if(which==='settingsPage'){ hydrateSettingsUI(); }
 }
 $('menuBtn').addEventListener('click', ()=> $('menuPanel').classList.toggle('hidden'));
-document.addEventListener('click', async (e)=>{ if(!e.target.closest('.menu-wrap')) $('menuPanel').classList.add('hidden'); });
+document.addEventListener('click', (e)=>{ if(!e.target.closest('.menu-wrap')) $('menuPanel').classList.add('hidden'); });
 
 /* ===== Routines list/manage ===== */
 function renderRoutinesList(){
@@ -1366,18 +1377,8 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
-</script>
-<div id="modalRoot" class="app-modal hidden" aria-hidden="true">
-  <div class="app-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <h3 id="modalTitle">Notice</h3>
-    <div id="modalMsg" class="msg"></div>
-    <input id="modalInput" class="hidden" />
-    <div class="app-actions">
-      <button id="modalCancel" class="secondary" type="button">Cancel</button>
-      <button id="modalOK" type="button">OK</button>
-    </div>
-  </div>
-</div>
+
+
 
 </body>
 </html>
