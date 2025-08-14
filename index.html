@@ -66,40 +66,59 @@
 }
 
 /* ***** Colorful Accent Themes (no layout changes) ***** */
-/* Aurora (blue/purple) — default */
+/* Aurora (blue ⇄ coral) */
 [data-accent="aurora"] {
-  --primary:#7aa2ff; --primary-2:#6d28d9; --accent:#9f7aea;
-  --bg-gradient: radial-gradient(1200px 700px at 100% -100%, rgba(125, 160, 255, .12), transparent),
-                 radial-gradient(1000px 600px at -20% 0%, rgba(155, 110, 255, .12), transparent),
-                 linear-gradient(180deg, var(--bg), var(--bg-2));
+  --primary:#0077B6;       /* deep ocean blue */
+  --primary-2:#FF6B6B;     /* soft coral */
+  --accent:#9B5DE5;        /* violet pop */
+  --bg-gradient:
+    radial-gradient(1200px 700px at 100% -100%, color-mix(in oklab, var(--primary) 20%, transparent), transparent),
+    radial-gradient(1000px 600px at -20% 0%,  color-mix(in oklab, var(--primary-2) 20%, transparent), transparent),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
 }
-/* Neon Mint (mint/teal) */
+
+/* Neon Mint (mint ⇄ hot pink) */
 [data-accent="mint"] {
-  --primary:#34d399; --primary-2:#06b6d4; --accent:#22d3ee;
-  --bg-gradient: radial-gradient(1000px 600px at 100% -80%, rgba(52,211,153,.13), transparent),
-                 radial-gradient(1000px 600px at -30% 0%, rgba(6,182,212,.12), transparent),
-                 linear-gradient(180deg, var(--bg), var(--bg-2));
+  --primary:#06D6A0;       /* neon mint */
+  --primary-2:#EF476F;     /* hot pink/red */
+  --accent:#118AB2;        /* teal-blue accent */
+  --bg-gradient:
+    radial-gradient(1000px 600px at 100% -80%, color-mix(in oklab, var(--primary) 18%, transparent), transparent),
+    radial-gradient(1000px 600px at -30% 0%,  color-mix(in oklab, var(--primary-2) 18%, transparent), transparent),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
 }
-/* Sunset (orange/pink) */
+
+/* Sunset (orange ⇄ royal blue) */
 [data-accent="sunset"] {
-  --primary:#fb923c; --primary-2:#f43f5e; --accent:#f97316;
-  --bg-gradient: radial-gradient(1100px 650px at 100% -80%, rgba(251,146,60,.12), transparent),
-                 radial-gradient(1000px 600px at -30% 0%, rgba(244,63,94,.12), transparent),
-                 linear-gradient(180deg, var(--bg), var(--bg-2));
+  --primary:#FF6B35;       /* vivid orange */
+  --primary-2:#3B82F6;     /* royal blue */
+  --accent:#F15BB5;        /* playful pink */
+  --bg-gradient:
+    radial-gradient(1100px 650px at 100% -80%, color-mix(in oklab, var(--primary) 18%, transparent), transparent),
+    radial-gradient(1000px 600px at -30% 0%,  color-mix(in oklab, var(--primary-2) 18%, transparent), transparent),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
 }
-/* Volt (lime/teal) */
+
+/* Volt (lime ⇄ violet) */
 [data-accent="volt"] {
-  --primary:#84cc16; --primary-2:#14b8a6; --accent:#10b981;
-  --bg-gradient: radial-gradient(1100px 650px at 100% -80%, rgba(132,204,22,.12), transparent),
-                 radial-gradient(1000px 600px at -30% 0%, rgba(20,184,166,.12), transparent),
-                 linear-gradient(180deg, var(--bg), var(--bg-2));
+  --primary:#84CC16;       /* electric lime */
+  --primary-2:#7C3AED;     /* vivid violet */
+  --accent:#14B8A6;        /* teal accent */
+  --bg-gradient:
+    radial-gradient(1100px 650px at 100% -80%, color-mix(in oklab, var(--primary) 18%, transparent), transparent),
+    radial-gradient(1000px 600px at -30% 0%,  color-mix(in oklab, var(--primary-2) 18%, transparent), transparent),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
 }
-/* Crimson Heat (rose/crimson) */
+
+/* Crimson Heat (crimson ⇄ cyan) */
 [data-accent="crimson"] {
-  --primary:#f43f5e; --primary-2:#ef4444; --accent:#fb7185;
-  --bg-gradient: radial-gradient(1100px 650px at 100% -80%, rgba(244,63,94,.12), transparent),
-                 radial-gradient(1000px 600px at -30% 0%, rgba(239,68,68,.12), transparent),
-                 linear-gradient(180deg, var(--bg), var(--bg-2));
+  --primary:#F43F5E;       /* crimson */
+  --primary-2:#06B6D4;     /* cyan/teal */
+  --accent:#FB7185;        /* light rose */
+  --bg-gradient:
+    radial-gradient(1100px 650px at 100% -80%, color-mix(in oklab, var(--primary) 18%, transparent), transparent),
+    radial-gradient(1000px 600px at -30% 0%,  color-mix(in oklab, var(--primary-2) 18%, transparent), transparent),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
 }
 
 /* ========= Base ======== */
