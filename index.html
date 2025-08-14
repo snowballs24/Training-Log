@@ -339,6 +339,7 @@ nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px
               <option value="fullbody3">Full Body 3-day</option>
               <option value="phul">PHUL 4-day</option>
               <option value="phat">PHAT 5-day</option>
+              <option value="snowy">Snowy's Log</option>
             </select>
             <button class="ghost" data-action="useTemplateSelected">Import</button>
           </div>
@@ -506,7 +507,9 @@ function tBroSplit(){ return { name:'Bro Split 5-day', days:[ {name:'Chest', ex:
 function tFullBody3(){ return { name:'Full Body 3-day', days:[ {name:'Full A', ex:['Back Squat','Barbell Bench Press','Barbell Row','Lateral Raise','Standing Calf Raise']}, {name:'Full B', ex:['Deadlift','Overhead Press','Lat Pulldown','Incline Dumbbell Press','Leg Press']}, {name:'Full C', ex:['Front Squat','Incline Bench Press','Chest-Supported Row','Hip Thrust','Hanging Leg Raise']} ] }; }
 function tPHUL(){ return { name:'PHUL 4-day', days:[ {name:'Upper Power', ex:['Barbell Bench Press','Barbell Row','Overhead Press','Lat Pulldown']}, {name:'Lower Power', ex:['Back Squat','Romanian Deadlift','Leg Press','Standing Calf Raise']}, {name:'Upper Hypertrophy', ex:['Incline Dumbbell Press','Chest-Supported Row','Lateral Raise','Barbell Curl','Cable Pressdown']}, {name:'Lower Hypertrophy', ex:['Front Squat','Hip Thrust','Leg Extension','Seated Leg Curl','Seated Calf Raise']} ] }; }
 function tPHAT(){ return { name:'PHAT 5-day', days:[ {name:'Upper Power', ex:['Barbell Bench Press','Barbell Row','Overhead Press']}, {name:'Lower Power', ex:['Back Squat','Deadlift','Standing Calf Raise']}, {name:'Back/Shoulders', ex:['Lat Pulldown','Chest-Supported Row','Lateral Raise','Face Pull']}, {name:'Lower Hypertrophy', ex:['Front Squat','Leg Press','Leg Extension','Seated Leg Curl','Seated Calf Raise']}, {name:'Chest/Arms', ex:['Incline Dumbbell Press','Dumbbell Flye','Barbell Curl','Cable Pressdown']} ] }; }
+function tSnowy(){ return { name:'Snowy's Log', days:[ {name:'Chest', ex:['Barbell Bench Press','Machine Chest Press','Machine Shoulder Press','Incline Dumbbell Press','Machine Chest Fly','Overhead Tricep Rope Extensions']}, {name:'Legs', ex:['Seated Leg Curl','Leg Press','Leg Press Calf Raise','Leg Extensions','Hip Thrusters','Hip Adductors','Hip Abdcutors']}, {name:'Back/Shoulders', ex:['Upright Row','Machine Row','Close Grip Lat Pulldown','Seated Cable Row','Reverse Machine Fly','Cable Lateral Raise','Dumbbell Shrugs','Hammer Curls']}, {name:'Core', ex:['Decline Ab Crunch','Machine Crunch','Wood Chopper','Dumbbell Side Bend']} ] }; }
 
+   
 const EX_LIB = {
   "Chest": ["Barbell Bench Press","Incline Barbell Bench Press","Dumbbell Bench Press","Incline Dumbbell Press","Decline Bench Press","Dumbbell Flye","Cable Flye","Push-Up","Machine Chest Press","Smith Machine Bench Press","Pec Deck","Dips (Chest)"],
   "Back": ["Deadlift","Conventional Deadlift","Sumo Deadlift","Barbell Row","Pendlay Row","Dumbbell Row","Seal Row","Chest-Supported Row","Lat Pulldown","Wide-Grip Pulldown","Close-Grip Pulldown","Pull-Up","Chin-Up","T-Bar Row","Cable Row","Seated Cable Row","Power Clean (or Rows)","Rack Pull"],
@@ -751,6 +754,7 @@ function useTemplate(which){
   else if(which==='fullbody3') t=tFullBody3();
   else if(which==='phul') t=tPHUL();
   else if(which==='phat') t=tPHAT();
+  else if(which==='snowy') t=tSnowy();
   if(!t) return;
   state.wiz = { editingId:null, name:t.name, daysCount:t.days.length, dayNames:t.days.map(d=>d.name), dayExercises:{} };
   $('wizName').value=t.name; $('wizDaysCount').value=t.days.length;
