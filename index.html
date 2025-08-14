@@ -494,45 +494,6 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
          </div>
        </section>
    
-       <script>
-         // Step 1 → Step 2
-         $('[data-action="wizToDays"]').addEventListener('click', () => {
-           const name = $('wizName').value.trim();
-           const days = $('wizDaysCount').value.trim();
-           if (!name) {
-             showModal('Please enter a routine name first.');
-             return;
-           }
-           if (!days || parseInt(days) < 1) {
-             showModal('Please enter how many days.');
-             return;
-           }
-           $('wizStep1').classList.add('hidden');
-           $('wizStep2').classList.remove('hidden');
-         });
-   
-         // Step 2 → Step 3
-         $('[data-action="wizToExercises"]').addEventListener('click', () => {
-           $('wizStep2').classList.add('hidden');
-           $('wizStep3').classList.remove('hidden');
-         });
-   
-         // Back buttons
-         $('[data-action="wizBackToCount"]').addEventListener('click', () => {
-           $('wizStep2').classList.add('hidden');
-           $('wizStep1').classList.remove('hidden');
-         });
-         $('[data-action="wizBackToDays"]').addEventListener('click', () => {
-           $('wizStep3').classList.add('hidden');
-           $('wizStep2').classList.remove('hidden');
-         });
-       </script>
-   
-       <style>
-         .hidden {
-           display: none !important;
-         }
-       </style>
        </section>
        </section>
       
