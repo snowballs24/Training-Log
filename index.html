@@ -1374,14 +1374,13 @@ document.addEventListener('click', async (e)=>{
   }
   else if(act==='timerToggle'){ timerToggle(btn.dataset.exid); }
   else if(act==='timerReset'){ timerReset(btn.dataset.exid); }
-  else if(act==='toggleNotes'){ const exId=btn.dataset.exid; const w=$('noteWrap_'+exId); if(w) w.classList.toggle('hidden'); }
-});
-   
-  if (act === 'deleteSession') {
+  else if(act==='toggleNotes'){
+    const exId=btn.dataset.exid; const w=$('noteWrap_'+exId);
+    if(w) w.classList.toggle('hidden');
+  }
+  else if (act === 'deleteSession') {
     const sid = btn.dataset.sid;
     if (!(await modal.confirm('Delete this logged entry for this exercise? This cannot be undone.'))) return;
-
-    // Remove just that single exercise session
     state.sessions = state.sessions.filter(s => s.id !== sid);
     save();
     buildLog();
@@ -1389,6 +1388,8 @@ document.addEventListener('click', async (e)=>{
     modal.alert('Entry deleted.');
     return;
   }
+});
+  
 
 document.addEventListener('change',(e)=>{
   if(e.target && e.target.id && e.target.id.startsWith('exCat_day_')){
