@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Workout Logger</title>
+<title>Training Log</title>
 
 <!-- PWA hooks (leave as-is; your manifest/sw can remain the same) -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -342,7 +342,7 @@ input[type=number]{ -moz-appearance:textfield; }
 .icon.danger{ background: color-mix(in oklab, var(--danger) 14%, transparent 86%); color:#ffd7d7; border-color: color-mix(in oklab, var(--danger) 25%, transparent 75%); }
 
 /* Footer nav */
-nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px solid var(--line); }
+nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0; border-top:1px solid var(--line); width:100%; }
 
 /* Surface styles (glass vs flat) */
 [data-surface="glass"] .card,
@@ -362,6 +362,17 @@ nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px
   box-shadow: none; /* more obvious change */
   border: 1px solid color-mix(in oklab, var(--line) 80%, transparent);
 }
+/* App modal */
+.app-modal{ position:fixed; inset:0; display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(0,0,0,.35); z-index:9999; padding:16px; }
+.app-modal.hidden{ display:none; }
+.app-sheet{ width:100%; max-width:520px; background:var(--card); border:1px solid var(--line);
+  border-radius:16px; box-shadow:var(--shadow-1); padding:14px; }
+.app-sheet h3{ margin:0 0 8px; font-weight:800; }
+.app-sheet .msg{ color:var(--text); margin-bottom:12px; }
+.app-sheet input{ width:100%; margin-bottom:10px; }
+.app-actions{ display:flex; gap:8px; justify-content:flex-end; }
+.app-actions .secondary{ background:transparent; color:var(--text); border:1px solid var(--line); }
 
 
 /* Subtle global motion */
@@ -370,7 +381,7 @@ nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px
 </head>
 <body data-theme="dark" data-accent="aurora">
   <div class="title-wrap">
-    <h1>Workout Logger</h1>
+    <h1>Training Log</h1>
     <span class="menu-wrap">
       <button class="menu-btn" id="menuBtn">☰ Menu</button>
       <div id="menuPanel" class="menu-panel hidden">
@@ -548,8 +559,8 @@ nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px
     <nav class="card" style="position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px solid var(--line);">
       <div style="display:flex; gap:10px; justify-content:space-between;">
         <button class="ghost" type="button" data-action="navLog">Log</button>
-        <button class="ghost" type="button" data-action="navTrends">Trends</button>
         <button class="ghost" type="button" data-action="navRoutines">Routines</button>
+        <button class="ghost" type="button" data-action="navTrends">Trends</button>
         <button class="ghost" type="button" data-action="navSettings">Settings</button>
       </div>
     </nav>
@@ -707,7 +718,7 @@ function showPage(which){
   if(which==='settingsPage'){ hydrateSettingsUI(); }
 }
 $('menuBtn').addEventListener('click', ()=> $('menuPanel').classList.toggle('hidden'));
-document.addEventListener('click', (e)=>{ if(!e.target.closest('.menu-wrap')) $('menuPanel').classList.add('hidden'); });
+document.addEventListener('click', async (e)=>{ if(!e.target.closest('.menu-wrap')) $('menuPanel').classList.add('hidden'); });
 
 /* ===== Routines list/manage ===== */
 function renderRoutinesList(){
@@ -901,9 +912,9 @@ function wizFinish(){
     const i = state.routines.findIndex(r => r.id === state.wiz.editingId);
     if (i >= 0) state.routines[i] = newRoutine;
     if (state.activeRoutineId === state.wiz.editingId) state.activeRoutineId = state.wiz.editingId;
-    alert('Routine updated.');
+    modal.alert('Routine updated.');
   } else {
-    state.routines.push(newRoutine); state.activeRoutineId = newRoutine.id; alert('Routine created.');
+    state.routines.push(newRoutine); state.activeRoutineId = newRoutine.id; modal.alert('Routine created.');
   }
   save(); renderSelectors(); renderRoutinesList(); show($('wizard'), false);
 }
@@ -1091,7 +1102,7 @@ function saveDay(){
   });
   state.log.workoutDate = todayISO();
   $('workoutDate').value = state.log.workoutDate;
-  alert('Day saved for '+workoutDate+'.'); buildLog(); buildTrends(); save();
+  modal.alert('Day saved for '+workoutDate+'.'); buildLog(); buildTrends(); save();
 
   if (typeof cloudBackupOverwrite === 'function') {
     (async ()=>{ try{
@@ -1164,9 +1175,38 @@ function convertAllWeights(factor){
   });
   save();
 }
+/* Simple promise-based modal API */
+const modal = (() => {
+  const root=$('modalRoot'), title=$('modalTitle'), msg=$('modalMsg');
+  const inp=$('modalInput'), ok=$('modalOK'), cancel=$('modalCancel');
+  let resolver=null, mode='alert';
+
+  function open({kind='alert', heading='Notice', text='', withInput=false, def=''}) {
+    mode=kind; title.textContent=heading; msg.textContent=text;
+    if(withInput){ inp.classList.remove('hidden'); inp.value=def; setTimeout(()=>inp.focus(),0); }
+    else{ inp.classList.add('hidden'); }
+    root.classList.remove('hidden'); root.setAttribute('aria-hidden','false');
+    return new Promise(res=>{ resolver=res; });
+  }
+  function close(val){ root.classList.add('hidden'); root.setAttribute('aria-hidden','true'); resolver?.(val); resolver=null; }
+
+  ok.onclick = () => {
+    if(mode==='prompt') close(inp.value);
+    else if(mode==='confirm') close(true);
+    else close(true);
+  };
+  cancel.onclick = () => { close(mode==='prompt' ? null : false); };
+  root.addEventListener('click', (e)=>{ if(e.target===root) close(mode==='prompt'? null : false); });
+
+  return {
+    alert: (text, heading='Notice') => open({kind:'alert', heading, text}).then(()=>{}),
+    confirm: (text, heading='Confirm') => open({kind:'confirm', heading, text}),
+    prompt: (text, def='', heading='Input') => open({kind:'prompt', heading, text, withInput:true, def})
+  };
+})();
 
 /* ===== Events ===== */
-document.addEventListener('click',(e)=>{
+document.addEventListener('click', async (e)=>{
   const btn=e.target.closest('[data-action]'); if(!btn) return;
   const act=btn.dataset.action;
 
@@ -1179,8 +1219,8 @@ document.addEventListener('click',(e)=>{
     state.wiz.editingId=r.id; state.wiz.name=r.name; state.wiz.daysCount=r.days.length; state.wiz.dayNames=r.days.map(d=>d.name); state.wiz.dayExercises={};
     r.days.forEach((d,idx)=>{ state.wiz.dayExercises['day_'+idx] = d.exercises.map(e=>({ id:uid(), name:e.name, category:e.category||guessCategory(e.name) })); });
     openWizard(true); return; }
-  if(act==='renameRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return; const val=prompt('Rename routine:', r.name); if(!val) return; r.name=val.trim(); if(state.activeRoutineId===r.id) renderSelectors(); save(); renderRoutinesList(); return; }
-  if(act==='deleteRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return; if(!confirm(`Delete routine "${r.name}"? Past logs remain in Trends.`)) return;
+  if(act==='renameRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return; const val = await modal.prompt('Rename routine:', r.name); if(!val) return; r.name=val.trim(); if(state.activeRoutineId===r.id) renderSelectors(); save(); renderRoutinesList(); return; }
+  if(act==='deleteRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return; if(!(await modal.confirm(`Delete routine "${r.name}"? Past logs remain in Trends.`))) return;
     state.routines = state.routines.filter(x=>x.id!==id); if(state.activeRoutineId===id) state.activeRoutineId = state.routines[0]?.id || null; save(); renderRoutinesList(); renderSelectors(); buildLog(); buildTrends(); return; }
 
   if(act==='openWizard') openWizard(false);
@@ -1290,8 +1330,8 @@ $('importJsonInput').addEventListener('change', async (e)=>{
     if(obj.state){ Object.assign(state, obj.state); save(); }
     if(obj.prefs){ Object.assign(prefs, obj.prefs); savePrefs(); }
     if(obj.theme){ localStorage.setItem(THEME_KEY, obj.theme); }
-    applyTheme(); applyAccent(); renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); alert('Import complete.');
-  }catch(err){ alert('Import failed: '+err.message); }
+    applyTheme(); applyAccent(); renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); modal.alert('Import complete.');
+  }catch(err){ modal.alert('Import failed: '+err.message); }
 });
 
 /* ===== Init ===== */
@@ -1301,7 +1341,7 @@ $('importJsonInput').addEventListener('change', async (e)=>{
     localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
   }
   loadPrefs(); applyTheme(); applyAccent(); applySurface(); load();
-  renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); showPage('logPage');
+  renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage'; showPage(startPage);
 
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
 })();
@@ -1317,14 +1357,27 @@ if ('serviceWorker' in navigator) {
       const nw = reg.installing;
       nw && nw.addEventListener('statechange', () => {
         if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-          if (confirm('Update available. Reload now?')) {
-            nw.postMessage({ action: 'skipWaiting' });
-          }
+         modal.confirm('Update available. Reload now?').then(ok => {
+          if (ok) nw.postMessage({ action: 'skipWaiting' });
+         });
         }
+
       });
     });
   });
 }
 </script>
+<div id="modalRoot" class="app-modal hidden" aria-hidden="true">
+  <div class="app-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle">Notice</h3>
+    <div id="modalMsg" class="msg"></div>
+    <input id="modalInput" class="hidden" />
+    <div class="app-actions">
+      <button id="modalCancel" class="secondary" type="button">Cancel</button>
+      <button id="modalOK" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
