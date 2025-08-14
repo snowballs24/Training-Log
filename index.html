@@ -268,8 +268,16 @@ input:focus, select:focus, textarea:focus{
 table{ border-collapse:collapse; width:100%; table-layout:fixed; }
 
 td input[type="number"], .cell-static{
-  font-size:16px; height:30px; line-height:30px; padding:0 4px; border-radius:10px;
+  display:block;                      /* ← ensures full-width box model */
+  width:100%;
+  font-size:16px;
+  height:34px;                        /* was 30px */
+  line-height:34px;
+  padding:0 4px;
+  border-radius:8px;                  /* slightly smaller radius fits better in cells */
+  background-clip: padding-box;       /* prevents the fill from bleeding into borders */
 }
+
 
 /* Keep compact sizing so 4 sets + Vol fit on iPhone */
 @media (max-width: 480px){
@@ -284,7 +292,7 @@ td input[type="number"], .cell-static{
   colgroup col.volume{ width:40px; }
 }
 
-th,td{ border:1px solid var(--line); padding:2px; text-align:center; background: transparent; color: var(--text); }
+th,td{ border:1px solid var(--line); padding:6px; text-align:center; background: transparent; color: var(--text); }
 th.sticky-left, td.sticky-left{ position:sticky; left:0; z-index:2; text-align:left; background: color-mix(in oklab, var(--surface) 92%, black 8%); }
 thead th.sets-label{ font-weight:800; background: color-mix(in oklab, var(--primary) 15%, transparent 85%); color: var(--text); }
 thead th.setnum, thead th.volume, thead th.blank-metric{ background: rgba(255,255,255,.03); }
@@ -318,7 +326,7 @@ input[type=number]{ -moz-appearance:textfield; }
 nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px solid var(--line); }
 
 /* Subtle global motion */
-* { scroll-behavior: smooth; }
+* { scroll-behavior: smooth; box-sizing: border-box; }   /* ← add box-sizing */
 </style>
 </head>
 <body data-theme="dark" data-accent="aurora">
