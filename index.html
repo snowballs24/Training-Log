@@ -120,6 +120,8 @@
     radial-gradient(1000px 600px at -30% 0%,  color-mix(in oklab, var(--primary-2) 18%, transparent), transparent),
     linear-gradient(180deg, var(--bg), var(--bg-2));
 }
+.settings-wrap { position:absolute; right:16px; top:14px; }
+.gear-btn { border-radius:50%; padding:.5rem .6rem; line-height:1; }
 
 /* ========= Base ======== */
 html,body {
@@ -382,15 +384,10 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
 <body data-theme="dark" data-accent="aurora">
   <div class="title-wrap">
     <h1>Training Log</h1>
-    <span class="menu-wrap">
-      <button class="menu-btn" id="menuBtn">☰ Menu</button>
-      <div id="menuPanel" class="menu-panel hidden">
-        <button data-action="navLog">Log</button>
-        <button data-action="navRoutines">Routines</button>
-        <button data-action="navTrends">Trends</button>
-        <button data-action="navSettings">Settings</button>
-      </div>
+    <span class="settings-wrap">
+      <button class="icon gear-btn" id="settingsBtn" data-action="navSettings" aria-label="Settings">⚙️</button>
     </span>
+
   </div>
 
   <div class="wrap">
@@ -556,15 +553,25 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
       </div>
     </section>
 
-    <nav class="card">
-      <div style="display:flex; gap:10px; justify-content:space-between;">
-        <button class="ghost" type="button" data-action="navLog">Log</button>
-        <button class="ghost" type="button" data-action="navRoutines">Routines</button>
-        <button class="ghost" type="button" data-action="navTrends">Trends</button>
-        <button class="ghost" type="button" data-action="navSettings">Settings</button>
-      </div>
-    </nav>
+<nav class="card bottom-nav">
+  <div class="bottom-bar">
+    <button class="ghost" type="button" data-action="navLog">Log</button>
+    <button class="ghost" type="button" data-action="navRoutines">Routines</button>
+    <button class="ghost" type="button" data-action="navTrends">Trends</button>
   </div>
+</nav>
+
+<style>
+/* already fixed to bottom via your existing nav.card rule */
+.bottom-nav .bottom-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.bottom-nav .bottom-bar button {
+  width: 100%;
+}
+</style>
 
 <div id="modalRoot" class="app-modal hidden" aria-hidden="true">
   <div class="app-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -577,6 +584,7 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
     </div>
   </div>
 </div>
+
 <!-- (Optional) Firebase scripts only if you already wired cloud backup; safe if missing) -->
 
 <script>
@@ -722,14 +730,11 @@ function todayISO(){ return new Date().toISOString().slice(0,10); }
 /* ===== Navigation ===== */
 function showPage(which){
   ['logPage','routinesPage','trendsPage','settingsPage'].forEach(id=> $(id).classList.toggle('hidden', id!==which));
-  $('menuPanel').classList.add('hidden');
   if(which==='logPage'){ renderSelectors(); buildLog(); }
   if(which==='trendsPage'){ renderSelectors(); buildTrends(); }
   if(which==='routinesPage'){ renderRoutinesList(); }
   if(which==='settingsPage'){ hydrateSettingsUI(); }
 }
-$('menuBtn').addEventListener('click', ()=> $('menuPanel').classList.toggle('hidden'));
-document.addEventListener('click', (e)=>{ if(!e.target.closest('.menu-wrap')) $('menuPanel').classList.add('hidden'); });
 
 /* ===== Routines list/manage ===== */
 function renderRoutinesList(){
