@@ -344,6 +344,23 @@ input[type=number]{ -moz-appearance:textfield; }
 /* Footer nav */
 nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px solid var(--line); }
 
+/* Surface styles (glass vs flat) */
+[data-surface="glass"] .card,
+[data-surface="glass"] .menu-panel {
+  backdrop-filter: blur(6px);
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)), var(--card);
+  box-shadow: var(--shadow-1);
+  border: 1px solid var(--line);
+}
+
+[data-surface="flat"] .card,
+[data-surface="flat"] .menu-panel {
+  backdrop-filter: none;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  border: 1px solid color-mix(in oklab, var(--line) 80%, transparent);
+}
+
 /* Subtle global motion */
 * { scroll-behavior: smooth; box-sizing: border-box; }   /* ← add box-sizing */
 </style>
@@ -482,6 +499,10 @@ nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px
               <option value="sunset">Sunset</option>
               <option value="volt">Volt</option>
               <option value="crimson">Crimson Heat</option>
+         <label>Surface style
+           <select id="surfaceSelect">
+             <option value="glass">Glass</option>
+             <option value="flat">Flat</option>
             </select>
           </label>
         </div>
@@ -537,7 +558,7 @@ const LS_KEY = 'workout_logger_mobile_v13_themeOnly';
 const THEME_KEY = 'workout_theme';
 const PREFS_KEY = 'workout_prefs_v13';
 
-const prefs = { units:'kg', accent:'aurora' };
+const prefs = { units:'kg', accent:'aurora', surface:'glass' };
 const state = {
   routines: [],
   activeRoutineId: null,
@@ -606,6 +627,7 @@ const uid = () => Math.random().toString(36).slice(2);
 function loadPrefs(){
   try{ Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')); }catch{}
   document.body.setAttribute('data-accent', prefs.accent || 'aurora');
+  document.body.setAttribute('data-surface', prefs.surface || 'glass'); // ← add this
 }
 function savePrefs(){ localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); }
 function applyTheme(){
@@ -620,6 +642,7 @@ function toggleTheme(){
 }
 function applyAccent(){
   document.body.setAttribute('data-accent', prefs.accent || 'aurora');
+  document.body.setAttribute('data-surface', prefs.surface || 'glass');
 }
 
 /* ===== Persist (localStorage—as before) ===== */
@@ -1115,7 +1138,11 @@ function buildTrends(){
 }
 
 /* ===== Settings ===== */
-function hydrateSettingsUI(){ $('unitSelect').value = prefs.units; $('accentSelect').value = prefs.accent; }
+function hydrateSettingsUI(){
+  $('unitSelect').value = prefs.units;
+  $('accentSelect').value = prefs.accent;
+  const ss = $('surfaceSelect'); if (ss) ss.value = prefs.surface || 'glass'; // ← add
+}
 const KG_TO_LB = 2.20462;
 function convertNumber(n, factor){ const x = (parseFloat(n)||0)*factor; return Math.round(x*100)/100; }
 function convertAllWeights(factor){
@@ -1222,6 +1249,12 @@ document.addEventListener('keydown',(e)=>{
 /* Settings */
 $('themeToggle').addEventListener('click', toggleTheme);
 $('accentSelect').addEventListener('change', (e)=>{ prefs.accent=e.target.value; savePrefs(); applyAccent(); });
+
+$('surfaceSelect')?.addEventListener('change', (e)=>{
+  prefs.surface = e.target.value || 'glass';
+  savePrefs();
+  applySurface();
+});
 
 $('unitSelect').addEventListener('change', (e)=>{
   const next = e.target.value; if(next!==prefs.units){
