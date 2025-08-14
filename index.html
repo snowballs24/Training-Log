@@ -3,205 +3,79 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>FitForge — Workout Builder</title>
-<meta name="theme-color" content="#171a2e" />
+<title>Workout Builder</title>
+<meta name="theme-color" content="#ffffff" />
 <style>
   :root{
-    /* Modern fitness palette */
-    --bg: #0f1221;
-    --surface: #171a2e;
-    --surface-2:#1f2340;
-    --text: #e8ebff;
-    --muted:#a7b0d8;
-    --primary:#6a7dff; /* indigo */
-    --accent:#18e1c7;  /* aqua */
-    --warn:#ff6a6a;
-    --ok:#51d17a;
+    /* Neutral, minimal theme */
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface-2:#ffffff;
+    --text: #111827;
+    --muted:#6b7280;
+    --primary:#2563eb; /* blue-600 */
+    --border:#e5e7eb;
 
     --radius:14px;
     --gap:14px;
-    --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --shadow: 0 8px 20px rgba(0,0,0,.06);
   }
 
-  /* Page structure (prevents the “black bar” and fills screen) */
-  html, body {
-    height: 100%;
-    margin: 0;
-    background:
-      radial-gradient(1200px 800px at 80% -20%, rgba(26,34,90,.55), transparent 60%),
-      radial-gradient(1000px 600px at -10% 50%, rgba(24,225,199,.08), transparent 60%),
-      var(--bg);
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
-  }
-  .app {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans"; }
+  .app { min-height: 100vh; display: flex; flex-direction: column; }
 
-  header{
-    padding: 24px 16px;
-    background:
-      linear-gradient(135deg, rgba(106,125,255,.25), rgba(24,225,199,.15)),
-      var(--surface);
-    box-shadow: var(--shadow);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-  .header-inner{
-    max-width: 1100px;
-    margin: 0 auto;
-    display:flex; align-items:center; gap: 16px; justify-content: space-between;
-  }
-  .brand{
-    display:flex; align-items:center; gap:12px;
-  }
-  .brand .logo{
-    width:40px; height:40px; border-radius:10px;
-    background:
-      conic-gradient(from 200deg, var(--accent), var(--primary), #b36aff, var(--accent));
-    box-shadow: 0 6px 20px rgba(24,225,199,.35), inset 0 0 18px rgba(255,255,255,.25);
-  }
-  .brand h1{
-    margin:0; font-size: 20px; letter-spacing:.3px;
-  }
-  .head-actions{
-    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-  }
+  header{ padding: 18px 16px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+  .header-inner{ max-width: 1100px; margin: 0 auto; display:flex; align-items:center; gap: 16px; justify-content: space-between; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand .logo{ width:34px; height:34px; border-radius:8px; background: #e5edff; border:1px solid #dbe6ff; }
+  .brand h1{ margin:0; font-size: 18px; font-weight: 700; }
 
-  main{ flex: 1; padding: 24px 16px 38px; }
-  .container{
-    max-width: 1100px; margin: 0 auto;
-    display: grid; gap: var(--gap);
-    grid-template-columns: 1.1fr .9fr;
-  }
-  @media (max-width: 980px){
-    .container{ grid-template-columns: 1fr; }
-  }
+  main{ flex: 1; padding: 20px 16px 32px; }
+  .container{ max-width: 1100px; margin: 0 auto; display: grid; gap: var(--gap); grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 980px){ .container{ grid-template-columns: 1fr; } }
 
-  .card{
-    background: linear-gradient(180deg, var(--surface), var(--surface-2));
-    border: 1px solid rgba(255,255,255,.06);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-  }
-  .card .card-h{
-    padding: 16px 18px;
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-  }
-  .card .card-b{ padding: 16px 18px; }
+  .card{ background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .card .card-h{ padding: 14px 16px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .card .card-b{ padding: 14px 16px; }
 
-  .form-row{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--gap);
-  }
-  @media (max-width: 620px){
-    .form-row{ grid-template-columns: 1fr; }
-  }
-  label{
-    display:block; font-size: 12px; color: var(--muted);
-    margin-bottom: 6px; letter-spacing:.2px;
-  }
+  .form-row{ display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+  @media (max-width: 620px){ .form-row{ grid-template-columns: 1fr; } }
+  label{ display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
   input[type="text"], select, textarea{
-    width: 100%; box-sizing: border-box;
-    padding: 12px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,.08);
-    background: #12142a;
-    color: var(--text);
-    outline: none;
-    transition: box-shadow .15s ease, border-color .15s ease;
+    width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 12px;
+    border: 1px solid var(--border); background: #fff; color: var(--text); outline: none;
+    transition: box-shadow .12s ease, border-color .12s ease;
   }
   input[type="text"]:focus, select:focus, textarea:focus{
-    border-color: rgba(106,125,255,.6);
-    box-shadow: 0 0 0 4px rgba(106,125,255,.15);
+    border-color: #bfdbfe; box-shadow: 0 0 0 4px rgba(37,99,235,.15);
   }
 
-  .btn{
-    appearance: none; border:0; cursor:pointer;
-    padding: 10px 14px; border-radius: 12px;
-    color: #0a0c1f; font-weight: 600;
-    background: linear-gradient(135deg, var(--accent), var(--primary));
-    box-shadow: 0 6px 18px rgba(106,125,255,.28);
-    transition: transform .08s ease, filter .18s ease;
-  }
-  .btn:hover{ filter: brightness(1.05); }
+  .btn{ appearance:none; border:1px solid var(--border); cursor:pointer;
+    padding: 9px 13px; border-radius: 10px; color: #fff; font-weight: 600;
+    background: var(--primary); transition: transform .06s ease, filter .15s ease; }
+  .btn:hover{ filter: brightness(1.04); }
   .btn:active{ transform: translateY(1px); }
-  .btn.ghost{
-    background: transparent; color: var(--text);
-    border:1px solid rgba(255,255,255,.12);
-    box-shadow: none;
-  }
-  .btn.warn{
-    background: linear-gradient(135deg, #ff9c6a, var(--warn));
-    color: #100b0b;
-  }
-  .btn.ok{
-    background: linear-gradient(135deg, #93f3b4, var(--ok));
-    color:#06130b;
-  }
+  .btn.ghost{ background: #fff; color: var(--text); }
+  .btn.warn{ background: #ef4444; border-color: #ef4444; }
+  .btn.ok{ background: #10b981; border-color: #10b981; }
   .inline{ display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
 
-  /* Days & exercises */
-  .day{
-    border: 1px dashed rgba(255,255,255,.12);
-    border-radius: 12px;
-    padding: 12px;
-    margin-bottom: var(--gap);
-    background: rgba(255,255,255,.02);
-  }
-  .day-h{
-    display:flex; align-items:center; gap:10px; justify-content:space-between;
-  }
-  .day-title{ font-weight:700; letter-spacing:.3px; }
-  .exercise-list{
-    margin: 10px 0 0; padding: 0; list-style: none;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  }
-  @media (max-width: 720px){
-    .exercise-list{ grid-template-columns: 1fr; }
-  }
-  .chip{
-    background: #10132a;
-    border:1px solid rgba(255,255,255,.10);
-    border-radius: 999px;
-    padding: 8px 12px;
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
-  }
-  .chip .x{
-    background: transparent; border:0; color: var(--muted); cursor:pointer; font-weight:700;
-  }
+  .day{ border: 1px dashed var(--border); border-radius: 12px; padding: 12px; margin-bottom: var(--gap); background: #fff; }
+  .day-h{ display:flex; align-items:center; gap:10px; justify-content:space-between; }
+  .day-title{ font-weight:700; letter-spacing:.2px; }
+  .exercise-list{ margin: 10px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 720px){ .exercise-list{ grid-template-columns: 1fr; } }
+  .chip{ background: #f8fafc; border:1px solid var(--border); border-radius: 999px; padding: 7px 10px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .chip .x{ background: transparent; border:0; color: var(--muted); cursor:pointer; font-weight:700; }
 
-  .muted{ color:var(--muted); }
-  .small{ font-size: 12px; }
-  .grow{ flex: 1; }
-  .spacer{ height: 8px; }
-
-  /* Compact toggle (visual collapse) */
+  .muted{ color:var(--muted); } .small{ font-size: 12px; } .spacer{ height: 8px; }
   body.compact .exercise-list{ grid-template-columns: 1fr; }
-  body.compact .day{ background: rgba(255,255,255,.015); }
 
-  footer{
-    padding: 16px; text-align:center; color: var(--muted);
-  }
+  footer{ padding: 14px; text-align:center; color: var(--muted); }
 
-  /* Toast */
-  .toast{
-    position: fixed;
-    top: 10px; left: 50%;
-    transform: translateX(-50%);
-    background: rgba(16,19,42,.92);
-    border:1px solid rgba(24,225,199,.35);
-    padding:8px 12px; border-radius:10px;
-    color: var(--text); font-size:12px;
-    z-index: 999;
-  }
+  .toast{ position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background:#111827; color:#fff;
+    border-radius:10px; padding:8px 12px; font-size:12px; z-index:999; }
 </style>
 </head>
 <body>
@@ -210,7 +84,7 @@
     <div class="header-inner">
       <div class="brand">
         <div class="logo" aria-hidden="true"></div>
-        <h1>FitForge — Workout Builder</h1>
+        <h1>Workout Builder</h1>
       </div>
       <div class="head-actions">
         <button id="btnExport" class="btn ghost" title="Download your plan as JSON">Export JSON</button>
@@ -218,7 +92,6 @@
         <input id="importFile" type="file" accept="application/json" hidden />
         <button id="btnClear" class="btn warn">Clear</button>
         <button id="btnSave" class="btn ok">Save Workout</button>
-        <!-- Force refresh helper (safe to keep; handy during dev) -->
         <button id="btnForce" class="btn ghost" title="Clear old saves & unregister SW">Force Refresh</button>
       </div>
     </div>
@@ -226,13 +99,10 @@
 
   <main>
     <div class="container">
-      <!-- Builder -->
       <section class="card" id="builder">
         <div class="card-h">
           <strong>Workout Builder</strong>
-          <div class="inline">
-            <button class="btn ghost" id="addDayBtn">+ Add Day</button>
-          </div>
+          <div class="inline"><button class="btn ghost" id="addDayBtn">+ Add Day</button></div>
         </div>
         <div class="card-b">
           <div class="form-row" style="margin-bottom: 14px;">
@@ -242,17 +112,13 @@
             </div>
             <div>
               <label for="presetSelect">Preset</label>
-              <select id="presetSelect">
-                <option value="">— Choose a preset —</option>
-              </select>
+              <select id="presetSelect"><option value="">— Choose a preset —</option></select>
             </div>
           </div>
-
           <div id="days" aria-live="polite"></div>
         </div>
       </section>
 
-      <!-- Quick Add / Info -->
       <aside class="card">
         <div class="card-h">
           <strong>Quick Add</strong>
@@ -281,124 +147,69 @@
             </div>
           </div>
 
-          <p class="small muted" style="margin-top:12px;">
-            Tip: Click a day card to select it, then use Bulk Add to drop in a list quickly.
-          </p>
+          <p class="small muted" style="margin-top:12px;">Tip: Click a day card to select it, then use Bulk Add to drop in a list quickly.</p>
         </div>
       </aside>
     </div>
   </main>
 
-  <footer>
-    Built with ❤️ for smooth gains. Theme keeps positions intact; layout won’t overlap.
-  </footer>
+  <footer>Built with ❤️ for smooth gains. Positions & layout unchanged — just neutral styling.</footer>
 </div>
 
 <script>
-/* ============================================================
-   VERSIONED STORAGE (prevents stale restores across deployments)
-   ============================================================ */
-const APP_VERSION = '2025-08-14-2';
+/* ========= Versioned storage ========= */
+const APP_VERSION = '2025-08-14-neutral';
 const STORAGE_KEY = `fitforge_workout_${APP_VERSION}`;
 
-/* ============================================================
-   PRESETS (including Snowy's)
-   ============================================================ */
+/* ========= Presets ========= */
 function tSnowy() {
   return {
     name: "Snowy's Log",
     days: [
-      {
-        name: 'Chest',
-        ex: [
-          'Barbell Bench Press',
-          'Machine Chest Press',
-          'Machine Shoulder Press',
-          'Incline Dumbbell Press',
-          'Machine Chest Fly',
-          'Overhead Rope Triceps Extension'
-        ]
-      },
-      {
-        name: 'Legs',
-        ex: [
-          'Seated Leg Curl',
-          'Leg Press',
-          'Leg Press Calf Raise',
-          'Leg Extensions',
-          'Hip Thrusts',
-          'Hip Adductors',
-          'Hip Abductors'
-        ]
-      },
-      {
-        name: 'Back/Shoulders',
-        ex: [
-          'Upright Row',
-          'Machine Row',
-          'Close Grip Lat Pulldown',
-          'Seated Cable Row',
-          'Reverse Machine Fly',
-          'Cable Lateral Raise',
-          'Dumbbell Shrugs',
-          'Hammer Curls'
-        ]
-      },
-      {
-        name: 'Core',
-        ex: [
-          'Decline Ab Crunch',
-          'Machine Crunch',
-          'Wood Chopper',
-          'Dumbbell Side Bend'
-        ]
-      }
+      { name: 'Chest', ex: [
+        'Barbell Bench Press','Machine Chest Press','Machine Shoulder Press',
+        'Incline Dumbbell Press','Machine Chest Fly','Overhead Rope Triceps Extension'
+      ]},
+      { name: 'Legs', ex: [
+        'Seated Leg Curl','Leg Press','Leg Press Calf Raise','Leg Extensions',
+        'Hip Thrusts','Hip Adductors','Hip Abductors'
+      ]},
+      { name: 'Back/Shoulders', ex: [
+        'Upright Row','Machine Row','Close Grip Lat Pulldown','Seated Cable Row',
+        'Reverse Machine Fly','Cable Lateral Raise','Dumbbell Shrugs','Hammer Curls'
+      ]},
+      { name: 'Core', ex: ['Decline Ab Crunch','Machine Crunch','Wood Chopper','Dumbbell Side Bend'] }
     ]
   };
 }
-
-/* Two example presets kept minimal */
 function tUpperLower(){
-  return {
-    name: 'Upper / Lower',
-    days: [
-      { name: 'Upper', ex: ['Bench Press','Row','Overhead Press','Lat Pulldown','Face Pull','Triceps Pushdown','DB Curl'] },
-      { name: 'Lower', ex: ['Back Squat','RDL','Leg Press','Leg Curl','Calf Raise','Hanging Knee Raise'] }
-    ]
-  };
+  return { name:'Upper / Lower', days:[
+    { name: 'Upper', ex: ['Bench Press','Row','Overhead Press','Lat Pulldown','Face Pull','Triceps Pushdown','DB Curl'] },
+    { name: 'Lower', ex: ['Back Squat','RDL','Leg Press','Leg Curl','Calf Raise','Hanging Knee Raise'] }
+  ]};
 }
 function tPPL(){
-  return {
-    name: 'Push Pull Legs',
-    days: [
-      { name: 'Push', ex: ['Bench Press','Incline DB Press','OHP','Lateral Raise','Rope Pressdown'] },
-      { name: 'Pull', ex: ['Deadlift','Barbell Row','Lat Pulldown','Rear Delt Fly','Hammer Curl'] },
-      { name: 'Legs', ex: ['Back Squat','Leg Press','Leg Curl','Calf Raise','Ab Wheel'] }
-    ]
-  };
+  return { name:'Push Pull Legs', days:[
+    { name: 'Push', ex: ['Bench Press','Incline DB Press','OHP','Lateral Raise','Rope Pressdown'] },
+    { name: 'Pull', ex: ['Deadlift','Barbell Row','Lat Pulldown','Rear Delt Fly','Hammer Curl'] },
+    { name: 'Legs', ex: ['Back Squat','Leg Press','Leg Curl','Calf Raise','Ab Wheel'] }
+  ]};
 }
-
 const PRESETS = [ tSnowy(), tUpperLower(), tPPL() ];
 
-/* ============================================================
-   STATE
-   ============================================================ */
-let state = { name: '', days: [] }; // [{name, ex:[]}]
+/* ========= State ========= */
+let state = { name: '', days: [] };
 let selectedDayIndex = -1;
 
-/* ============================================================
-   DOM
-   ============================================================ */
+/* ========= DOM ========= */
 const workoutNameEl = document.getElementById('workoutName');
 const daysEl = document.getElementById('days');
 const presetSelect = document.getElementById('presetSelect');
 const addDayBtn = document.getElementById('addDayBtn');
 const quickAddDayBtn = document.getElementById('quickAddDay');
 const newDayNameEl = document.getElementById('newDayName');
-
 const bulkExercisesEl = document.getElementById('bulkExercises');
 const bulkAddBtn = document.getElementById('bulkAddBtn');
-
 const btnSave = document.getElementById('btnSave');
 const btnClear = document.getElementById('btnClear');
 const btnExport = document.getElementById('btnExport');
@@ -407,11 +218,8 @@ const importFile = document.getElementById('importFile');
 const collapseAllBtn = document.getElementById('collapseAll');
 const btnForce = document.getElementById('btnForce');
 
-/* ============================================================
-   INIT
-   ============================================================ */
+/* ========= Init ========= */
 function init(){
-  // Populate presets
   PRESETS.forEach((p, i) => {
     const opt = document.createElement('option');
     opt.value = String(i);
@@ -419,12 +227,11 @@ function init(){
     presetSelect.appendChild(opt);
   });
 
-  // Wire events
   presetSelect.addEventListener('change', onPresetChoose);
   workoutNameEl.addEventListener('input', e => { state.name = e.target.value; persist(); });
 
-  addDayBtn.addEventListener('click', () => addDay(promptName(newDayNameEl.value || 'New Day')));
-  quickAddDayBtn.addEventListener('click', () => addDay(promptName(newDayNameEl.value || 'New Day')));
+  addDayBtn.addEventListener('click', () => addDay((newDayNameEl.value || 'New Day').trim()));
+  quickAddDayBtn.addEventListener('click', () => addDay((newDayNameEl.value || 'New Day').trim()));
   bulkAddBtn.addEventListener('click', onBulkAdd);
 
   btnSave.addEventListener('click', onSave);
@@ -432,35 +239,20 @@ function init(){
   btnExport.addEventListener('click', onExport);
   btnImport.addEventListener('click', () => importFile.click());
   importFile.addEventListener('change', onImportFile);
-  collapseAllBtn.addEventListener('click', () => {
-    document.body.classList.toggle('compact');
-  });
+  collapseAllBtn.addEventListener('click', () => document.body.classList.toggle('compact'));
   btnForce.addEventListener('click', forceRefresh);
 
-  // optional: load last session
   const cached = localStorage.getItem(STORAGE_KEY);
-  if (cached) {
-    try {
-      const parsed = JSON.parse(cached);
-      if (parsed && parsed.days && Array.isArray(parsed.days)) state = parsed;
-    } catch {}
-  }
+  if (cached) { try { const parsed = JSON.parse(cached); if (parsed?.days?.length>=0) state = parsed; } catch {} }
   render();
 }
 
-function promptName(str){ return str.trim(); }
-
-/* ============================================================
-   PRESET HANDLING
-   ============================================================ */
+/* ========= Preset handling ========= */
 function onPresetChoose(){
   const idx = Number(presetSelect.value);
   if (Number.isNaN(idx)) return;
+  const preset = PRESETS[idx]; if (!preset) return;
 
-  const preset = PRESETS[idx];
-  if (!preset) return;
-
-  // Deep copy
   state = structuredClone(preset);
   state.days = state.days.map(d => ({ name: d.name, ex: [...d.ex] }));
   selectedDayIndex = -1;
@@ -468,218 +260,85 @@ function onPresetChoose(){
   toast(`${preset.name} loaded`);
 }
 
-/* ============================================================
-   RENDER
-   ============================================================ */
+/* ========= Render ========= */
 function render(){
   workoutNameEl.value = state.name || '';
-
   daysEl.innerHTML = '';
   state.days.forEach((day, i) => {
     const dayEl = document.createElement('div');
     dayEl.className = 'day';
-    if (i === selectedDayIndex) dayEl.style.outline = '2px solid rgba(24,225,199,.6)';
+    if (i === selectedDayIndex) dayEl.style.boxShadow = '0 0 0 2px rgba(37,99,235,.35) inset';
 
-    // header
-    const h = document.createElement('div');
-    h.className = 'day-h';
-
-    const left = document.createElement('div');
-    left.className = 'inline';
-    const title = document.createElement('div');
-    title.className = 'day-title';
-    title.textContent = day.name;
+    const h = document.createElement('div'); h.className = 'day-h';
+    const left = document.createElement('div'); left.className = 'inline';
+    const title = document.createElement('div'); title.className = 'day-title'; title.textContent = day.name;
     left.appendChild(title);
 
-    const right = document.createElement('div');
-    right.className = 'inline';
-    const renameBtn = btn('ghost', 'Rename', () => renameDay(i));
-    const addExBtn = btn('', '+ Exercise', () => addExercise(i));
-    const delBtn = btn('warn', 'Delete', () => deleteDay(i));
-    right.append(renameBtn, addExBtn, delBtn);
-
+    const right = document.createElement('div'); right.className = 'inline';
+    right.append(btn('ghost','Rename',()=>renameDay(i)), btn('', '+ Exercise',()=>addExercise(i)), btn('warn','Delete',()=>deleteDay(i)));
     h.append(left, right);
 
-    // list
-    const ul = document.createElement('ul');
-    ul.className = 'exercise-list';
+    const ul = document.createElement('ul'); ul.className = 'exercise-list';
     day.ex.forEach((ex, j) => {
       const li = document.createElement('li');
-      const chip = document.createElement('div');
-      chip.className = 'chip';
+      const chip = document.createElement('div'); chip.className = 'chip';
       chip.innerHTML = `<span>${ex}</span>`;
-      const actions = document.createElement('div');
-      actions.className = 'inline';
-      const edit = document.createElement('button');
-      edit.className = 'x';
-      edit.textContent = '✎';
-      edit.title = 'Edit name';
-      edit.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const n = prompt('Edit exercise:', ex);
-        if (n && n.trim()) {
-          state.days[i].ex[j] = n.trim();
-          persist(); render();
-        }
-      });
-      const x = document.createElement('button');
-      x.className = 'x';
-      x.textContent = '✕';
-      x.title = 'Remove';
-      x.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        state.days[i].ex.splice(j,1);
-        persist(); render();
-      });
-      actions.append(edit, x);
-      chip.appendChild(actions);
-      li.appendChild(chip);
-      ul.appendChild(li);
+      const actions = document.createElement('div'); actions.className = 'inline';
+      const edit = document.createElement('button'); edit.className = 'x'; edit.textContent = '✎'; edit.title = 'Edit name';
+      edit.addEventListener('click', (ev)=>{ ev.stopPropagation(); const n = prompt('Edit exercise:', ex); if (n && n.trim()){ state.days[i].ex[j]=n.trim(); persist(); render(); }});
+      const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.title = 'Remove';
+      x.addEventListener('click', (ev)=>{ ev.stopPropagation(); state.days[i].ex.splice(j,1); persist(); render(); });
+      actions.append(edit,x); chip.appendChild(actions); li.appendChild(chip); ul.appendChild(li);
     });
 
     dayEl.append(h, ul);
-
-    dayEl.addEventListener('click', () => {
-      selectedDayIndex = i === selectedDayIndex ? -1 : i;
-      render();
-    });
-
+    dayEl.addEventListener('click', ()=>{ selectedDayIndex = i===selectedDayIndex ? -1 : i; render(); });
     daysEl.appendChild(dayEl);
   });
-
   persist();
 }
+function btn(style, text, onClick){ const b=document.createElement('button'); b.className='btn '+(style||''); b.textContent=text; b.addEventListener('click',(e)=>{e.stopPropagation(); onClick();}); return b; }
 
-function btn(style, text, onClick){
-  const b = document.createElement('button');
-  b.className = 'btn ' + (style||'');
-  b.textContent = text;
-  b.addEventListener('click', (e)=>{ e.stopPropagation(); onClick(); });
-  return b;
-}
-
-/* ============================================================
-   MUTATIONS
-   ============================================================ */
-function addDay(name){
-  if (!name) return;
-  state.days.push({ name, ex: [] });
-  selectedDayIndex = state.days.length - 1;
-  newDayNameEl.value = '';
-  render();
-}
-function renameDay(i){
-  const n = prompt('Rename day', state.days[i].name);
-  if (n && n.trim()){
-    state.days[i].name = n.trim();
-    render();
-  }
-}
-function deleteDay(i){
-  if (!confirm(`Delete day "${state.days[i].name}"?`)) return;
-  state.days.splice(i,1);
-  if (selectedDayIndex === i) selectedDayIndex = -1;
-  render();
-}
-function addExercise(dayIndex){
-  const n = prompt('Exercise name');
-  if (n && n.trim()){
-    state.days[dayIndex].ex.push(n.trim());
-    render();
-  }
-}
+/* ========= Mutations ========= */
+function addDay(name){ if(!name) return; state.days.push({ name, ex: [] }); selectedDayIndex = state.days.length-1; newDayNameEl.value=''; render(); }
+function renameDay(i){ const n=prompt('Rename day', state.days[i].name); if(n&&n.trim()){ state.days[i].name=n.trim(); render(); } }
+function deleteDay(i){ if(!confirm(`Delete day "${state.days[i].name}"?`)) return; state.days.splice(i,1); if(selectedDayIndex===i) selectedDayIndex=-1; render(); }
+function addExercise(dayIndex){ const n=prompt('Exercise name'); if(n&&n.trim()){ state.days[dayIndex].ex.push(n.trim()); render(); } }
 function onBulkAdd(){
-  if (selectedDayIndex < 0){
-    alert('Select a day (click its card) first.');
-    return;
-  }
-  const txt = bulkExercisesEl.value;
-  if (!txt.trim()) return;
-  // Split by newline or comma; trim blanks
+  if (selectedDayIndex < 0){ alert('Select a day (click its card) first.'); return; }
+  const txt = bulkExercisesEl.value; if(!txt.trim()) return;
   const items = txt.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
-  state.days[selectedDayIndex].ex.push(...items);
-  bulkExercisesEl.value = '';
-  render();
+  state.days[selectedDayIndex].ex.push(...items); bulkExercisesEl.value=''; render();
 }
 
-/* ============================================================
-   SAVE / LOAD / IO
-   ============================================================ */
+/* ========= IO ========= */
 function onSave(){
-  if (!state.name || !state.name.trim()){
-    alert('Give your workout a name before saving.');
-    return;
-  }
-  persist();
-  toast('Workout saved');
+  if (!state.name || !state.name.trim()){ alert('Give your workout a name before saving.'); return; }
+  persist(); toast('Workout saved');
 }
-function clearAll(){
-  if (!confirm('Clear the current builder?')) return;
-  state = { name:'', days: [] };
-  selectedDayIndex = -1;
-  presetSelect.value = '';
-  render();
-}
+function clearAll(){ if(!confirm('Clear the current builder?')) return; state={name:'',days:[]}; selectedDayIndex=-1; presetSelect.value=''; render(); }
 function onExport(){
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
   const a = document.createElement('a');
-  a.setAttribute("href", dataStr);
-  a.setAttribute("download", (state.name || 'workout') + ".json");
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+  a.download = (state.name || 'workout') + ".json"; document.body.appendChild(a); a.click(); a.remove();
 }
 function onImportFile(e){
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try{
-      const loaded = JSON.parse(reader.result);
-      if (!loaded || !loaded.days || !Array.isArray(loaded.days)) throw new Error('Invalid file');
-      state = loaded;
-      selectedDayIndex = -1;
-      render();
-      toast('Workout imported');
-    }catch(err){
-      alert('Import failed: ' + err.message);
-    }finally{
-      importFile.value = '';
-    }
-  };
-  reader.readAsText(file);
+  const file = e.target.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = ()=>{ try{ const loaded=JSON.parse(r.result);
+    if(!loaded || !Array.isArray(loaded.days)) throw new Error('Invalid file');
+    state=loaded; selectedDayIndex=-1; render(); toast('Workout imported');
+  }catch(err){ alert('Import failed: '+err.message);} finally{ importFile.value=''; } };
+  r.readAsText(file);
 }
-function persist(){
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
-}
+function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch{} }
 
-/* ============================================================
-   UTIL / UI helpers
-   ============================================================ */
-function toast(msg){
-  const old = document.querySelector('.toast');
-  if (old) old.remove();
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(()=> t.remove(), 1300);
-}
-function forceRefresh() {
-  try {
-    // clear *all* old fitforge saves
-    Object.keys(localStorage).forEach(k => {
-      if (k.startsWith('fitforge_workout')) localStorage.removeItem(k);
-    });
-  } catch {}
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations?.().then(regs => {
-      regs.forEach(r => r.unregister());
-      location.reload(true);
-    });
-  } else {
-    location.reload(true);
-  }
+/* ========= UI helpers ========= */
+function toast(msg){ const old=document.querySelector('.toast'); if(old) old.remove(); const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),1300); }
+function forceRefresh(){
+  try{ Object.keys(localStorage).forEach(k=>{ if(k.startsWith('fitforge_workout')) localStorage.removeItem(k); }); }catch{}
+  if('serviceWorker' in navigator){ navigator.serviceWorker.getRegistrations?.().then(regs=>{ regs.forEach(r=>r.unregister()); location.reload(true); }); }
+  else { location.reload(true); }
 }
 
 window.addEventListener('DOMContentLoaded', init);
