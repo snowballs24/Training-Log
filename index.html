@@ -839,7 +839,7 @@ function renderRoutinesList(){
 function show(el,yes){ if(!el) return; el.classList.toggle('hidden', !yes); }
 function openWizard(editing=false){
   if(!editing){ state.wiz = { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} }; }
-  show($('wizard'), true); show($('wizStep1'), !editing); show($('wizStep2'), !editing); show($('wizStep3'), editing);
+  show($('wizard'), true); show($('wizStep1'), !editing); show($('wizStep2'), false); show($('wizStep3'), editing);
   if(!editing){
     $('wizName').value=''; $('wizDaysCount').value=''; $('wizDayNames').innerHTML=''; $('wizExercises').innerHTML='';
     const sel=$('templateSelect'); if(sel) sel.value='';
