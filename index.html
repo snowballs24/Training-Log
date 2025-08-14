@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>FitForge — Workout Builder</title>
+<meta name="theme-color" content="#171a2e" />
 <style>
   :root{
     /* Modern fitness palette */
@@ -31,6 +32,8 @@
       radial-gradient(1000px 600px at -10% 50%, rgba(24,225,199,.08), transparent 60%),
       var(--bg);
     color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
   }
   .app {
@@ -70,10 +73,7 @@
     display:flex; gap:10px; align-items:center; flex-wrap:wrap;
   }
 
-  main{
-    flex: 1;
-    padding: 24px 16px 38px;
-  }
+  main{ flex: 1; padding: 24px 16px 38px; }
   .container{
     max-width: 1100px; margin: 0 auto;
     display: grid; gap: var(--gap);
@@ -94,9 +94,7 @@
     border-bottom: 1px solid rgba(255,255,255,.06);
     display:flex; align-items:center; justify-content:space-between; gap:10px;
   }
-  .card .card-b{
-    padding: 16px 18px;
-  }
+  .card .card-b{ padding: 16px 18px; }
 
   .form-row{
     display: grid;
@@ -110,8 +108,8 @@
     display:block; font-size: 12px; color: var(--muted);
     margin-bottom: 6px; letter-spacing:.2px;
   }
-  input[type="text"], select{
-    width: 100%;
+  input[type="text"], select, textarea{
+    width: 100%; box-sizing: border-box;
     padding: 12px 12px;
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,.08);
@@ -120,7 +118,7 @@
     outline: none;
     transition: box-shadow .15s ease, border-color .15s ease;
   }
-  input[type="text"]:focus, select:focus{
+  input[type="text"]:focus, select:focus, textarea:focus{
     border-color: rgba(106,125,255,.6);
     box-shadow: 0 0 0 4px rgba(106,125,255,.15);
   }
@@ -148,10 +146,7 @@
     background: linear-gradient(135deg, #93f3b4, var(--ok));
     color:#06130b;
   }
-
-  .inline{
-    display:flex; gap:10px; flex-wrap: wrap; align-items:center;
-  }
+  .inline{ display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
 
   /* Days & exercises */
   .day{
@@ -164,9 +159,7 @@
   .day-h{
     display:flex; align-items:center; gap:10px; justify-content:space-between;
   }
-  .day-title{
-    font-weight:700; letter-spacing:.3px;
-  }
+  .day-title{ font-weight:700; letter-spacing:.3px; }
   .exercise-list{
     margin: 10px 0 0; padding: 0; list-style: none;
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
@@ -190,8 +183,24 @@
   .grow{ flex: 1; }
   .spacer{ height: 8px; }
 
+  /* Compact toggle (visual collapse) */
+  body.compact .exercise-list{ grid-template-columns: 1fr; }
+  body.compact .day{ background: rgba(255,255,255,.015); }
+
   footer{
     padding: 16px; text-align:center; color: var(--muted);
+  }
+
+  /* Toast */
+  .toast{
+    position: fixed;
+    top: 10px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(16,19,42,.92);
+    border:1px solid rgba(24,225,199,.35);
+    padding:8px 12px; border-radius:10px;
+    color: var(--text); font-size:12px;
+    z-index: 999;
   }
 </style>
 </head>
@@ -204,11 +213,13 @@
         <h1>FitForge — Workout Builder</h1>
       </div>
       <div class="head-actions">
-        <button id="btnExport" class="btn ghost">Export JSON</button>
+        <button id="btnExport" class="btn ghost" title="Download your plan as JSON">Export JSON</button>
         <button id="btnImport" class="btn ghost">Import JSON</button>
         <input id="importFile" type="file" accept="application/json" hidden />
         <button id="btnClear" class="btn warn">Clear</button>
         <button id="btnSave" class="btn ok">Save Workout</button>
+        <!-- Force refresh helper (safe to keep; handy during dev) -->
+        <button id="btnForce" class="btn ghost" title="Clear old saves & unregister SW">Force Refresh</button>
       </div>
     </div>
   </header>
@@ -237,7 +248,7 @@
             </div>
           </div>
 
-          <div id="days"></div>
+          <div id="days" aria-live="polite"></div>
         </div>
       </section>
 
@@ -255,7 +266,7 @@
             </div>
             <div class="inline" style="align-items:flex-end;">
               <button id="quickAddDay" class="btn">Add Day</button>
-              <button id="collapseAll" class="btn ghost">Collapse All</button>
+              <button id="collapseAll" class="btn ghost" title="Toggle compact view">Collapse All</button>
             </div>
           </div>
 
@@ -263,7 +274,7 @@
           <div class="form-row">
             <div>
               <label for="bulkExercises">Bulk Add Exercises (one per line to selected day)</label>
-              <input id="bulkExercises" type="text" placeholder="Highlight a day, then paste list here…" />
+              <textarea id="bulkExercises" rows="5" placeholder="Highlight a day, then paste list here…&#10;Bench Press&#10;Lat Pulldown&#10;Lateral Raise"></textarea>
             </div>
             <div class="inline" style="align-items:flex-end;">
               <button id="bulkAddBtn" class="btn">Add to Selected Day</button>
@@ -284,10 +295,15 @@
 </div>
 
 <script>
-/* =========================
-   PRESETS (including Snowy's)
-   ========================= */
+/* ============================================================
+   VERSIONED STORAGE (prevents stale restores across deployments)
+   ============================================================ */
+const APP_VERSION = '2025-08-14-2';
+const STORAGE_KEY = `fitforge_workout_${APP_VERSION}`;
 
+/* ============================================================
+   PRESETS (including Snowy's)
+   ============================================================ */
 function tSnowy() {
   return {
     name: "Snowy's Log",
@@ -341,7 +357,7 @@ function tSnowy() {
   };
 }
 
-/* Two simple example presets to show variety (kept minimal) */
+/* Two example presets kept minimal */
 function tUpperLower(){
   return {
     name: 'Upper / Lower',
@@ -364,19 +380,15 @@ function tPPL(){
 
 const PRESETS = [ tSnowy(), tUpperLower(), tPPL() ];
 
-/* =========================
+/* ============================================================
    STATE
-   ========================= */
-let state = {
-  name: '',
-  days: [] // [{name, ex:[]}]
-};
-
+   ============================================================ */
+let state = { name: '', days: [] }; // [{name, ex:[]}]
 let selectedDayIndex = -1;
 
-/* =========================
+/* ============================================================
    DOM
-   ========================= */
+   ============================================================ */
 const workoutNameEl = document.getElementById('workoutName');
 const daysEl = document.getElementById('days');
 const presetSelect = document.getElementById('presetSelect');
@@ -393,10 +405,11 @@ const btnExport = document.getElementById('btnExport');
 const btnImport = document.getElementById('btnImport');
 const importFile = document.getElementById('importFile');
 const collapseAllBtn = document.getElementById('collapseAll');
+const btnForce = document.getElementById('btnForce');
 
-/* =========================
+/* ============================================================
    INIT
-   ========================= */
+   ============================================================ */
 function init(){
   // Populate presets
   PRESETS.forEach((p, i) => {
@@ -408,7 +421,7 @@ function init(){
 
   // Wire events
   presetSelect.addEventListener('change', onPresetChoose);
-  workoutNameEl.addEventListener('input', e => { state.name = e.target.value; });
+  workoutNameEl.addEventListener('input', e => { state.name = e.target.value; persist(); });
 
   addDayBtn.addEventListener('click', () => addDay(promptName(newDayNameEl.value || 'New Day')));
   quickAddDayBtn.addEventListener('click', () => addDay(promptName(newDayNameEl.value || 'New Day')));
@@ -420,25 +433,26 @@ function init(){
   btnImport.addEventListener('click', () => importFile.click());
   importFile.addEventListener('change', onImportFile);
   collapseAllBtn.addEventListener('click', () => {
-    // purely visual collapse: turns lists into 1 column (toggle)
     document.body.classList.toggle('compact');
   });
+  btnForce.addEventListener('click', forceRefresh);
 
   // optional: load last session
-  const cached = localStorage.getItem('fitforge_workout');
+  const cached = localStorage.getItem(STORAGE_KEY);
   if (cached) {
-    try { state = JSON.parse(cached); } catch {}
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed && parsed.days && Array.isArray(parsed.days)) state = parsed;
+    } catch {}
   }
   render();
 }
 
-function promptName(str){
-  return str.trim();
-}
+function promptName(str){ return str.trim(); }
 
-/* =========================
+/* ============================================================
    PRESET HANDLING
-   ========================= */
+   ============================================================ */
 function onPresetChoose(){
   const idx = Number(presetSelect.value);
   if (Number.isNaN(idx)) return;
@@ -446,17 +460,17 @@ function onPresetChoose(){
   const preset = PRESETS[idx];
   if (!preset) return;
 
+  // Deep copy
   state = structuredClone(preset);
-  // Ensure arrays are actual copies
   state.days = state.days.map(d => ({ name: d.name, ex: [...d.ex] }));
   selectedDayIndex = -1;
   render();
-  flashHeader(`${preset.name} loaded`);
+  toast(`${preset.name} loaded`);
 }
 
-/* =========================
+/* ============================================================
    RENDER
-   ========================= */
+   ============================================================ */
 function render(){
   workoutNameEl.value = state.name || '';
 
@@ -544,9 +558,9 @@ function btn(style, text, onClick){
   return b;
 }
 
-/* =========================
+/* ============================================================
    MUTATIONS
-   ========================= */
+   ============================================================ */
 function addDay(name){
   if (!name) return;
   state.days.push({ name, ex: [] });
@@ -581,23 +595,23 @@ function onBulkAdd(){
   }
   const txt = bulkExercisesEl.value;
   if (!txt.trim()) return;
-  // Split by comma or newline; trim blanks
+  // Split by newline or comma; trim blanks
   const items = txt.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
   state.days[selectedDayIndex].ex.push(...items);
   bulkExercisesEl.value = '';
   render();
 }
 
-/* =========================
-   SAVE / LOAD
-   ========================= */
+/* ============================================================
+   SAVE / LOAD / IO
+   ============================================================ */
 function onSave(){
   if (!state.name || !state.name.trim()){
     alert('Give your workout a name before saving.');
     return;
   }
   persist();
-  flashHeader('Workout saved');
+  toast('Workout saved');
 }
 function clearAll(){
   if (!confirm('Clear the current builder?')) return;
@@ -626,7 +640,7 @@ function onImportFile(e){
       state = loaded;
       selectedDayIndex = -1;
       render();
-      flashHeader('Workout imported');
+      toast('Workout imported');
     }catch(err){
       alert('Import failed: ' + err.message);
     }finally{
@@ -635,32 +649,37 @@ function onImportFile(e){
   };
   reader.readAsText(file);
 }
-
 function persist(){
-  try { localStorage.setItem('fitforge_workout', JSON.stringify(state)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
 }
 
-/* =========================
-   UI helpers
-   ========================= */
-function flashHeader(msg){
-  const h = document.querySelector('header');
-  h.style.boxShadow = '0 0 0 4px rgba(24,225,199,.25), ' + getComputedStyle(h).boxShadow;
+/* ============================================================
+   UTIL / UI helpers
+   ============================================================ */
+function toast(msg){
+  const old = document.querySelector('.toast');
+  if (old) old.remove();
   const t = document.createElement('div');
+  t.className = 'toast';
   t.textContent = msg;
-  t.style.position='fixed';
-  t.style.top='10px';
-  t.style.left='50%';
-  t.style.transform='translateX(-50%)';
-  t.style.background='rgba(16,19,42,.85)';
-  t.style.border='1px solid rgba(24,225,199,.35)';
-  t.style.padding='8px 12px';
-  t.style.borderRadius='10px';
-  t.style.color='var(--text)';
-  t.style.fontSize='12px';
-  t.style.zIndex='999';
   document.body.appendChild(t);
-  setTimeout(()=>{ t.remove(); h.style.boxShadow=''; }, 1200);
+  setTimeout(()=> t.remove(), 1300);
+}
+function forceRefresh() {
+  try {
+    // clear *all* old fitforge saves
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('fitforge_workout')) localStorage.removeItem(k);
+    });
+  } catch {}
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations?.().then(regs => {
+      regs.forEach(r => r.unregister());
+      location.reload(true);
+    });
+  } else {
+    location.reload(true);
+  }
 }
 
 window.addEventListener('DOMContentLoaded', init);
