@@ -488,25 +488,30 @@ nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px
         <h2>Settings</h2>
       </div>
 
-      <div class="card" style="margin-top:8px">
-        <div style="font-weight:800; margin-bottom:6px">Appearance</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-          <button class="ghost" id="themeToggle" type="button">Toggle dark mode</button>
-          <label>Color scheme
-            <select id="accentSelect">
-              <option value="aurora">Aurora (blue/purple)</option>
-              <option value="mint">Neon Mint</option>
-              <option value="sunset">Sunset</option>
-              <option value="volt">Volt</option>
-              <option value="crimson">Crimson Heat</option>
-         <label>Surface style
-           <select id="surfaceSelect">
-             <option value="glass">Glass</option>
-             <option value="flat">Flat</option>
-            </select>
-          </label>
-        </div>
-      </div>
+<div class="card" style="margin-top:8px">
+  <div style="font-weight:800; margin-bottom:6px">Appearance</div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+    <button class="ghost" id="themeToggle" type="button">Toggle dark mode</button>
+    
+    <label>Color scheme
+      <select id="accentSelect">
+        <option value="aurora">Aurora (blue/purple)</option>
+        <option value="mint">Neon Mint</option>
+        <option value="sunset">Sunset</option>
+        <option value="volt">Volt</option>
+        <option value="crimson">Crimson Heat</option>
+      </select>
+    </label> <!-- ✅ closing label before Surface style -->
+
+    <label>Surface style
+      <select id="surfaceSelect">
+        <option value="glass">Glass</option>
+        <option value="flat">Flat</option>
+      </select>
+    </label>
+  </div>
+</div>
+
 
       <div class="card">
         <div style="font-weight:800; margin-bottom:6px">Units</div>
