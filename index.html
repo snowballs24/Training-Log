@@ -445,34 +445,76 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
         </h3>
 
 
-        <div id="wizStep1" class="card" style="margin-top:12px">
-          <div class="section-title" style="font-weight:800">1) Routine name</div>
-          <input id="wizName" placeholder="e.g., Bro Split or Full Body">
-          <div class="section-title" style="font-weight:800; margin-top:8px">2) How many days?</div>
-          <input id="wizDaysCount" type="number" min="1" step="1" placeholder="e.g., 5">
-          <div style="margin-top:8px;"><button type="button" data-action="wizToDays">Next: Name each day</button></div>
-        </div>
-
-        <div id="wizStep2" class="hidden">
-          <div class="section-title" style="font-weight:800">3) Name each day</div>
-          <div id="wizDayNames"></div>
-          <div style="margin-top:8px;">
-            <button class="ghost" type="button" data-action="wizBackToCount">Back</button>
-            <button type="button" data-action="wizToExercises">Next: Add exercises</button>
-          </div>
-        </div>
-
-        <div id="wizStep3" class="hidden">
-          <div class="section-title" style="font-weight:800">4) Add & order exercises per day</div>
-          <div id="wizExercises"></div>
-          <div style="margin-top:8px;">
-            <button class="ghost" type="button" data-action="wizBackToDays">Back</button>
-            <button type="button" data-action="wizFinish">Finish routine</button>
-          </div>
-          <div class="small muted" style="margin-top:6px">Drag the ≡ handle to reorder.</div>
-        </div>
-      </section>
-    </section>
+       <section>
+         <div id="wizStep1" class="card" style="margin-top:12px">
+           <div class="section-title" style="font-weight:800">1) Routine name</div>
+           <input id="wizName" placeholder="e.g., Bro Split or Full Body">
+           <div class="section-title" style="font-weight:800; margin-top:8px">2) How many days?</div>
+           <input id="wizDaysCount" type="number" min="1" step="1" placeholder="e.g., 5">
+           <div style="margin-top:8px;">
+             <button type="button" data-action="wizToDays">Next: Name each day</button>
+           </div>
+         </div>
+   
+         <div id="wizStep2" class="hidden">
+           <div class="section-title" style="font-weight:800">3) Name each day</div>
+           <div id="wizDayNames"></div>
+           <div style="margin-top:8px;">
+             <button class="ghost" type="button" data-action="wizBackToCount">Back</button>
+             <button type="button" data-action="wizToExercises">Next: Add exercises</button>
+           </div>
+         </div>
+   
+         <div id="wizStep3" class="hidden">
+           <div class="section-title" style="font-weight:800">4) Add & order exercises per day</div>
+           <div id="wizExercises"></div>
+           <div style="margin-top:8px;">
+             <button class="ghost" type="button" data-action="wizBackToDays">Back</button>
+             <button type="button" data-action="wizFinish">Finish routine</button>
+           </div>
+           <div class="small muted" style="margin-top:6px">Drag the ≡ handle to reorder.</div>
+         </div>
+       </section>
+   
+       <script>
+         // Step 1 → Step 2
+         $('[data-action="wizToDays"]').addEventListener('click', () => {
+           const name = $('wizName').value.trim();
+           const days = $('wizDaysCount').value.trim();
+           if (!name) {
+             showModal('Please enter a routine name first.');
+             return;
+           }
+           if (!days || parseInt(days) < 1) {
+             showModal('Please enter how many days.');
+             return;
+           }
+           $('wizStep1').classList.add('hidden');
+           $('wizStep2').classList.remove('hidden');
+         });
+   
+         // Step 2 → Step 3
+         $('[data-action="wizToExercises"]').addEventListener('click', () => {
+           $('wizStep2').classList.add('hidden');
+           $('wizStep3').classList.remove('hidden');
+         });
+   
+         // Back buttons
+         $('[data-action="wizBackToCount"]').addEventListener('click', () => {
+           $('wizStep2').classList.add('hidden');
+           $('wizStep1').classList.remove('hidden');
+         });
+         $('[data-action="wizBackToDays"]').addEventListener('click', () => {
+           $('wizStep3').classList.add('hidden');
+           $('wizStep2').classList.remove('hidden');
+         });
+       </script>
+   
+       <style>
+         .hidden {
+           display: none !important;
+         }
+       </style>
 
     <!-- Log -->
     <section id="logPage" class="card">
