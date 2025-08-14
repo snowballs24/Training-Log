@@ -649,6 +649,9 @@ function applyAccent(){
   document.body.setAttribute('data-accent', prefs.accent || 'aurora');
   document.body.setAttribute('data-surface', prefs.surface || 'glass');
 }
+function applySurface(){
+  document.body.setAttribute('data-surface', prefs.surface || 'glass');
+}
 
 /* ===== Persist (localStorage—as before) ===== */
 function load(){
@@ -1294,7 +1297,7 @@ $('importJsonInput').addEventListener('change', async (e)=>{
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
   }
-  loadPrefs(); applyTheme(); applyAccent(); load();
+  loadPrefs(); applyTheme(); applyAccent(); applySurface(); load();
   renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); showPage('logPage');
 
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
