@@ -385,7 +385,10 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
   <div class="title-wrap">
     <h1>Training Log</h1>
     <span class="settings-wrap">
-      <button class="icon gear-btn" id="settingsBtn" data-action="navSettings" aria-label="Settings">⚙️</button>
+      <button class="icon gear-btn" id="settingsBtn" data-action="navSettings" aria-label="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+          <path d="M19.14,12.94a7.07,7.07,0,0,0,.05-1,7.07,7.07,0,0,0-.05-1l2.11-1.65a.5.5,0,0,0,.12-.65l-2-3.46a.5.5,0,0,0-.61-.22l-2.49,1a6.79,6.79,0,0,0-1.73-1L14,2.81a.5.5,0,0,0-.5-.31H10.5a.5.5,0,0,0-.5.31L9.45,5.91a6.79,6.79,0,0,0-1.73,1l-2.49-1a.5.5,0,0,0-.61.22l-2,3.46a.5.5,0,0,0,.12.65L4.86,10a7.07,7.07,0,0,0-.05,1,7.07,7.07,0,0,0,.05,1L2.75,13.65a.5.5,0,0,0-.12.65l2,3.46a.5.5,0,0,0,.61.22l2.49-1a6.79,6.79,0,0,0,1.73,1l.55,3.1a.5.5,0,0,0,.5.31h3a.5.5,0,0,0,.5-.31l.55-3.1a6.79,6.79,0,0,0,1.73-1l2.49,1a.5.5,0,0,0,.61-.22l2-3.46a.5.5,0,0,0-.12-.65ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/>
+        </svg> </button>
     </span>
 
   </div>
@@ -570,6 +573,26 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
 }
 .bottom-nav .bottom-bar button {
   width: 100%;
+}
+</style>
+
+<style>
+/* other styles... */
+
+/* Gear settings button styling */
+.gear-btn {
+  border-radius: 50%;
+  padding: 6px;
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease;
+}
+.gear-btn:hover {
+  transform: scale(1.1);
 }
 </style>
 
