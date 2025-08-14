@@ -413,7 +413,7 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
         <h2>New Routine</h2>
 
         <details class="card" style="background:rgba(255,255,255,.03); border-color:var(--line); margin-top:0">
-          <summary style="cursor:pointer; font-weight:800;">Start from a template (optional)</summary>
+          <summary style="cursor:pointer; font-weight:800;">Start from a template</summary>
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
             <select id="templateSelect" style="flex:1 1 240px">
               <option value="">Choose a template…</option>
@@ -431,6 +431,16 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
             <button class="ghost" data-action="useTemplateSelected">Import</button>
           </div>
         </details>
+      
+        <!-- Separator -->
+        <div style="margin: 20px 0; text-align:center; font-weight:500; color:var(--text)">
+          Or
+        </div>
+      
+        <h3 style="margin-bottom:12px; font-weight:600; font-size:1.1em; color:var(--text)">
+          Create Your Own Routine
+        </h3>
+
 
         <div id="wizStep1" class="card" style="margin-top:12px">
           <div class="section-title" style="font-weight:800">1) Routine name</div>
