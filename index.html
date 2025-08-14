@@ -348,6 +348,7 @@ nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px
 [data-surface="glass"] .card,
 [data-surface="glass"] .menu-panel {
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px); /* added for Safari/Chrome WebKit */
   background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)), var(--card);
   box-shadow: var(--shadow-1);
   border: 1px solid var(--line);
@@ -356,10 +357,12 @@ nav.card{ position:sticky; bottom:0; z-index:50; margin-bottom:0; border-top:1px
 [data-surface="flat"] .card,
 [data-surface="flat"] .menu-panel {
   backdrop-filter: none;
+  -webkit-backdrop-filter: none; /* added for Safari/Chrome WebKit */
   background: var(--surface);
-  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  box-shadow: none; /* more obvious change */
   border: 1px solid color-mix(in oklab, var(--line) 80%, transparent);
 }
+
 
 /* Subtle global motion */
 * { scroll-behavior: smooth; box-sizing: border-box; }   /* ← add box-sizing */
