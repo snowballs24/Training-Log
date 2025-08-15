@@ -373,9 +373,7 @@ input[type=number]{ -moz-appearance:textfield; }
   border-color: color-mix(in oklab, var(--danger) 35%, transparent);
 }
 .vol-cell-spacer {
-  background: transparent;
-  border: none;
-  padding: 0;
+  background: rgba(255,255,255,.03);
 }
 
 /* Lists + drag */
@@ -1190,8 +1188,9 @@ function buildLog(){
       const val=prepared[i]?.reps??'';
       cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="reps" type="number" inputmode="numeric" step="1" value="${val}"></td>`;
     }
-    // Add empty cell under Vol
-    cur += `<td class="vol-cell-spacer"></td>`;
+    // Add empty cell under Vol (same skin/height as other cells) and CLOSE the row/table
+    cur += `<td class="vol-cell-spacer"><div class="cell-static" aria-hidden="true">&nbsp;</div></td></tr></tbody></table></div>`;
+
 
 
     const note = state.log.notes[ex.id] || '';
