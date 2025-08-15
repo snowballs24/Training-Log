@@ -377,9 +377,13 @@ input[type=number]{ -moz-appearance:textfield; }
   background: color-mix(in oklab, var(--danger) 18%, transparent);
   border-color: color-mix(in oklab, var(--danger) 35%, transparent);
 }
-.vol-cell-spacer {
-  background: rgba(255,255,255,.03);
+td.vol-cell-spacer {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  height: auto;
 }
+
 
 /* Lists + drag */
 .list{ list-style:none; margin:6px 0 0; padding:0; }
@@ -1076,7 +1080,7 @@ function buildPrevTables(exId, count){
       const st = s.sets[i] || { weight:'', reps:'' };
       body += `<td><div class="cell-static">${st.reps ?? ''}</div></td>`;
     }
-    body += `<td class="vol-cell-spacer"><div class="cell-static" aria-hidden="true">&nbsp;</div></td></tr></tbody>`;
+    body += `<td class="vol-cell-spacer" aria-hidden="true"></td></tr></tbody>`;
 
     return `
       <div class="week-block prev-session">
