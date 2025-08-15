@@ -654,7 +654,7 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
 .bottom-nav .bottom-bar button {
   width: 100%;
 }
-e>
+</style>
 
 <style>
 /* other styles... */
@@ -674,7 +674,7 @@ e>
 .gear-btn:hover {
   transform: scale(1.1);
 }
-e>
+</style>
 
 <div id="modalRoot" class="app-modal hidden" aria-hidden="true">
   <div class="app-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -1076,14 +1076,14 @@ function buildPrevTables(exId, count){
     const dText = fmtShortDate(s.workoutDate || s.dateISO);
 
     let body = `<tbody><tr><td class="sticky-left">${unitLabel}</td>`;
-    for(let i=0;i<4;i++){
-      const st=s.sets[i]||{weight:'',reps:''};
+    for (let i=0;i<4;i++){
+      const st = s.sets[i] || { weight:'', reps:'' };
       body += `<td><div class="cell-static">${st.weight ?? ''}</div></td>`;
     }
     body += `<td rowspan="2" class="vol-cell vol-neutral">${s.totalVolume ?? 0}</td></tr>`;
     body += `<tr><td class="sticky-left">Reps</td>`;
-    for(let i=0;i<4;i++){
-      const st=s.sets[i]||{weight:'',reps:''};
+    for (let i=0;i<4;i++){
+      const st = s.sets[i] || { weight:'', reps:'' };
       body += `<td><div class="cell-static">${st.reps ?? ''}</div></td>`;
     }
     body += `</tr></tbody>`;
@@ -1102,7 +1102,8 @@ function buildPrevTables(exId, count){
                   data-exid="${exId}">🗑️</button>
         </div>
       </div>`;
-   
+  }).join('');
+}
 
 
 /* ===== 1RM / Timer / Volume ===== */
@@ -1257,7 +1258,7 @@ function renderLineChart(data, labels){
   const path = xs.map((x,i)=> `${i===0?'M':'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
   const gridY = [0,.5,1].map(t=> H-PAD - t*(H-2*PAD));
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-    <style>.g{stroke:rgba(255,255,255,.15);stroke-width:1}.line{fill:none;stroke:var(--primary);stroke-width:2}.dot{fill:var(--accent)}.axis{font-size:10px;fill:var(--muted)}e>
+    <style>.g{stroke:rgba(255,255,255,.15);stroke-width:1}.line{fill:none;stroke:var(--primary);stroke-width:2}.dot{fill:var(--accent)}.axis{font-size:10px;fill:var(--muted)}</style>
     ${gridY.map(y=>`<line class="g" x1="${PAD}" y1="${y}" x2="${W-PAD}" y2="${y}"/>`).join('')}
     <path class="line" d="${path}" />
     ${xs.map((x,i)=> `<circle class="dot" cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="3"/>`).join('')}
@@ -1515,8 +1516,6 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
-
-
-
+</script>
 </body>
 </html>
