@@ -372,7 +372,11 @@ input[type=number]{ -moz-appearance:textfield; }
   background: color-mix(in oklab, var(--danger) 18%, transparent);
   border-color: color-mix(in oklab, var(--danger) 35%, transparent);
 }
-
+.vol-cell-spacer {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
 
 /* Lists + drag */
 .list{ list-style:none; margin:6px 0 0; padding:0; }
@@ -1180,13 +1184,15 @@ function buildLog(){
       const val=prepared[i]?.weight??'';
       cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="weight" type="number" inputmode="decimal" step="0.01" value="${val}"></td>`;
     }
-    cur += `<td rowspan="2" id="vol_${ex.id}" class="vol-cell ${cls}">${vol}</td></tr>`;
+    cur += `<td id="vol_${ex.id}" class="vol-cell ${cls}">${vol}</td></tr>`;
     cur += `<tr><td class="sticky-left">Reps</td>`;
     for(let i=0;i<4;i++){
       const val=prepared[i]?.reps??'';
       cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="reps" type="number" inputmode="numeric" step="1" value="${val}"></td>`;
     }
-    cur += `</tr></tbody></table></div>`;
+    // Add empty cell under Vol
+    cur += `<td class="vol-cell-spacer"></td>`;
+
 
     const note = state.log.notes[ex.id] || '';
     const notesRow = `
