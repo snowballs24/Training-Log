@@ -1087,13 +1087,16 @@ function buildPrevTables(exId, count){
       const st = s.sets[i] || { weight:'', reps:'' };
       body += `<td><div class="cell-static">${st.weight ?? ''}</div></td>`;
     }
-    body += `<td rowspan="2" class="vol-cell vol-neutral">${s.totalVolume ?? 0}</td></tr>`;
+    // Vol occupies only the kg row
+    body += `<td class="vol-cell vol-neutral">${s.totalVolume ?? 0}</td></tr>`;
+   
+    // Reps row + empty spacer under Vol
     body += `<tr><td class="sticky-left">Reps</td>`;
     for (let i=0;i<4;i++){
       const st = s.sets[i] || { weight:'', reps:'' };
       body += `<td><div class="cell-static">${st.reps ?? ''}</div></td>`;
     }
-    body += `</tr></tbody>`;
+    body += `<td class="vol-cell-spacer"><div class="cell-static" aria-hidden="true">&nbsp;</div></td></tr></tbody>`;
 
     return `
       <div class="week-block prev-session">
@@ -1182,15 +1185,18 @@ function buildLog(){
       const val=prepared[i]?.weight??'';
       cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="weight" type="number" inputmode="decimal" step="0.01" value="${val}"></td>`;
     }
-    cur += `<td id="vol_${ex.id}" class="vol-cell ${cls}">${vol}</td></tr>`;
+    // kg row + Vol (Vol spans both rows)
+    cur += `<td id="vol_${ex.id}" class="vol-cell ${cls}" rowspan="2">${vol}</td></tr>`;
+   
+    // reps row (no extra cell)
     cur += `<tr><td class="sticky-left">Reps</td>`;
     for(let i=0;i<4;i++){
       const val=prepared[i]?.reps??'';
       cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="reps" type="number" inputmode="numeric" step="1" value="${val}"></td>`;
     }
-    // Add empty cell under Vol (same skin/height as other cells) and CLOSE the row/table
-    cur += `<td class="vol-cell-spacer"><div class="cell-static" aria-hidden="true">&nbsp;</div></td></tr></tbody></table></div>`;
-
+    cur += `</tr></tbody></table></div>`;
+   
+   
 
 
     const note = state.log.notes[ex.id] || '';
