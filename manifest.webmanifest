@@ -1,13 +1,13 @@
 {
   "name": "Workout Logger",
-  "short_name": "Workout",
+  "short_name": "Training Log",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#eef3ff",
   "theme_color": "#3b82f6",
   "icons": [
     {
-      "src": "icons/icon-180.png",
+      "src": "icons/icon-180-v2.png",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any maskable"
