@@ -419,6 +419,27 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
 
 /* Subtle global motion */
 * { scroll-behavior: smooth; box-sizing: border-box; }   /* ← add box-sizing */
+
+/* ===== Footer for previous weeks in log ===== */
+.week-footer {
+  display: flex;
+  justify-content: space-between; /* Volume left, delete right */
+  align-items: center;
+  margin-top: 6px;
+}
+
+.week-footer .volume-text {
+  font-weight: bold;
+}
+
+.week-footer .del-prev-btn {
+  position: static; /* Don't overlay */
+  margin-left: 8px;
+}
+
+.prev-session {
+  padding-bottom: 0;
+}
 </style>
 </head>
 <body data-theme="dark" data-accent="aurora">
@@ -633,7 +654,7 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
 .bottom-nav .bottom-bar button {
   width: 100%;
 }
-</style>
+e>
 
 <style>
 /* other styles... */
@@ -653,7 +674,7 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
 .gear-btn:hover {
   transform: scale(1.1);
 }
-</style>
+e>
 
 <div id="modalRoot" class="app-modal hidden" aria-hidden="true">
   <div class="app-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -1069,18 +1090,19 @@ function buildPrevTables(exId, count){
 
     return `
       <div class="week-block prev-session">
-        <div class="session-vol" title="Total volume">Vol: ${s.totalVolume ?? 0}</div>
-        <div class="table-wrap"><table>${buildHeaderPrev(dText)}${body}</table></div>
-        <button class="icon del-prev-btn"
-                title="Delete this entry"
-                aria-label="Delete this entry"
-                data-action="deleteSession"
-                data-sid="${s.id}"
-                data-exid="${exId}">🗑️</button>
+        <div class="table-wrap">
+          <table>${buildHeaderPrev(dText)}${body}</table>
+        </div>
+        <div class="week-footer">
+          <button class="icon del-prev-btn"
+                  title="Delete this entry"
+                  aria-label="Delete this entry"
+                  data-action="deleteSession"
+                  data-sid="${s.id}"
+                  data-exid="${exId}">🗑️</button>
+        </div>
       </div>`;
-  }).join('');   
-}
-
+   
 
 
 /* ===== 1RM / Timer / Volume ===== */
@@ -1235,7 +1257,7 @@ function renderLineChart(data, labels){
   const path = xs.map((x,i)=> `${i===0?'M':'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
   const gridY = [0,.5,1].map(t=> H-PAD - t*(H-2*PAD));
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-    <style>.g{stroke:rgba(255,255,255,.15);stroke-width:1}.line{fill:none;stroke:var(--primary);stroke-width:2}.dot{fill:var(--accent)}.axis{font-size:10px;fill:var(--muted)}</style>
+    <style>.g{stroke:rgba(255,255,255,.15);stroke-width:1}.line{fill:none;stroke:var(--primary);stroke-width:2}.dot{fill:var(--accent)}.axis{font-size:10px;fill:var(--muted)}e>
     ${gridY.map(y=>`<line class="g" x1="${PAD}" y1="${y}" x2="${W-PAD}" y2="${y}"/>`).join('')}
     <path class="line" d="${path}" />
     ${xs.map((x,i)=> `<circle class="dot" cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="3"/>`).join('')}
