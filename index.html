@@ -341,6 +341,11 @@ input[type=number]{ -moz-appearance:textfield; }
 .prev-session{
   padding-bottom: 40px;
 }
+/* Keep the bin INSIDE the previous table area */
+.prev-session .table-wrap { position: relative; }
+
+/* (optional but explicit) scope the absolute button to that area */
+.prev-session .del-prev-btn { position: absolute; right: 6px; bottom: 6px; }
 
 /* small label above the table */
 .session-vol{
@@ -421,31 +426,6 @@ nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0
 
 /* Subtle global motion */
 * { scroll-behavior: smooth; box-sizing: border-box; }   /* ← add box-sizing */
-
-/* ===== Footer for previous weeks in log ===== */
-.week-footer {
-  display: flex;
-  justify-content: space-between; /* Volume left, delete right */
-  align-items: center;
-  margin-top: 6px;
-}
-
-.week-footer .volume-text {
-  font-weight: bold;
-}
-
-.week-footer .del-prev-btn {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: .3rem .45rem;
-  color: var(--muted);
-  z-index: 1;
-}
-
 
 </style>
 </head>
@@ -1102,8 +1082,6 @@ function buildPrevTables(exId, count){
       <div class="week-block prev-session">
         <div class="table-wrap">
           <table>${buildHeaderPrev(dText)}${body}</table>
-        </div>
-        <div class="week-footer">
           <button class="icon del-prev-btn"
                   title="Delete this entry"
                   aria-label="Delete this entry"
