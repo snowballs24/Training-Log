@@ -348,9 +348,19 @@ input[type=number]{ -moz-appearance:textfield; }
 
 /* Current week card — bold clean outline */
 .current-session {
-  border: 3px solid var(--primary);
-  border-radius: 10px;
-  margin: 8px 0 0;
+  border: 3px solid var(--line);
+  border-radius: 8px;
+  margin: 10px 0 0;
+}
+
+/* Slim subtle section headers */
+.section-header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 6px 0 4px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line);
 }
 
 /* small label above the table */
@@ -1234,21 +1244,26 @@ function buildLog(){
       </div>`;
 
     html += `
-      <div class="exercise${openClass}${completedClass}" data-exid="${ex.id}">
-        <div class="ex-head">
-          <div class="ex-title" title="${ex.name}">${ex.name}</div>
-          <div class="ex-controls">
-            <button class="ex-toggle" type="button" data-action="toggleExercise" data-exid="${ex.id}">${state.uiOpen[ex.id]?'Collapse':'Expand'}</button>
-          </div>
-        </div>
-        <div class="ex-body">
-          ${topRow}
-          ${prevHtml}
-          ${cur}
-          ${notesRow}
-        </div>
-      </div>`;
-  });
+  <div class="exercise${openClass}${completedClass}" data-exid="${ex.id}">
+    <div class="ex-head">
+      <div class="ex-title" title="${ex.name}">${ex.name}</div>
+      <div class="ex-controls">
+        <button class="ex-toggle" type="button" data-action="toggleExercise" data-exid="${ex.id}">
+          ${state.uiOpen[ex.id] ? 'Collapse' : 'Expand'}
+        </button>
+      </div>
+    </div>
+    <div class="ex-body">
+      <div class="section-header">Previous Weeks</div>
+      ${prevHtml}
+
+      <div class="section-header">Current Week</div>
+      ${cur}
+
+      <div class="section-header">Timer & Notes</div>
+      ${notesRow}
+    </div>
+  </div>`;
 
   area.innerHTML = html || '<div class="muted">No exercises yet for this day.</div>';
   save();
