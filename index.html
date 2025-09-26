@@ -724,6 +724,10 @@ const state = {
   uiOpen: {}
 };
 
+// Track the current page and the last non-settings page
+let currentPage = 'logPage';
+let lastNonSettingsPage = 'logPage';
+
 /* ====== Templates & Exercise Library (unchanged) ====== */
 function tStrongLifts(){ return { name:'StrongLifts', days:[ {name:'Workout A', ex:['Back Squat','Barbell Bench Press','Barbell Row']}, {name:'Workout B', ex:['Back Squat','Overhead Press','Deadlift']} ] }; }
 function tStartingStrength(){ return { name:'Starting Strength', days:[ {name:'Day A', ex:['Back Squat','Barbell Bench Press','Deadlift']}, {name:'Day B', ex:['Back Squat','Overhead Press','Power Clean (or Rows)']} ] }; }
@@ -845,6 +849,10 @@ function todayISO(){ return new Date().toISOString().slice(0,10); }
 
 /* ===== Navigation ===== */
 function showPage(which){
+  // NEW: remember last non-settings page and current page
+  if (which !== 'settingsPage') lastNonSettingsPage = which;
+  currentPage = which;
+
   ['logPage','routinesPage','trendsPage','settingsPage'].forEach(id=> $(id).classList.toggle('hidden', id!==which));
   if(which==='logPage'){ renderSelectors(); buildLog(); }
   if(which==='trendsPage'){ renderSelectors(); buildTrends(); }
@@ -1430,7 +1438,16 @@ document.addEventListener('click', async (e)=>{
   if(act==='navLog'){ showPage('logPage'); return; }
   if(act==='navRoutines'){ showPage('routinesPage'); return; }
   if(act==='navTrends'){ showPage('trendsPage'); return; }
-  if(act==='navSettings'){ showPage('settingsPage'); return; }
+  if (act === 'navSettings') {
+  if (currentPage === 'settingsPage') {
+    // Go back to wherever the user was (Log/Routines/Trends)
+    showPage(lastNonSettingsPage || 'logPage');
+  } else {
+    // Go into Settings
+    showPage('settingsPage');
+  }
+  return;
+}
 
   if(act==='editRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return;
     state.wiz.editingId=r.id; state.wiz.name=r.name; state.wiz.daysCount=r.days.length; state.wiz.dayNames=r.days.map(d=>d.name); state.wiz.dayExercises={};
