@@ -346,13 +346,10 @@ input[type=number]{ -moz-appearance:textfield; }
 /* (optional but explicit) scope the absolute button to that area */
 .prev-session .del-prev-btn { position: absolute; right: 6px; bottom: 6px; }
 
-/* Current week card — bold outline to stand out from previous weeks */
-.current-session{
-  border: 2px solid color-mix(in oklab, var(--primary) 65%, white 0%);
-  border-radius: 16px;
-  padding: 10px;
-  background: color-mix(in oklab, var(--primary) 6%, transparent);
-  box-shadow: 0 0 0 1px rgba(255,255,255,.04) inset;
+/* Current week card — bold clean outline */
+.current-session {
+  border: 3px solid var(--primary);
+  border-radius: 10px;
   margin: 8px 0 0;
 }
 
