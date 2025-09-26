@@ -1239,7 +1239,7 @@ function buildLog(){
         </div>
       </div>`;
 
-    html += `
+        html += `
   <div class="exercise${openClass}${completedClass}" data-exid="${ex.id}">
     <div class="ex-head">
       <div class="ex-title" title="${ex.name}">${ex.name}</div>
@@ -1250,6 +1250,8 @@ function buildLog(){
       </div>
     </div>
     <div class="ex-body">
+      ${topRow}
+
       <div class="section-header">Previous Weeks</div>
       ${prevHtml}
 
@@ -1260,7 +1262,8 @@ function buildLog(){
       ${notesRow}
     </div>
   </div>`;
-  });
+  }); // ← closes the forEach
+
   area.innerHTML = html || '<div class="muted">No exercises yet for this day.</div>';
   save();
 }
