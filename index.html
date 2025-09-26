@@ -423,10 +423,6 @@ nav.card.bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 12px);
 }
 
-  /* Safe spacing */
-  padding-bottom: env(safe-area-inset-bottom, 12px);
-}
-
 /* Surface styles (glass vs flat) */
 [data-surface="glass"] .card,
 [data-surface="glass"] .menu-panel {
@@ -464,7 +460,7 @@ nav.card.bottom-nav {
    /* === Make "Sets" and "Vol" headings bigger === */
 .table-wrap thead th:not(:first-child) {
   font-size: 1.05rem;   /* slightly larger text */
-
+}
 </style>
 
 <!-- iOS Home Screen Icon -->
@@ -1264,7 +1260,7 @@ function buildLog(){
       ${notesRow}
     </div>
   </div>`;
-
+  });
   area.innerHTML = html || '<div class="muted">No exercises yet for this day.</div>';
   save();
 }
