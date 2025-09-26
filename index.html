@@ -394,7 +394,19 @@ td.vol-cell-spacer {
 .icon.danger{ background: color-mix(in oklab, var(--danger) 14%, transparent 86%); color:#ffd7d7; border-color: color-mix(in oklab, var(--danger) 25%, transparent 75%); }
 
 /* Footer nav */
-nav.card{ position:fixed; left:0; right:0; bottom:0; z-index:50; margin-bottom:0; border-top:1px solid var(--line); width:100%; }
+nav.card.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  margin-bottom: 0;
+  border-top: 1px solid var(--line);
+  width: 100%;
+
+  /* ✅ keeps buttons above iPhone corners and home bar */
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+}
 
 /* Surface styles (glass vs flat) */
 [data-surface="glass"] .card,
