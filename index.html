@@ -1361,6 +1361,50 @@ const modal = (() => {
   };
 })();
 
+ /* ===== Manual refresh / update ===== */
+async function checkForUpdatesAndRefresh() {
+  try {
+    // 1) Ask the service worker (if any) to check for a new version
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+
+      // If we have a registration, try to update it
+      if (reg) {
+        // Trigger an update check
+        reg.update().catch(()=>{});
+
+        // If there's already a waiting worker, tell it to activate now
+        if (reg.waiting) {
+          reg.waiting.postMessage({ action: 'skipWaiting' });
+        }
+
+        // If an update starts installing now, when it becomes waiting we’ll also activate it
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && reg.waiting) {
+              reg.waiting.postMessage({ action: 'skipWaiting' });
+            }
+          });
+        });
+
+        // When the new worker takes control, reload to pull fresh files
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          // small delay so the new SW finishes taking control
+          setTimeout(() => window.location.reload(), 150);
+        });
+      }
+    }
+
+    // 2) Also do a normal reload as a fallback (helps when no SW or no update)
+    // (Deprecated 'true' param is ignored by modern browsers; this is fine.)
+    window.location.reload();
+  } catch (err) {
+    // If anything goes wrong, at least try a regular reload
+    window.location.reload();
+  }
+} 
 /* ===== Events ===== */
 document.addEventListener('click', async (e)=>{
   const btn=e.target.closest('[data-action]'); if(!btn) return;
@@ -1467,6 +1511,7 @@ document.addEventListener('keydown',(e)=>{
   }
 });
 
+$('checkUpdatesBtn')?.addEventListener('click', checkForUpdatesAndRefresh);
 /* Settings */
 $('themeToggle').addEventListener('click', toggleTheme);
 $('accentSelect').addEventListener('change', (e)=>{ prefs.accent=e.target.value; savePrefs(); applyAccent(); });
