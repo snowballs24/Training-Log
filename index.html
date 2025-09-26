@@ -396,15 +396,20 @@ td.vol-cell-spacer {
 /* Footer nav */
 nav.card.bottom-nav {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 12px;   /* pull it in from the edges */
+  right: 12px;
+  bottom: env(safe-area-inset-bottom, 12px);
   z-index: 50;
   margin-bottom: 0;
   border-top: 1px solid var(--line);
-  width: 100%;
+  width: auto;   /* so it doesn’t stretch full edge-to-edge */
 
-  /* ✅ keeps buttons above iPhone corners and home bar */
+  /* Rounded floating style */
+  border-radius: 18px 18px 0 0;  /* round the top corners */
+  background: var(--surface);
+  box-shadow: 0 4px 20px rgba(0,0,0,.25);
+
+  /* Safe spacing */
   padding-bottom: env(safe-area-inset-bottom, 12px);
 }
 
