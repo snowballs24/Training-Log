@@ -1361,50 +1361,67 @@ const modal = (() => {
   };
 })();
 
- /* ===== Manual refresh / update ===== */
+/* ===== Manual refresh / update (robust) ===== */
 async function checkForUpdatesAndRefresh() {
   try {
-    // 1) Ask the service worker (if any) to check for a new version
+    await modal.alert('Checking for updates…');
+
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.getRegistration();
 
-      // If we have a registration, try to update it
-      if (reg) {
-        // Trigger an update check
-        reg.update().catch(()=>{});
+      // Listen once: when a new SW takes control, reload to pull fresh files
+      let reloaded = false;
+      const onControllerChange = () => {
+        if (reloaded) return;
+        reloaded = true;
+        setTimeout(() => {
+          // cache-busting query helps when a proxy/CDN is in the way
+          const url = new URL(window.location.href);
+          url.searchParams.set('refresh', Date.now().toString());
+          window.location.href = url.toString();
+        }, 150);
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', onControllerChange, { once: true });
 
-        // If there's already a waiting worker, tell it to activate now
+      if (reg) {
+        // 1) Ask the SW to check for a new version now
+        await reg.update().catch(()=>{});
+
+        // 2) If a worker is already waiting, activate it immediately
         if (reg.waiting) {
           reg.waiting.postMessage({ action: 'skipWaiting' });
+          await modal.alert('Update found. Applying…');
+          return; // controllerchange listener above will reload
         }
 
-        // If an update starts installing now, when it becomes waiting we’ll also activate it
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          if (!nw) return;
-          nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && reg.waiting) {
-              reg.waiting.postMessage({ action: 'skipWaiting' });
-            }
+        // 3) If an update is installing right now, wait for it to become waiting, then activate
+        if (reg.installing) {
+          await new Promise(resolve => {
+            reg.installing.addEventListener('statechange', () => {
+              if (reg.waiting) resolve();
+            });
           });
-        });
+          reg.waiting?.postMessage({ action: 'skipWaiting' });
+          await modal.alert('Update found. Applying…');
+          return;
+        }
 
-        // When the new worker takes control, reload to pull fresh files
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          // small delay so the new SW finishes taking control
-          setTimeout(() => window.location.reload(), 150);
-        });
+        // 4) No waiting or installing worker = likely no update available
+        await modal.alert('No update available. Reloading…');
       }
     }
 
-    // 2) Also do a normal reload as a fallback (helps when no SW or no update)
-    // (Deprecated 'true' param is ignored by modern browsers; this is fine.)
-    window.location.reload();
+    // Fallback: normal reload (also catches the no-service-worker case)
+    const url = new URL(window.location.href);
+    url.searchParams.set('refresh', Date.now().toString());
+    window.location.href = url.toString();
   } catch (err) {
-    // If anything goes wrong, at least try a regular reload
-    window.location.reload();
+    await modal.alert('Could not check updates. Reloading…');
+    const url = new URL(window.location.href);
+    url.searchParams.set('refresh', Date.now().toString());
+    window.location.href = url.toString();
   }
-} 
+}
 /* ===== Events ===== */
 document.addEventListener('click', async (e)=>{
   const btn=e.target.closest('[data-action]'); if(!btn) return;
