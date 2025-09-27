@@ -660,6 +660,36 @@ nav.card.bottom-nav {
         </div>
         <div class="small muted" style="margin-top:6px">Export a backup and restore it later.</div>
       </div>
+
+      <div class="card">
+  <div style="font-weight:800; margin-bottom:6px">Rest Timer</div>
+
+  <label style="display:block; margin-bottom:4px">
+    <input type="checkbox" id="autoTimerEnabled">
+    Auto-start rest timer after sets (1–3)
+  </label>
+
+  <label style="display:block; margin-bottom:4px">
+    <input type="checkbox" id="restAlarmEnabled">
+    Play alarm when timer ends
+  </label>
+
+  <label style="display:block; margin-bottom:4px">
+    Duration:
+    <input type="number" id="restDuration" min="30" max="600" step="30" style="width:70px"> seconds
+  </label>
+
+  <label style="display:block; margin-bottom:4px">
+    Alarm sound:
+    <select id="restSound">
+      <option value="ding.mp3">Ding</option>
+      <option value="beep.mp3">Beep</option>
+      <option value="chime.mp3">Chime</option>
+    </select>
+  </label>
+</div>
+ 
+      
     </section>
 
 <nav class="card bottom-nav">
@@ -1146,24 +1176,65 @@ function epley1RM(w,r){ const W=+w||0, R=+r||0; if(W<=0||R<=0) return 0; return 
 function ensureTimer(exId){ if(!state.uiTimers[exId]) state.uiTimers[exId]={running:false, start:0, elapsed:0, interval:null}; }
 function fmtTime(ms){ const s=Math.floor(ms/1000); const m=Math.floor(s/60); const ss=s%60; return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`; }
 function readTimerText(exId){ ensureTimer(exId); const t=state.uiTimers[exId]; return fmtTime(t.running ? (t.elapsed + (Date.now()-t.start)) : t.elapsed); }
+
 function timerToggle(exId){
-  ensureTimer(exId); const t=state.uiTimers[exId];
-  if(!t.running){ t.running=true; t.start=Date.now(); t.interval=setInterval(()=>{ const el=$('t_'+exId); if(el) el.textContent=readTimerText(exId); },500); }
-  else{ t.running=false; t.elapsed += Date.now()-t.start; clearInterval(t.interval); t.interval=null; const el=$('t_'+exId); if(el) el.textContent=readTimerText(exId); }
-  const btn = qs(`button[data-action="timerToggle"][data-exid="${exId}"]`); if(btn) btn.textContent=t.running?'Pause':'Start';
+  ensureTimer(exId);
+  const t = state.uiTimers[exId];
+
+  // If starting, configure alarm prefs
+  if(!t.running){
+    const { alarm, durationSec, sound } = getRestPrefs();
+    t.alarmEnabled = !!alarm;
+    t.alarmAtMs    = (durationSec||300) * 1000;
+    t.alarmFired   = false;
+    t.soundFile    = sound;
+    t.audio        = t.alarmEnabled ? new Audio('sounds/' + t.soundFile) : null;
+
+    t.running = true;
+    t.start   = Date.now();
+    clearInterval(t.interval);
+    t.interval = setInterval(()=>{
+      const el=$('t_'+exId);
+      if(el) el.textContent = readTimerText(exId);
+
+      // Alarm check
+      if(t.alarmEnabled && !t.alarmFired){
+        const elapsed = t.elapsed + (Date.now()-t.start);
+        if(elapsed >= t.alarmAtMs){
+          t.alarmFired = true;
+          try { t.audio && t.audio.play(); } catch {}
+        }
+      }
+    }, 500);
+  } else {
+    // Pausing
+    t.running = false;
+    t.elapsed += Date.now() - t.start;
+    clearInterval(t.interval);
+    t.interval = null;
+    const el=$('t_'+exId);
+    if(el) el.textContent = readTimerText(exId);
+  }
+
+  const btn = qs(`button[data-action="timerToggle"][data-exid="${exId}"]`);
+  if(btn) btn.textContent = t.running ? 'Pause' : 'Start';
 }
-function timerReset(exId){ ensureTimer(exId); const t=state.uiTimers[exId]; t.running=false; t.elapsed=0; t.start=0; if(t.interval){ clearInterval(t.interval); t.interval=null; } const el=$('t_'+exId); if(el) el.textContent='00:00'; const btn=qs(`button[data-action="timerToggle"][data-exid="${exId}"]`); if(btn) btn.textContent='Start'; }
-function recalcVolume(exId){
-  const r=activeRoutine(), d=dayById(r,state.log.dayId), ex=exerciseById(d,exId); if(!ex) return;
-  const arr=state.log.prepared[exId]||[];
-  const vol=arr.reduce((a,s)=>a+((+s.weight||0)*(+s.reps||0)),0);
-  const last=sessionsForExercise(ex.id)[0]||null;
-  const cell=$('vol_'+exId);
-  if(cell){ cell.textContent=vol; cell.className='vol-cell ' + (last ? (vol>=last.totalVolume ? 'vol-good' : 'vol-bad') : 'vol-neutral'); }
-  const best = arr.reduce((b,s)=>{ const score=(+s.weight||0)*(+s.reps||0); return score>b.score? {weight:+s.weight||0,reps:+s.reps||0,score}:b; }, {weight:0,reps:0,score:0});
-  const est = best.weight>0 && best.reps>0 ? Math.round(best.weight*(1+best.reps/30)) : 0;
-  const rm=$('rm_'+exId); if(rm) rm.textContent = est || '—';
+
+function timerReset(exId){
+  ensureTimer(exId);
+  const t = state.uiTimers[exId];
+  t.running=false;
+  t.elapsed=0;
+  t.start=0;
+  t.alarmFired=false;
+  clearInterval(t.interval);
+  t.interval=null;
+  const el=$('t_'+exId);
+  if(el) el.textContent='00:00';
+  const btn=qs(`button[data-action="timerToggle"][data-exid="${exId}"]`);
+  if(btn) btn.textContent='Start';
 }
+
 
 /* ===== Log view ===== */
 function buildLog(){
@@ -1217,7 +1288,7 @@ function buildLog(){
     cur += `<tr><td class="sticky-left">Reps</td>`;
     for(let i=0;i<4;i++){
       const val=prepared[i]?.reps??'';
-      cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="reps" type="number" inputmode="numeric" step="1" value="${val}"></td>`;
+      cur += `<td><input class="reps-input" data-set-index="${i}" data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="reps" type="number" inputmode="numeric" step="1" value="${val}"></td>`;
     }
     cur += `</tr></tbody></table></div></div>`;
    
@@ -1345,10 +1416,28 @@ function buildTrends(){
 }
 
 /* ===== Settings ===== */
+
+function getRestPrefs(){
+  return {
+    auto: localStorage.getItem('autoTimerEnabled') === 'true',
+    alarm: localStorage.getItem('restAlarmEnabled') === 'true',
+    durationSec: parseInt(localStorage.getItem('restDuration') || '300', 10),
+    sound: localStorage.getItem('restSound') || 'ding.mp3'
+  };
+}
+
+function hydrateRestTimerSettings(){
+  $('autoTimerEnabled') && ($('autoTimerEnabled').checked = localStorage.getItem('autoTimerEnabled') === 'true');
+  $('restAlarmEnabled') && ($('restAlarmEnabled').checked = localStorage.getItem('restAlarmEnabled') === 'true');
+  $('restDuration') && ($('restDuration').value = localStorage.getItem('restDuration') || 300);
+  $('restSound') && ($('restSound').value = localStorage.getItem('restSound') || 'ding.mp3');
+}
+   
 function hydrateSettingsUI(){
   $('unitSelect').value = prefs.units;
   $('accentSelect').value = prefs.accent;
   const ss = $('surfaceSelect'); if (ss) ss.value = prefs.surface || 'glass'; // ← add
+  hydrateRestTimerSettings();
 }
 const KG_TO_LB = 2.20462;
 function convertNumber(n, factor){ const x = (parseFloat(n)||0)*factor; return Math.round(x*100)/100; }
@@ -1553,6 +1642,20 @@ document.addEventListener('input',(e)=>{
   const wrap = qs(`.exercise[data-exid="${exId}"]`);
   if (wrap) wrap.classList.toggle('completed', isExerciseCompleted(exId));
   save();
+  // --- Auto start rest timer when reps are entered for sets 1–3 ---
+if (key === 'reps') {
+  const { auto } = getRestPrefs();
+  const setIdx = idx; // 0-based
+  const repsVal = parseInt(inp.value, 10);
+
+  if (auto && setIdx < 3 && repsVal > 0) {
+    // Start a fresh rest timer for THIS exercise's pill
+    timerReset(exId);
+    // Only start if not already running; reset above sets text anyway
+    timerToggle(exId);
+  }
+}
+
 });
 
 document.addEventListener('keydown',(e)=>{
@@ -1587,6 +1690,22 @@ $('unitSelect').addEventListener('change', (e)=>{
     prefs.units = next; savePrefs(); buildLog(); buildTrends();
   }
 });
+
+$('autoTimerEnabled')?.addEventListener('change', ()=> {
+  localStorage.setItem('autoTimerEnabled', $('autoTimerEnabled').checked);
+});
+$('restAlarmEnabled')?.addEventListener('change', ()=> {
+  localStorage.setItem('restAlarmEnabled', $('restAlarmEnabled').checked);
+});
+$('restDuration')?.addEventListener('change', ()=> {
+  const v = Math.max(30, Math.min(600, parseInt($('restDuration').value||'300',10)));
+  $('restDuration').value = v;
+  localStorage.setItem('restDuration', String(v));
+});
+$('restSound')?.addEventListener('change', ()=> {
+  localStorage.setItem('restSound', $('restSound').value);
+});
+   
 $('exportJsonBtn').addEventListener('click', ()=>{
   const blob = new Blob([ JSON.stringify({state,prefs,theme:document.body.getAttribute('data-theme')}, null, 2) ], {type:'application/json'});
   const url = URL.createObjectURL(blob);
