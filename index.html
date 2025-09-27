@@ -1240,7 +1240,7 @@ function timerToggle(exId){
     t.alarmAtMs    = ((durationMin || 5) * 60) * 1000; // minutes → ms
     t.alarmFired   = false;
     t.soundFile    = sound;
-    await Sound.resume?.(); // okay if not async in some browsers
+    Sound.resume?.(); // okay if not async in some browsers
 
 
     t.running = true;
