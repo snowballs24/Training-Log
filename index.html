@@ -458,15 +458,14 @@ nav.card.bottom-nav {
 * { scroll-behavior: smooth; box-sizing: border-box; }   /* ← add box-sizing */
 
    /* === Make "Sets" and "Vol" headings bigger === */
-.table-wrap thead th:not(:first-child) {
-  font-size: 1.05rem;   /* slightly larger text */
-   }
-/* Only affect the numbered set headers */
-thead th:not(:first-child) {
+thead th.setnum{
   font-size: 1rem;
   font-weight: 600;
   text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
 }
+
 
 </style>
 
@@ -1639,6 +1638,28 @@ document.addEventListener('click', async (e)=>{
   }
 });
   
+function recalcVolume(exId){
+  const prepared = ensureFourSets(state.log.prepared[exId]||[]);
+  const vol = prepared.reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0);
+
+  // update Vol pill
+  const volEl = $('vol_'+exId);
+  if (volEl){
+    const last = sessionsForExercise(exId)[0] || null;
+    volEl.textContent = vol;
+    volEl.classList.remove('vol-good','vol-bad','vol-neutral');
+    volEl.classList.add(last ? (vol >= (last.totalVolume||0) ? 'vol-good' : 'vol-bad') : 'vol-neutral');
+  }
+
+  // update Est. 1RM
+  const best = prepared.reduce((b,s)=>{
+    const sc=(+s.weight||0)*(+s.reps||0);
+    return sc>b.sc ? {w:+s.weight||0, r:+s.reps||0, sc} : b;
+  }, {w:0,r:0,sc:0});
+  const est = best.w>0 && best.r>0 ? Math.round(best.w*(1+best.r/30)) : 0;
+  const rmEl = $('rm_'+exId);
+  if (rmEl) rmEl.textContent = est || '—';
+}
 
 document.addEventListener('change',(e)=>{
   if(e.target && e.target.id && e.target.id.startsWith('exCat_day_')){
