@@ -648,20 +648,8 @@ nav.card.bottom-nav {
         <div class="small muted" style="margin-top:6px">Conversion uses 1 kg = 2.20462 lb.</div>
       </div>
 
-      <div class="card">
-        <div style="font-weight:800; margin-bottom:6px">Data</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap">
-          <button class="ghost" id="exportJsonBtn" type="button">Export JSON</button>
-          <label class="ghost" style="padding:.62rem .9rem; cursor:pointer">
-            Import JSON <input id="importJsonInput" type="file" accept="application/json" style="display:none">
-          </label>
-          <button class="ghost" type="button" onclick="cloudRestore && cloudRestore()">Restore from Cloud</button>
-          <button class="ghost" id="checkUpdatesBtn" type="button">Check for updates</button>
-        </div>
-        <div class="small muted" style="margin-top:6px">Export a backup and restore it later.</div>
-      </div>
-
-      <div class="card">
+      
+<div class="card">
   <div style="font-weight:800; margin-bottom:6px">Rest Timer</div>
 
   <label style="display:block; margin-bottom:4px">
@@ -676,7 +664,8 @@ nav.card.bottom-nav {
 
   <label style="display:block; margin-bottom:4px">
     Duration:
-    <input type="number" id="restDuration" min="30" max="600" step="30" style="width:70px"> seconds
+    <input type="number" id="restDurationMin" min="0.5" max="10" step="0.5" style="width:80px">
+    minutes
   </label>
 
   <label style="display:block; margin-bottom:4px">
@@ -688,8 +677,21 @@ nav.card.bottom-nav {
     </select>
   </label>
 </div>
- 
-      
+
+      <div class="card">
+        <div style="font-weight:800; margin-bottom:6px">Data</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <button class="ghost" id="exportJsonBtn" type="button">Export JSON</button>
+          <label class="ghost" style="padding:.62rem .9rem; cursor:pointer">
+            Import JSON <input id="importJsonInput" type="file" accept="application/json" style="display:none">
+          </label>
+          <button class="ghost" type="button" onclick="cloudRestore && cloudRestore()">Restore from Cloud</button>
+          <button class="ghost" id="checkUpdatesBtn" type="button">Check for updates</button>
+        </div>
+        <div class="small muted" style="margin-top:6px">Export a backup and restore it later.</div>
+      </div>
+
+     
     </section>
 
 <nav class="card bottom-nav">
@@ -1183,9 +1185,9 @@ function timerToggle(exId){
 
   // If starting, configure alarm prefs
   if(!t.running){
-    const { alarm, durationSec, sound } = getRestPrefs();
+    const { alarm, durationMin, sound } = getRestPrefs();
     t.alarmEnabled = !!alarm;
-    t.alarmAtMs    = (durationSec||300) * 1000;
+    t.alarmAtMs    = ((durationMin || 5) * 60) * 1000; // minutes → ms
     t.alarmFired   = false;
     t.soundFile    = sound;
     t.audio        = t.alarmEnabled ? new Audio('sounds/' + t.soundFile) : null;
@@ -1418,20 +1420,44 @@ function buildTrends(){
 /* ===== Settings ===== */
 
 function getRestPrefs(){
+  // read minutes (float), default 5.0
+  const minutes = parseFloat(localStorage.getItem('restDurationMin') || '5');
   return {
-    auto: localStorage.getItem('autoTimerEnabled') === 'true',
+    auto:  localStorage.getItem('autoTimerEnabled') === 'true',
     alarm: localStorage.getItem('restAlarmEnabled') === 'true',
-    durationSec: parseInt(localStorage.getItem('restDuration') || '300', 10),
+    durationMin: isNaN(minutes) ? 5 : minutes,
     sound: localStorage.getItem('restSound') || 'ding.mp3'
   };
 }
 
 function hydrateRestTimerSettings(){
-  $('autoTimerEnabled') && ($('autoTimerEnabled').checked = localStorage.getItem('autoTimerEnabled') === 'true');
-  $('restAlarmEnabled') && ($('restAlarmEnabled').checked = localStorage.getItem('restAlarmEnabled') === 'true');
-  $('restDuration') && ($('restDuration').value = localStorage.getItem('restDuration') || 300);
-  $('restSound') && ($('restSound').value = localStorage.getItem('restSound') || 'ding.mp3');
+  // migration from old seconds key if needed
+  const hasMin = localStorage.getItem('restDurationMin') !== null;
+  const oldSecs = localStorage.getItem('restDuration');
+  if (!hasMin && oldSecs !== null) {
+    const m = Math.max(0.5, Math.min(10, (parseInt(oldSecs,10) || 300) / 60));
+    localStorage.setItem('restDurationMin', String(m));
+    // optional: remove old key to avoid confusion
+    // localStorage.removeItem('restDuration');
+  }
+
+  const auto   = localStorage.getItem('autoTimerEnabled') === 'true';
+  const alarm  = localStorage.getItem('restAlarmEnabled') === 'true';
+  const mins   = parseFloat(localStorage.getItem('restDurationMin') || '5');
+  const sound  = localStorage.getItem('restSound') || 'ding.mp3';
+
+  $('autoTimerEnabled').checked = auto;
+  $('restAlarmEnabled').checked = alarm;
+  $('restDurationMin').value = (isNaN(mins) ? 5 : mins);
+  $('restSound').value = sound;
+
+  // ✅ keep storage in sync with UI immediately
+  localStorage.setItem('autoTimerEnabled', String($('autoTimerEnabled').checked));
+  localStorage.setItem('restAlarmEnabled', String($('restAlarmEnabled').checked));
+  localStorage.setItem('restDurationMin', String($('restDurationMin').value));
+  localStorage.setItem('restSound', $('restSound').value);
 }
+
    
 function hydrateSettingsUI(){
   $('unitSelect').value = prefs.units;
@@ -1692,19 +1718,22 @@ $('unitSelect').addEventListener('change', (e)=>{
 });
 
 $('autoTimerEnabled')?.addEventListener('change', ()=> {
-  localStorage.setItem('autoTimerEnabled', $('autoTimerEnabled').checked);
+  localStorage.setItem('autoTimerEnabled', String($('autoTimerEnabled').checked));
 });
 $('restAlarmEnabled')?.addEventListener('change', ()=> {
-  localStorage.setItem('restAlarmEnabled', $('restAlarmEnabled').checked);
+  localStorage.setItem('restAlarmEnabled', String($('restAlarmEnabled').checked));
 });
-$('restDuration')?.addEventListener('change', ()=> {
-  const v = Math.max(30, Math.min(600, parseInt($('restDuration').value||'300',10)));
-  $('restDuration').value = v;
-  localStorage.setItem('restDuration', String(v));
+$('restDurationMin')?.addEventListener('change', ()=> {
+  let v = parseFloat($('restDurationMin').value);
+  if (isNaN(v)) v = 5;
+  v = Math.max(0.5, Math.min(10, v)); // clamp 0.5–10 min
+  $('restDurationMin').value = v;
+  localStorage.setItem('restDurationMin', String(v));
 });
 $('restSound')?.addEventListener('change', ()=> {
   localStorage.setItem('restSound', $('restSound').value);
 });
+
    
 $('exportJsonBtn').addEventListener('click', ()=>{
   const blob = new Blob([ JSON.stringify({state,prefs,theme:document.body.getAttribute('data-theme')}, null, 2) ], {type:'application/json'});
