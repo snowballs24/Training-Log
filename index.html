@@ -775,6 +775,50 @@ const state = {
   uiOpen: {}
 };
 
+// --- Tiny sound engine (Web Audio) ---
+// Uses fetch + decodeAudioData, so it doesn't create a media session.
+// Caches buffers and works on iOS once resumed after any user gesture.
+const Sound = (() => {
+  let ctx = null;
+  const cache = new Map();
+
+  function getCtx() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  }
+  async function resume() {
+    const c = getCtx();
+    if (c.state === 'suspended') { try { await c.resume(); } catch {} }
+  }
+  async function loadBuffer(file) {
+    if (cache.has(file)) return cache.get(file);
+    const c = getCtx();
+    const res = await fetch('sounds/' + file);
+    const arr = await res.arrayBuffer();
+    // Safari quirk: pass a copy to decodeAudioData
+    const buf = await new Promise((resolve, reject) =>
+      c.decodeAudioData(arr.slice(0), resolve, reject)
+    );
+    cache.set(file, buf);
+    return buf;
+  }
+  async function play(file, { volume = 1.0 } = {}) {
+    await resume();
+    const c = getCtx();
+    const buffer = await loadBuffer(file);
+    const src = c.createBufferSource();
+    const gain = c.createGain();
+    gain.gain.value = volume;
+    src.buffer = buffer;
+    src.connect(gain).connect(c.destination);
+    src.start(0);
+    // return a promise that resolves when the sound finishes
+    return new Promise(r => (src.onended = r));
+  }
+  return { resume, play };
+})();
+
+   
 // Track the current page and the last non-settings page
 let currentPage = 'logPage';
 let lastNonSettingsPage = 'logPage';
@@ -1196,7 +1240,8 @@ function timerToggle(exId){
     t.alarmAtMs    = ((durationMin || 5) * 60) * 1000; // minutes → ms
     t.alarmFired   = false;
     t.soundFile    = sound;
-    t.audio        = t.alarmEnabled ? new Audio('sounds/' + t.soundFile) : null;
+    await Sound.resume?.(); // okay if not async in some browsers
+
 
     t.running = true;
     t.start   = Date.now();
@@ -1205,14 +1250,16 @@ function timerToggle(exId){
       const el=$('t_'+exId);
       if(el) el.textContent = readTimerText(exId);
 
-      // Alarm check
-      if(t.alarmEnabled && !t.alarmFired){
-        const elapsed = t.elapsed + (Date.now()-t.start);
-        if(elapsed >= t.alarmAtMs){
-          t.alarmFired = true;
-          try { t.audio && t.audio.play(); } catch {}
-        }
-      }
+// Alarm check
+if (t.alarmEnabled && !t.alarmFired) {
+  const elapsed = t.elapsed + (Date.now() - t.start);
+  if (elapsed >= t.alarmAtMs) {
+    t.alarmFired = true;
+    // PLAY via Web Audio (no Lock Screen player)
+    Sound.play(t.soundFile).catch(()=>{});
+  }
+}
+
     }, 500);
   } else {
     // Pausing
@@ -1767,9 +1814,17 @@ $('restDurationMin')?.addEventListener('change', ()=> {
   $('restDurationMin').value = v;
   localStorage.setItem('restDurationMin', String(v));
 });
-$('restSound')?.addEventListener('change', ()=> {
-  localStorage.setItem('restSound', $('restSound').value);
+$('restSound')?.addEventListener('change', async () => {
+  const file = $('restSound').value;
+  localStorage.setItem('restSound', file);
+
+  // play preview immediately so users can hear what they chose
+  try {
+    await Sound.resume();          // ensure context is active on iOS
+    await Sound.play(file, { volume: 1.0 });
+  } catch {} // ignore if file missing, etc.
 });
+
 
    
 $('exportJsonBtn').addEventListener('click', ()=>{
