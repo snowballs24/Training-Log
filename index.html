@@ -1274,26 +1274,51 @@ function guessCategory(name){
 }
 function wizFinish(){
   const isEdit = !!state.wiz.editingId;
-  const newRoutine = { id: isEdit ? state.wiz.editingId : uid(), name: state.wiz.name || 'Routine', days: [] };
+  const existing = isEdit ? state.routines.find(r => r.id === state.wiz.editingId) : null;
+  const dayIds   = isEdit ? (state.wiz.dayIds || existing?.days.map(d=>d.id) || []) : [];
+
+  const newRoutine = { 
+    id: isEdit ? state.wiz.editingId : uid(),
+    name: state.wiz.name || 'Routine',
+    days: []
+  };
+
   state.wiz.dayNames.forEach((dn, idx) => {
     const dayKey = 'day_'+idx;
     const exList = (state.wiz.dayExercises[dayKey] || []);
-    newRoutine.days.push({
-      id: uid(),
-      name: (dn || `Day ${idx+1}`).trim(),
-      exercises: exList.map(ex => ({ id: uid(), name: ex.name, category: ex.category || guessCategory(ex.name) }))
 
+    // Keep old day id when editing, or create a new one if this is a new day
+    const dayId = (isEdit && dayIds[idx]) ? dayIds[idx] : uid();
+
+    // Keep each exercise’s originalId when present (renamed/reordered is fine)
+    const exercises = exList.map(ex => ({
+      id: (isEdit && ex.originalId) ? ex.originalId : uid(),
+      name: ex.name,
+      category: ex.category || guessCategory(ex.name)
+    }));
+
+    newRoutine.days.push({
+      id: dayId,
+      name: (dn || `Day ${idx+1}`).trim(),
+      exercises
     });
   });
+
   if (isEdit) {
     const i = state.routines.findIndex(r => r.id === state.wiz.editingId);
     if (i >= 0) state.routines[i] = newRoutine;
-    if (state.activeRoutineId === state.wiz.editingId) state.activeRoutineId = state.wiz.editingId;
+    // keep same active id; nothing else to remap since IDs were preserved
     modal.alert('Routine updated.');
   } else {
-    state.routines.push(newRoutine); state.activeRoutineId = newRoutine.id; modal.alert('Routine created.');
+    state.routines.push(newRoutine);
+    state.activeRoutineId = newRoutine.id;
+    modal.alert('Routine created.');
   }
-  save(); renderSelectors(); renderRoutinesList(); show($('wizard'), false);
+
+  save();
+  renderSelectors();
+  renderRoutinesList();
+  show($('wizard'), false);
 }
 
 /* ===== Selectors ===== */
@@ -1844,10 +1869,33 @@ document.addEventListener('click', async (e)=>{
   return;
 }
 
-  if(act==='editRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return;
-    state.wiz.editingId=r.id; state.wiz.name=r.name; state.wiz.daysCount=r.days.length; state.wiz.dayNames=r.days.map(d=>d.name); state.wiz.dayExercises={};
-    r.days.forEach((d,idx)=>{ state.wiz.dayExercises['day_'+idx] = d.exercises.map(e=>({ id:uid(), name:e.name, category:e.category||guessCategory(e.name) })); });
-    openWizard(true); return; }
+if(act==='editRoutine'){ 
+  const id=btn.dataset.id; 
+  const r=state.routines.find(x=>x.id===id); 
+  if(!r) return;
+
+  state.wiz.editingId = r.id;
+  state.wiz.name      = r.name;
+  state.wiz.daysCount = r.days.length;
+  state.wiz.dayNames  = r.days.map(d=>d.name);
+  // keep each original Day ID in order
+  state.wiz.dayIds    = r.days.map(d=>d.id);
+
+  state.wiz.dayExercises = {};
+  // for each exercise, keep a pointer to its originalId
+  r.days.forEach((d,idx)=>{
+    state.wiz.dayExercises['day_'+idx] = d.exercises.map(e=>({
+      id: uid(),                          // temp id for the wizard row
+      originalId: e.id,                   // ← preserve real id for saving
+      name: e.name,
+      category: e.category || guessCategory(e.name)
+    }));
+  });
+
+  openWizard(true); 
+  return; 
+}
+
   if(act==='renameRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return; const val = await modal.prompt('Rename routine:', r.name); if(!val) return; r.name=val.trim(); if(state.activeRoutineId===r.id) renderSelectors(); save(); renderRoutinesList(); return; }
   if(act==='deleteRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return; if(!(await modal.confirm(`Delete routine "${r.name}"? Past logs remain in Trends.`))) return;
     state.routines = state.routines.filter(x=>x.id!==id); if(state.activeRoutineId===id) state.activeRoutineId = state.routines[0]?.id || null; save(); renderRoutinesList(); renderSelectors(); buildLog(); buildTrends(); return; }
