@@ -871,7 +871,8 @@ const state = {
   sessions: [],
   log: { dayId:null, prepared:{}, notes:{}, workoutDate:null },
   wiz: { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} },
-  uiPrevWeeks: {},
+  uiPrevWeeks: {},          // legacy per-exercise (left for backward compat)
+  uiPrevWeeksAll: 1,        // ⬅️ new: shared selection (default 1)
   uiTimers: {},
   uiOpen: {}
 };
@@ -1006,18 +1007,35 @@ function applySurface(){
 function load(){
   try{
     const raw = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
-    Object.assign(state, {
-      routines:raw.routines||[], activeRoutineId:raw.activeRoutineId||null,
-      sessions:raw.sessions||[], uiPrevWeeks:raw.uiPrevWeeks||{},
-      uiOpen:raw.uiOpen||{}, log: { ...state.log, ...(raw.log||{}) }
-    });
+Object.assign(state, {
+  routines: raw.routines || [],
+  activeRoutineId: raw.activeRoutineId || null,
+  sessions: raw.sessions || [],
+  uiPrevWeeks: raw.uiPrevWeeks || {},
+  uiPrevWeeksAll: (raw.uiPrevWeeksAll ?? 1),   // ⬅️ restore shared value
+  uiOpen: raw.uiOpen || {},
+  log: { ...state.log, ...(raw.log || {}) }
+});
+
+// optional one-time migration: if no shared value but some per-ex values exist, pick the first
+if (raw.uiPrevWeeksAll === undefined) {
+  const first = Object.values(state.uiPrevWeeks)[0];
+  if (first !== undefined) state.uiPrevWeeksAll = Math.max(0, Math.min(4, parseInt(first,10) || 1));
+}
+
   }catch{}
 }
 function save(){
-  localStorage.setItem(LS_KEY, JSON.stringify({
-    routines:state.routines, activeRoutineId:state.activeRoutineId, sessions:state.sessions,
-    uiPrevWeeks:state.uiPrevWeeks, uiOpen:state.uiOpen, log:state.log
-  }));
+localStorage.setItem(LS_KEY, JSON.stringify({
+  routines: state.routines,
+  activeRoutineId: state.activeRoutineId,
+  sessions: state.sessions,
+  uiPrevWeeks: state.uiPrevWeeks,     // keep for backward compat
+  uiPrevWeeksAll: state.uiPrevWeeksAll,
+  uiOpen: state.uiOpen,
+  log: state.log
+}));
+
 }
 
 /* ===== Helpers ===== */
@@ -1412,7 +1430,7 @@ function buildLog(){
     const vol=prepared.reduce((a,s)=>a+((+s.weight||0)*(+s.reps||0)),0);
     const last=sessionsForExercise(ex.id)[0]||null;
     const cls = last ? (vol>=last.totalVolume ? 'vol-good' : 'vol-bad') : 'vol-neutral';
-    const prevCount = Math.max(0, Math.min(4, parseInt(state.uiPrevWeeks[ex.id]||0,10)));
+    const prevCount = Math.max(0, Math.min(4, parseInt(state.uiPrevWeeksAll ?? 1, 10)));
     const openClass = state.uiOpen[ex.id] ? ' open' : '';
     const completedClass = isExerciseCompleted(ex.id) ? ' completed' : '';
 
@@ -1500,12 +1518,23 @@ function saveDay(){
   const r=activeRoutine(), d=dayById(r,state.log.dayId); if(!d) return;
   const dateISO=new Date().toISOString();
   const workoutDate = state.log.workoutDate || $('workoutDate').value || dateISO.slice(0,10);
-  d.exercises.forEach(ex=>{
-    const sets=ensureFourSets(state.log.prepared[ex.id]).map(s=>({ set:s.set, weight:+s.weight||0, reps:+s.reps||0 }));
-    const totalVolume=sets.reduce((a,s)=>a+(s.weight*s.reps),0);
-    const note=state.log.notes[ex.id]||'';
-    if(sets.length){ state.sessions.push({ id:uid(), dateISO, workoutDate, routineId:r.id, dayId:d.id, exerciseId:ex.id, sets, totalVolume, note }); }
+d.exercises.forEach(ex=>{
+  const sets = ensureFourSets(state.log.prepared[ex.id]).map(s => ({
+    set: s.set,
+    weight: +s.weight || 0,
+    reps: +s.reps || 0
+  }));
+  const anyReps = sets.some(s => s.reps > 0);
+  if (!anyReps) return; // ⬅️ skip exercises not performed
+
+  const totalVolume = sets.reduce((a,s)=> a + (s.weight * s.reps), 0);
+  const note = state.log.notes[ex.id] || '';
+  state.sessions.push({
+    id: uid(), dateISO, workoutDate, routineId: r.id, dayId: d.id,
+    exerciseId: ex.id, sets, totalVolume, note
   });
+});
+
   save();
 d.exercises.forEach(ex=>{
   const prev = ensureFourSets(state.log.prepared[ex.id] || []);
@@ -1823,13 +1852,25 @@ document.addEventListener('change',(e)=>{
   if(e.target && e.target.id && e.target.id.startsWith('exCat_day_')){
     const dayKey=e.target.id.split('exCat_')[1]; populateExercisePicker(dayKey, e.target.value); return;
   }
-  const sel=e.target.closest('select[data-action="setPrevWeeks"]');
-  if(sel){
-    const exId=sel.dataset.exid; const val=parseInt(sel.value,10)||0;
-    state.uiPrevWeeks[exId]=Math.max(0,Math.min(4,val));
-    state.uiOpen[exId] = true;
-    save(); buildLog(); return;
-  }
+const sel = e.target.closest('select[data-action="setPrevWeeks"]');
+if (sel) {
+  const val = Math.max(0, Math.min(4, parseInt(sel.value, 10) || 0));
+  state.uiPrevWeeksAll = val;       // ⬅️ update shared value
+
+  // keep current exercise open; leave others as they are
+  const exId = sel.dataset.exid;
+  if (exId) state.uiOpen[exId] = true;
+
+  save();
+
+  // update all dropdowns in-place so there’s no jump
+  qsa('select[data-action="setPrevWeeks"]').forEach(s => { s.value = String(val); });
+
+  // refresh the prev tables without collapsing open rows
+  buildLog();
+  return;
+}
+
 if(id==='activeRoutine'){
   state.activeRoutineId = $('activeRoutine').value || null;
 
