@@ -770,21 +770,23 @@ thead th.setnum{
   </label>
 </div>
 
-      <div class="card">
-        <div style="font-weight:800; margin-bottom:6px">Data</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap">
-          <!-- ⬆️ Move this to the top -->
-          <button class="ghost" id="checkUpdatesBtn" type="button">Check for updates</button>
+<div class="card">
+  <div style="font-weight:800; margin-bottom:6px">Data</div>
+  <div style="display:flex; flex-direction:column; gap:8px">
+    <!-- Top row: Check for updates -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <button class="ghost" id="checkUpdatesBtn" type="button">Check for updates</button>
+    </div>
 
-          <!-- ⬇️ Rename JSON buttons -->
-          <button class="ghost" id="exportJsonBtn" type="button">Export Backup</button>
-
-          <!-- ⬇️ Make Import look like a normal button; input stays hidden -->
-          <button class="ghost" id="importJsonBtn" type="button">Import Backup</button>
-          <input id="importJsonInput" type="file" accept="application/json" style="display:none">
-        </div>
-        <div class="small muted" style="margin-top:6px">Export a backup and restore it later.</div>
-      </div>
+    <!-- Second row: Export + Import -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <button class="ghost" id="exportJsonBtn" type="button">Export Backup</button>
+      <button class="ghost" id="importJsonBtn" type="button">Import Backup</button>
+      <input id="importJsonInput" type="file" accept="application/json" style="display:none">
+    </div>
+  </div>
+  <div class="small muted" style="margin-top:6px">Export a backup and restore it later.</div>
+</div>
 
      
     </section>
