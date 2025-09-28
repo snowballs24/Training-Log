@@ -1092,7 +1092,7 @@ function showPage(which){
 
   ['logPage','routinesPage','historyPage','settingsPage'].forEach(id=> $(id).classList.toggle('hidden', id!==which));
   if(which==='logPage'){ renderSelectors(); buildLog(); }
-  if(which==='historyPage'){ renderSelectors(); buildTrends(); }
+  if(which==='historyPage'){ renderSelectors(); renderTrendsDaySelector(); buildTrends(); }
   if(which==='routinesPage'){ renderRoutinesList(); }
   if(which==='settingsPage'){ hydrateSettingsUI(); }
 }
@@ -1306,6 +1306,31 @@ function renderSelectors(){
   const cur = state.log.workoutDate || $('workoutDate').value || todayISO();
   $('workoutDate').value = cur;
 }
+function renderTrendsDaySelector(){
+  const sel = $('trendDaySelect');
+  if (!sel) return;
+
+  sel.innerHTML = '';
+
+  const r = activeRoutine();
+  if (!r || !r.days || !r.days.length){
+    sel.appendChild(new Option('(No days)', ''));
+    state.trendsDayId = null;
+    return;
+  }
+
+  // If saved id not in this routine, fall back to first day
+  if (!state.trendsDayId || !r.days.some(d => d.id === state.trendsDayId)) {
+    state.trendsDayId = r.days[0].id;
+  }
+
+  r.days.forEach(d => {
+    const opt = new Option(d.name, d.id);
+    if (d.id === state.trendsDayId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
 $('workoutDate').addEventListener('change', (e)=>{
   state.log.workoutDate = e.target.value || todayISO(); save();
 });
@@ -1890,6 +1915,7 @@ function recalcVolume(exId){
 }
 
 document.addEventListener('change',(e)=>{
+const id = (e.target && e.target.id) || '';
   if(e.target && e.target.id && e.target.id.startsWith('exCat_day_')){
     const dayKey=e.target.id.split('exCat_')[1]; populateExercisePicker(dayKey, e.target.value); return;
   }
@@ -1932,8 +1958,13 @@ if(id==='activeRoutine'){
   };
 
   state.uiOpen = {};
-  save(); renderSelectors(); buildLog(); buildTrends();
+  save();
+  renderSelectors();
+  renderTrendsDaySelector(); // ⬅️ populate Trends day options for the newly selected routine
+  buildLog();
+  buildTrends();
 }else if(id==='logDaySelect'){
+
     state.log.dayId=$('logDaySelect').value||null; state.uiOpen = {}; save(); buildLog(); buildTrends();
   }else if(id==='trendWeeks'){ buildTrends(); }
 });
@@ -2059,7 +2090,14 @@ $('importJsonInput').addEventListener('change', async (e)=>{
     localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
   }
   loadPrefs(); applyTheme(); applyAccent(); applySurface(); load();
-  renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage'; showPage(startPage);
+  renderSelectors();
+renderTrendsDaySelector();  // ⬅️ ensure dropdown has options on first load
+buildLog();
+buildTrends();
+renderRoutinesList();
+const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
+showPage(startPage);
+
 
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
 })();
