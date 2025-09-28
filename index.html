@@ -1953,17 +1953,18 @@ if ('serviceWorker' in navigator) {
 </script>
 <script>
 (() => {
-  /* Color-blind–friendly palette for TYPE COLORS (letter now from day name) */
-  const TYPE_COLORS = {
-    chest:     [214, 97,   0],  // #D66100
-    back:      [  0,114,178],   // #0072B2
-    legs:      [  0,158,115],   // #009E73
-    shoulders: [240,228, 66],   // #F0E442
-    arms:      [204,121,167],   // #CC79A7
-    full:      [230,159,  0],   // #E69F00
-  };
+  // Predefined safe color palette to cycle through
+  const SAFE_COLORS = [
+    [214, 97, 0],    // orange
+    [0, 114, 178],   // blue
+    [0, 158, 115],   // green
+    [240, 228, 66],  // yellow
+    [204, 121, 167], // purple-pink
+    [230, 159, 0],   // amber
+    [86, 180, 233],  // sky blue
+    [213, 94, 0],    // rust
+  ];
 
-  // Elements
   const legendEl = document.getElementById('cal-legend');
   const gridEl   = document.getElementById('cal-grid');
   const labelEl  = document.getElementById('cal-month-label');
@@ -1972,268 +1973,179 @@ if ('serviceWorker' in navigator) {
   const popEl    = document.getElementById('cal-popup');
   const popCard  = popEl?.querySelector('.cal-pop-card');
   const popClose = document.getElementById('pop-close');
-  if (!legendEl || !gridEl || !labelEl) return; // History page not present
+  if (!legendEl || !gridEl || !labelEl) return;
 
-  // Intensity settings
-  const INTENSITY_MODE = 'volume'; // 'sets' | 'volume'
+  // Intensity shading
+  const INTENSITY_MODE = 'volume';
   const INTENSITY_CLAMP = { min: 0, max: (INTENSITY_MODE === 'sets' ? 100 : 60000) };
-  const alphaFromIntensity = (value) => {
-    const { min, max } = INTENSITY_CLAMP;
-    const v = Math.max(min, Math.min(max, value || 0));
-    const n = (v - min) / Math.max(1, max - min);
-    return 0.20 + n * 0.75; // 0.20 → 0.95
+  const alphaFromIntensity = (v) => {
+    const c = Math.max(INTENSITY_CLAMP.min, Math.min(INTENSITY_CLAMP.max, v||0));
+    const n = (c-INTENSITY_CLAMP.min)/Math.max(1, INTENSITY_CLAMP.max-INTENSITY_CLAMP.min);
+    return 0.2 + n*0.75;
   };
   const luminance = ([r,g,b]) => 0.2126*r + 0.7152*g + 0.0722*b;
-  const formatVolume = (v) => (!v || v<=0) ? '0' : (v>=1000 ? (v/1000).toFixed(1)+'k' : String(v));
-  const toISO = (y,m,d)=> `${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+  const formatVolume = (v)=> (!v||v<=0)?'0':(v>=1000?(v/1000).toFixed(1)+'k':String(v));
+  const toISO=(y,m,d)=>`${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
 
-  // 1) Abbreviation from the actual day name
-  function abbrevFromDayName(name='') {
-    const trimmed = name.trim();
-    if (!trimmed) return '•';
-    // Pick the first A–Z letter if present; else first visible char.
-    const m = trimmed.match(/[A-Za-z]/u);
-    const ch = (m ? m[0] : trimmed[0]);
-    return ch.toLocaleUpperCase();
+  // 🔡 Abbreviation: first 2 chars (Uc+lc)
+  function abbrevFromDayName(name=''){
+    const t = name.trim();
+    if (!t) return '•';
+    if (t.length === 1) return t.toUpperCase();
+    return t[0].toUpperCase() + t[1].toLowerCase();
   }
 
-  // 2) Infer a broad type for COLOR from the day name (keeps your nice palette)
-  function inferTypeFromDayName(name='') {
-    const n = name.toLowerCase();
-    if (n.includes('chest')) return 'chest';
-    if (n.includes('back') && !n.includes('should')) return 'back';
-    if (n.includes('leg') || n.includes('squat')) return 'legs';
-    if (n.includes('should')) return 'shoulders';
-    if (n.includes('arm') || n.includes('bicep') || n.includes('tricep')) return 'arms';
-    if (n.includes('full')) return 'full';
-    // common customs:
-    if (n.includes('push')) return 'chest';
-    if (n.includes('pull')) return 'back';
-    if (n.includes('core') || n.includes('abs')) return 'full';
-    return 'full';
-  }
-
-  // Build an index of dayId -> { dayName, routineId, routineName }
-  function buildDayIndex() {
-    const byDayId = new Map();
+  // Build a color map for unique day names
+  function buildDayColorMap(){
+    const map = new Map();
+    let i = 0;
     (state.routines || []).forEach(r=>{
-      (r.days||[]).forEach(d=> byDayId.set(d.id, { dayName:d.name, routineId:r.id, routineName:r.name }));
-    });
-    return byDayId;
-  }
-
-  // Make a dynamic legend from the user's actual days (letter + name, colored by inferred type)
-  function renderLegend() {
-    const items = [];
-    (state.routines || []).forEach(r=>{
-      (r.days || []).forEach(d=>{
-        const letter = abbrevFromDayName(d.name);
-        const type = inferTypeFromDayName(d.name);
-        const color = TYPE_COLORS[type];
-        items.push({ key: `${r.id}:${d.id}`, letter, name: d.name, color });
+      (r.days||[]).forEach(d=>{
+        const key = d.name.trim().toLowerCase();
+        if (!map.has(key)){
+          const color = SAFE_COLORS[i % SAFE_COLORS.length];
+          map.set(key, { color, letter: abbrevFromDayName(d.name), name: d.name });
+          i++;
+        }
       });
     });
-    // Deduplicate by day name (case-insensitive) to avoid very long legends
-    const seen = new Set();
-    const uniq = items.filter(it => {
-      const k = it.name.trim().toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-    legendEl.innerHTML = uniq.map(v => `
+    return map;
+  }
+
+  // Legend from actual routine days
+  function renderLegend(dayMap){
+    legendEl.innerHTML = [...dayMap.values()].map(v=>`
       <div class="legend-item">
         <span class="swatch" style="background: rgb(${v.color.join(',')})"></span>
         <span><strong>${v.letter}</strong> — ${v.name}</span>
       </div>
-    `).join('') || `<div class="small muted">No routines yet — the legend will appear here.</div>`;
+    `).join('') || `<div class="small muted">No routines yet</div>`;
   }
 
-  // Aggregate real data → { 'YYYY-MM-DD': { letter, colorRGB, title, totalSets, totalReps, totalVolume, notes } }
-  function getWorkoutsByDate(year, month) {
+  // Aggregate workouts per day
+  function getWorkoutsByDate(year, month, dayMap){
     const byDate = {};
-    const byDayId = buildDayIndex();
-
-    (state.sessions || []).forEach(s=>{
-      const iso = (s.workoutDate || s.dateISO || '').slice(0,10);
+    (state.sessions||[]).forEach(s=>{
+      const iso = (s.workoutDate||s.dateISO||'').slice(0,10);
       if (!iso) return;
       const d = new Date(iso);
       if (isNaN(d)) return;
-      if (d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
+      if (d.getFullYear()!==year || (d.getMonth()+1)!==month) return;
 
-      const meta = byDayId.get(s.dayId) || { dayName: 'Workout', routineName: '' };
-      const letter = abbrevFromDayName(meta.dayName);
-      const type   = inferTypeFromDayName(meta.dayName);
-      const color  = TYPE_COLORS[type];
+      const dayMeta = (state.routines||[]).flatMap(r=>r.days||[]).find(dd=>dd.id===s.dayId);
+      const dayName = dayMeta?.name || 'Workout';
+      const key = dayName.trim().toLowerCase();
+      const info = dayMap.get(key);
+      if (!info) return;
 
-      if (!byDate[iso]) {
+      if (!byDate[iso]){
         byDate[iso] = {
-          letter,
-          colorRGB: color,
-          title: meta.dayName,
-          totalSets: 0,
-          totalReps: 0,
-          totalVolume: 0,
-          notes: []
+          letter: info.letter,
+          colorRGB: info.color,
+          title: dayName,
+          totalSets: 0, totalReps: 0, totalVolume: 0, notes:[]
         };
       }
-      const entry = byDate[iso];
-      const setsArr = Array.isArray(s.sets) ? s.sets : [];
-      entry.totalSets   += setsArr.length;
-      entry.totalReps   += setsArr.reduce((a,x)=> a + (+x.reps||0), 0);
-      entry.totalVolume += +s.totalVolume || 0;
-      if (s.note && s.note.trim()) entry.notes.push(s.note.trim());
-
-      // If multiple different routine days were logged on the same date,
-      // keep the first letter we saw (simple), or you can switch to
-      // "heaviest volume wins" by comparing entry.totalVolume.
+      const e = byDate[iso];
+      const setsArr = Array.isArray(s.sets)?s.sets:[];
+      e.totalSets += setsArr.length;
+      e.totalReps += setsArr.reduce((a,x)=>a+(+x.reps||0),0);
+      e.totalVolume += +s.totalVolume || 0;
+      if (s.note && s.note.trim()) e.notes.push(s.note.trim());
     });
-
-    Object.keys(byDate).forEach(k => byDate[k].notes = byDate[k].notes.join('\n'));
+    Object.keys(byDate).forEach(k=> byDate[k].notes = byDate[k].notes.join('\n'));
     return byDate;
   }
 
   // Calendar render
-  let lastFocusedDay = null;
-  let view = (()=>{ const n=new Date(); return { y:n.getFullYear(), m:n.getMonth()+1 }; })();
+  let lastFocusedDay=null;
+  let view = (()=>{const n=new Date();return{y:n.getFullYear(),m:n.getMonth()+1};})();
 
-  function render() {
-    renderLegend();
-    labelEl.textContent = new Date(view.y, view.m-1, 1).toLocaleString(undefined, { month:'long', year:'numeric' });
+  function render(){
+    const dayMap = buildDayColorMap();
+    renderLegend(dayMap);
+    labelEl.textContent = new Date(view.y, view.m-1, 1).toLocaleString(undefined,{month:'long',year:'numeric'});
 
-    while (gridEl.children.length > 7) gridEl.removeChild(gridEl.lastChild);
+    while (gridEl.children.length>7) gridEl.removeChild(gridEl.lastChild);
 
-    const first = new Date(view.y, view.m-1, 1);
-    const startWeekday = (first.getDay() + 6) % 7; // Monday start
-    const daysInMonth = new Date(view.y, view.m, 0).getDate();
-    const dataMap = getWorkoutsByDate(view.y, view.m);
+    const first=new Date(view.y,view.m-1,1);
+    const start=(first.getDay()+6)%7;
+    const daysInMonth=new Date(view.y,view.m,0).getDate();
+    const dataMap=getWorkoutsByDate(view.y,view.m,dayMap);
 
-    for (let i=0;i<startWeekday;i++) gridEl.appendChild(makeBlank());
-    for (let d=1; d<=daysInMonth; d++){
-      const iso = toISO(view.y, view.m, d);
-      const e = dataMap[iso];
-      gridEl.appendChild(e ? makeWorkoutDay(d, iso, e) : makeEmptyDay(d, iso));
+    for(let i=0;i<start;i++) gridEl.appendChild(makeBlank());
+    for(let d=1;d<=daysInMonth;d++){
+      const iso=toISO(view.y,view.m,d);
+      const e=dataMap[iso];
+      gridEl.appendChild(e?makeWorkoutDay(d,iso,e):makeEmptyDay(d,iso));
     }
   }
 
   function makeBlank(){
-    const el = document.createElement('div');
-    el.className = 'cal-day disabled';
+    const el=document.createElement('div');
+    el.className='cal-day disabled';
     el.setAttribute('role','gridcell');
     el.setAttribute('aria-hidden','true');
     return el;
   }
   function makeEmptyDay(dayNum, iso){
-    const el = document.createElement('button');
-    el.className = 'cal-day empty';
+    const el=document.createElement('button');
+    el.className='cal-day empty';
     el.type='button';
     el.setAttribute('role','gridcell');
-    el.dataset.date = iso;
-    el.innerHTML = `<span class="date-label">${dayNum}</span>`;
-    el.title = `${iso}: No workout`;
-    el.setAttribute('aria-label', el.title);
-    el.addEventListener('click', () => openPopupAt(el, { title:'No workout', totalSets:0, totalReps:0, totalVolume:0, notes:'' }));
-    el.addEventListener('keydown', onDayKey);
+    el.innerHTML=`<span class="date-label">${dayNum}</span>`;
+    el.title=`${iso}: No workout`;
     return el;
   }
-  function makeWorkoutDay(dayNum, iso, entry){
-    const el = document.createElement('button');
-    el.className = 'cal-day';
+  function makeWorkoutDay(dayNum, iso, e){
+    const el=document.createElement('button');
+    el.className='cal-day';
     el.type='button';
     el.setAttribute('role','gridcell');
-    el.dataset.date = iso;
-
-    const intensityVal = (INTENSITY_MODE === 'sets') ? entry.totalSets : entry.totalVolume;
-    const alpha = alphaFromIntensity(intensityVal);
-    const [r,g,b] = entry.colorRGB;
-
-    el.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-
-    const lum = luminance(entry.colorRGB);
-    const perceived = alpha * lum;
-    el.style.color = (perceived > 140) ? '#0e0f1a' : '#ffffff';
-    if (alpha < 0.32) el.classList.add('low-contrast');
-
-    el.innerHTML = `
+    const alpha=alphaFromIntensity(INTENSITY_MODE==='sets'?e.totalSets:e.totalVolume);
+    const [r,g,b]=e.colorRGB;
+    el.style.backgroundColor=`rgba(${r},${g},${b},${alpha})`;
+    const lum=luminance(e.colorRGB);
+    const perceived=alpha*lum;
+    el.style.color=(perceived>140)?'#0e0f1a':'#ffffff';
+    if(alpha<0.32) el.classList.add('low-contrast');
+    el.innerHTML=`
       <span class="date-label">${dayNum}</span>
-      <span class="type-letter">${entry.letter}</span>
-    `;
-
-    const volStr = formatVolume(entry.totalVolume);
-    const title  = entry.title || 'Workout';
-    el.title = `${iso}: ${title} — ${entry.totalSets} sets, ${entry.totalReps} reps, volume ${volStr}`;
-    el.setAttribute('aria-label', el.title);
-
-    el.addEventListener('click', () => {
-      lastFocusedDay = el;
-      openPopupAt(el, {
-        title,
-        totalSets: entry.totalSets||0,
-        totalReps: entry.totalReps||0,
-        totalVolume: entry.totalVolume||0,
-        notes: entry.notes||''
-      });
-    });
-    el.addEventListener('keydown', onDayKey);
+      <span class="type-letter">${e.letter}</span>`;
+    el.title=`${iso}: ${e.title} — ${e.totalSets} sets, ${e.totalReps} reps, volume ${formatVolume(e.totalVolume)}`;
+    el.addEventListener('click',()=>openPopupAt(el,e));
     return el;
   }
 
-  function onDayKey(e){
-    const current = e.currentTarget;
-    const days = [...gridEl.querySelectorAll('.cal-day:not(.disabled)')];
-    const idx = days.indexOf(current), cols = 7;
-    switch (e.key){
-      case 'Enter': case ' ': current.click(); e.preventDefault(); break;
-      case 'ArrowRight': (days[idx+1]||current).focus(); e.preventDefault(); break;
-      case 'ArrowLeft':  (days[idx-1]||current).focus(); e.preventDefault(); break;
-      case 'ArrowDown':  (days[idx+cols]||current).focus(); e.preventDefault(); break;
-      case 'ArrowUp':    (days[idx-cols]||current).focus(); e.preventDefault(); break;
-    }
-  }
-
-  function openPopupAt(anchorEl, data){
-    if (!popEl || !popCard) return;
-    document.getElementById('pop-title').textContent = data.title || 'Workout';
-    document.getElementById('pop-sets-reps').textContent = `${data.totalSets} sets / ${data.totalReps} reps`;
-    document.getElementById('pop-volume').textContent = formatVolume(data.totalVolume);
-    document.getElementById('pop-notes').textContent = data.notes ? `Notes: ${data.notes}` : '—';
-
-    const rect = anchorEl.getBoundingClientRect();
-    popEl.hidden = false;
-    const margin = 8, cardRect = popCard.getBoundingClientRect();
-    let top = window.scrollY + rect.top - cardRect.height - margin;
-    let left= window.scrollX + rect.left + (rect.width - cardRect.width)/2;
-    if (top < window.scrollY + 8) top = window.scrollY + rect.bottom + margin;
-    left = Math.max(window.scrollX + 8, Math.min(left, window.scrollX + window.innerWidth - cardRect.width - 8));
-    popCard.style.top = `${top}px`; popCard.style.left = `${left}px`;
-
+  function openPopupAt(anchorEl,data){
+    document.getElementById('pop-title').textContent=data.title||'Workout';
+    document.getElementById('pop-sets-reps').textContent=`${data.totalSets} sets / ${data.totalReps} reps`;
+    document.getElementById('pop-volume').textContent=formatVolume(data.totalVolume);
+    document.getElementById('pop-notes').textContent=data.notes?`Notes: ${data.notes}`:'—';
+    const rect=anchorEl.getBoundingClientRect();
+    popEl.hidden=false;
+    const card=popCard,margin=8,cardRect=card.getBoundingClientRect();
+    let top=window.scrollY+rect.top-cardRect.height-margin;
+    let left=window.scrollX+rect.left+(rect.width-cardRect.width)/2;
+    if(top<window.scrollY+8) top=window.scrollY+rect.bottom+margin;
+    left=Math.max(window.scrollX+8,Math.min(left,window.scrollX+window.innerWidth-cardRect.width-8));
+    card.style.top=`${top}px`; card.style.left=`${left}px`;
     popClose?.focus();
-    document.addEventListener('click', onOutside, { capture:true });
-    document.addEventListener('keydown', onEsc);
+    document.addEventListener('click',onOutside,{capture:true});
+    document.addEventListener('keydown',onEsc);
   }
-  function onOutside(e){ if (!popCard.contains(e.target)) closePopup(); }
-  function onEsc(e){ if (e.key === 'Escape') closePopup(); }
-  function closePopup(){
-    popEl.hidden = true;
-    document.removeEventListener('click', onOutside, { capture:true });
-    document.removeEventListener('keydown', onEsc);
-    lastFocusedDay?.focus();
-  }
-  popClose?.addEventListener('click', closePopup);
+  function onOutside(e){ if(!popCard.contains(e.target)) closePopup(); }
+  function onEsc(e){ if(e.key==='Escape') closePopup(); }
+  function closePopup(){ popEl.hidden=true; document.removeEventListener('click',onOutside,{capture:true}); document.removeEventListener('keydown',onEsc); lastFocusedDay?.focus(); }
+  popClose?.addEventListener('click',closePopup);
 
-  prevBtn?.addEventListener('click', ()=> stepMonth(-1));
-  nextBtn?.addEventListener('click', ()=> stepMonth(1));
-  function stepMonth(delta){
-    let m = view.m + delta, y = view.y;
-    if (m < 1) { m = 12; y--; }
-    if (m > 12){ m = 1;  y++; }
-    view = { y, m }; render();
-  }
+  prevBtn?.addEventListener('click',()=>{view.m--;if(view.m<1){view.m=12;view.y--;}render();});
+  nextBtn?.addEventListener('click',()=>{view.m++;if(view.m>12){view.m=1;view.y++;}render();});
 
-  // Initial paint
   render();
 })();
 </script>
+
 
 
 </body>
