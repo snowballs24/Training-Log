@@ -814,6 +814,33 @@ thead th.setnum{
 }
 </style>
 
+<style>
+/* ===== Calendar fixes (overrides global button styles) ===== */
+.cal-grid{
+  /* prevent any accidental horizontal overflow */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  max-width: 100%;
+}
+
+.calendar-page, #historyPage .card { overflow-x: hidden; }
+
+/* kill the global button gradient/padding/box-shadow for day cells */
+.cal-day{
+  padding: 0 !important;
+  background: none !important;         /* removes global gradient */
+  box-shadow: none !important;
+}
+
+/* keep empty-day look, but still override gradients */
+.cal-day.empty{ background: var(--card) !important; }
+
+/* keep the little hover lift but no layout shift */
+.cal-day:hover{ transform: translateY(-1px); }
+
+/* allow mixed-case letters like 'Ch', 'Co' */
+.cal-day .type-letter{ text-transform: none !important; }
+</style>
+
 <div id="modalRoot" class="app-modal hidden" aria-hidden="true">
   <div class="app-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <h3 id="modalTitle">Notice</h3>
@@ -1988,12 +2015,14 @@ if ('serviceWorker' in navigator) {
   const toISO=(y,m,d)=>`${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
 
   // 🔡 Abbreviation: first 2 chars (Uc+lc)
-  function abbrevFromDayName(name=''){
-    const t = name.trim();
-    if (!t) return '•';
-    if (t.length === 1) return t.toUpperCase();
-    return t[0].toUpperCase() + t[1].toLowerCase();
-  }
+function abbrevFromDayName(name=''){
+  const t = (name || '').trim();
+  if (!t) return '•';
+  const a = t.charAt(0);
+  const b = t.charAt(1) || '';
+  return a.toLocaleUpperCase() + (b ? b.toLocaleLowerCase() : '');
+}
+
 
   // Build a color map for unique day names
   function buildDayColorMap(){
@@ -2104,7 +2133,7 @@ if ('serviceWorker' in navigator) {
     el.setAttribute('role','gridcell');
     const alpha=alphaFromIntensity(INTENSITY_MODE==='sets'?e.totalSets:e.totalVolume);
     const [r,g,b]=e.colorRGB;
-    el.style.backgroundColor=`rgba(${r},${g},${b},${alpha})`;
+    el.style.background = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     const lum=luminance(e.colorRGB);
     const perceived=alpha*lum;
     el.style.color=(perceived>140)?'#0e0f1a':'#ffffff';
