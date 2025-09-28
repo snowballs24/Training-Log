@@ -2008,7 +2008,7 @@ if ('serviceWorker' in navigator) {
   const alphaFromIntensity = (v) => {
     const c = Math.max(INTENSITY_CLAMP.min, Math.min(INTENSITY_CLAMP.max, v||0));
     const n = (c-INTENSITY_CLAMP.min)/Math.max(1, INTENSITY_CLAMP.max-INTENSITY_CLAMP.min);
-    return 0.2 + n*0.75;
+    return 0.40 + n*0.60;
   };
   const luminance = ([r,g,b]) => 0.2126*r + 0.7152*g + 0.0722*b;
   const formatVolume = (v)=> (!v||v<=0)?'0':(v>=1000?(v/1000).toFixed(1)+'k':String(v));
