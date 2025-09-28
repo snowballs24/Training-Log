@@ -666,17 +666,29 @@ thead th.setnum{
 
   <!-- Trends card (unchanged UI, just moved under History) -->
   <div class="card" id="history-trends" style="margin-top:12px">
-    <div class="dl-head" style="margin:0;padding-bottom:0;border:0">
-      <h2>Trends</h2>
-      <div class="dl-controls">
-        <select id="trendWeeks">
-          <option value="4">Last 4</option>
-          <option value="8" selected>Last 8</option>
-          <option value="12">Last 12</option>
-        </select>
-      </div>
-    </div>
-    <div id="trendsArea" style="margin-top:8px" class="muted">No data yet. Save a few days to see trends.</div>
+<div class="dl-head" style="margin:0;padding-bottom:0;border:0">
+  <h2 style="display:flex;align-items:center;gap:8px">
+    <button class="icon" type="button" data-action="toggleTrendsCard" aria-expanded="true" aria-controls="trendsContent" title="Collapse / expand">▾</button>
+    Trends
+  </h2>
+  <div class="dl-controls" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+    <label class="small">Day
+      <select id="trendDaySelect"></select>
+    </label>
+    <label class="small">Window
+      <select id="trendWeeks">
+        <option value="4">Last 4</option>
+        <option value="8" selected>Last 8</option>
+        <option value="12">Last 12</option>
+      </select>
+    </label>
+  </div>
+</div>
+
+<div id="trendsContent" style="margin-top:8px">
+  <div id="trendsArea" class="muted">No data yet. Save a few days to see trends.</div>
+</div>
+
   </div>
 </section>
 
@@ -839,6 +851,10 @@ thead th.setnum{
 
 /* allow mixed-case letters like 'Ch', 'Co' */
 .cal-day .type-letter{ text-transform: none !important; }
+
+/* Trends collapsible caret rotate */
+button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotate(-90deg); }
+
 </style>
 
 <div id="modalRoot" class="app-modal hidden" aria-hidden="true">
@@ -871,11 +887,14 @@ const state = {
   sessions: [],
   log: { dayId:null, prepared:{}, notes:{}, workoutDate:null },
   wiz: { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} },
-  uiPrevWeeks: {},          // legacy per-exercise (left for backward compat)
-  uiPrevWeeksAll: 1,        // ⬅️ new: shared selection (default 1)
+  uiPrevWeeks: {},
+  uiPrevWeeksAll: 1,
   uiTimers: {},
-  uiOpen: {}
+  uiOpen: {},
+  trendsDayId: null,         // ⬅️ NEW: day used by History→Trends
+  uiTrendsCollapsed: true   // ⬅️ NEW: collapse state
 };
+
 
 // --- Tiny sound engine (Web Audio) ---
 // Uses fetch + decodeAudioData, so it doesn't create a media session.
@@ -1012,9 +1031,11 @@ Object.assign(state, {
   activeRoutineId: raw.activeRoutineId || null,
   sessions: raw.sessions || [],
   uiPrevWeeks: raw.uiPrevWeeks || {},
-  uiPrevWeeksAll: (raw.uiPrevWeeksAll ?? 1),   // ⬅️ restore shared value
+  uiPrevWeeksAll: (raw.uiPrevWeeksAll ?? 1),
   uiOpen: raw.uiOpen || {},
-  log: { ...state.log, ...(raw.log || {}) }
+  log: { ...state.log, ...(raw.log || {}) },
+  trendsDayId: raw.trendsDayId || null,                 // ⬅️
+  uiTrendsCollapsed: !!raw.uiTrendsCollapsed            // ⬅️
 });
 
 // optional one-time migration: if no shared value but some per-ex values exist, pick the first
@@ -1030,10 +1051,12 @@ localStorage.setItem(LS_KEY, JSON.stringify({
   routines: state.routines,
   activeRoutineId: state.activeRoutineId,
   sessions: state.sessions,
-  uiPrevWeeks: state.uiPrevWeeks,     // keep for backward compat
+  uiPrevWeeks: state.uiPrevWeeks,
   uiPrevWeeksAll: state.uiPrevWeeksAll,
   uiOpen: state.uiOpen,
-  log: state.log
+  log: state.log,
+  trendsDayId: state.trendsDayId,                // ⬅️
+  uiTrendsCollapsed: state.uiTrendsCollapsed     // ⬅️
 }));
 
 }
@@ -1582,11 +1605,20 @@ function renderLineChart(data, labels){
   </svg></div>`;
 }
 function buildTrends(){
-  const a=activeRoutine(); const area=$('trendsArea');
-  const lbl = (s)=> fmtShortDate(s.workoutDate||s.dateISO);
-  if(!a){ area.textContent='Create a routine to begin.'; return; }
-  const N = parseInt($('trendWeeks').value,10) || 8;
-  const day = state.log.dayId ? dayById(a,state.log.dayId) : a.days[0];
+const a = activeRoutine();
+const area = $('trendsArea');
+const lbl = (s)=> fmtShortDate(s.workoutDate||s.dateISO);
+if(!a){ area.textContent='Create a routine to begin.'; return; }
+const N = parseInt($('trendWeeks').value,10) || 8;
+
+// Prefer the History selector; fall back to Log if needed; else first
+let day = null;
+if (state.trendsDayId) day = dayById(a, state.trendsDayId);
+if (!day && state.log.dayId) day = dayById(a, state.log.dayId);
+if (!day) day = a.days[0];
+
+if (!day){ area.textContent='No days in routine.'; return; }
+
   if(!day){ area.textContent='No days in routine.'; return; }
   let html='';
   day.exercises.forEach(ex=>{
@@ -1763,6 +1795,15 @@ async function checkForUpdatesAndRefresh() {
 document.addEventListener('click', async (e)=>{
   const btn=e.target.closest('[data-action]'); if(!btn) return;
   const act=btn.dataset.action;
+  if (act === 'toggleTrendsCard') {
+  const content = $('trendsContent');
+  const isOpen = content && content.style.display !== 'none';
+  if (content) content.style.display = isOpen ? 'none' : '';
+  btn.setAttribute('aria-expanded', String(!isOpen));
+  state.uiTrendsCollapsed = isOpen;
+  save();
+  return;
+}
 
   if(act==='navLog'){ showPage('logPage'); return; }
   if(act==='navRoutines'){ showPage('routinesPage'); return; }
@@ -1868,6 +1909,13 @@ if (sel) {
 
   // refresh the prev tables without collapsing open rows
   buildLog();
+  return;
+}
+// Trends → Day selector (independent of Log)
+if (e.target && e.target.id === 'trendDaySelect') {
+  state.trendsDayId = e.target.value || null;
+  save();
+  buildTrends();
   return;
 }
 
