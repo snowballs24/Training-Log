@@ -773,12 +773,15 @@ thead th.setnum{
       <div class="card">
         <div style="font-weight:800; margin-bottom:6px">Data</div>
         <div style="display:flex; gap:8px; flex-wrap:wrap">
-          <button class="ghost" id="exportJsonBtn" type="button">Export JSON</button>
-          <label class="ghost" style="padding:.62rem .9rem; cursor:pointer">
-            Import JSON <input id="importJsonInput" type="file" accept="application/json" style="display:none">
-          </label>
-          <button class="ghost" type="button" onclick="cloudRestore && cloudRestore()">Restore from Cloud</button>
+          <!-- ⬆️ Move this to the top -->
           <button class="ghost" id="checkUpdatesBtn" type="button">Check for updates</button>
+
+          <!-- ⬇️ Rename JSON buttons -->
+          <button class="ghost" id="exportJsonBtn" type="button">Export Backup</button>
+
+          <!-- ⬇️ Make Import look like a normal button; input stays hidden -->
+          <button class="ghost" id="importJsonBtn" type="button">Import Backup</button>
+          <input id="importJsonInput" type="file" accept="application/json" style="display:none">
         </div>
         <div class="small muted" style="margin-top:6px">Export a backup and restore it later.</div>
       </div>
@@ -2120,6 +2123,7 @@ $('exportJsonBtn').addEventListener('click', ()=>{
   const a=document.createElement('a'); a.href=url; a.download='workout_logger_backup.json'; a.click();
   URL.revokeObjectURL(url);
 });
+$('importJsonBtn')?.addEventListener('click', ()=> $('importJsonInput').click());
 $('importJsonInput').addEventListener('change', async (e)=>{
   const f=e.target.files?.[0]; if(!f) return;
   try{
