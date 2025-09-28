@@ -1507,11 +1507,21 @@ function saveDay(){
     if(sets.length){ state.sessions.push({ id:uid(), dateISO, workoutDate, routineId:r.id, dayId:d.id, exerciseId:ex.id, sets, totalVolume, note }); }
   });
   save();
-  d.exercises.forEach(ex=>{
-    const prep = ensureFourSets(state.log.prepared[ex.id]||[]);
-    state.log.prepared[ex.id] = prep.map(s=>({ set:s.set, weight:(s.weight??''), reps:'' }));
-    const wrap = qs(`.exercise[data-exid="${ex.id}"]`); if(wrap) wrap.classList.remove('completed');
-  });
+d.exercises.forEach(ex=>{
+  const prev = ensureFourSets(state.log.prepared[ex.id] || []);
+  state.log.prepared[ex.id] = prev.map(s => ({
+    set: s.set,
+    // keep whatever kg was typed (don’t coerce to 0)
+    weight: (s.weight === 0 || s.weight === '0') ? '0' : String(s.weight ?? ''),
+    // clear reps only
+    reps: ''
+  }));
+  const wrap = qs(`.exercise[data-exid="${ex.id}"]`);
+  if (wrap) wrap.classList.remove('completed');
+});
+
+// ✅ keep notes as-is (do NOT wipe state.log.notes)
+
   state.log.workoutDate = todayISO();
   $('workoutDate').value = state.log.workoutDate;
   modal.alert('Day saved for '+workoutDate+'.'); buildLog(); buildTrends(); save();
@@ -1820,13 +1830,21 @@ document.addEventListener('change',(e)=>{
     state.uiOpen[exId] = true;
     save(); buildLog(); return;
   }
-  const id=e.target?.id;
-  if(id==='activeRoutine'){
-    state.activeRoutineId=$('activeRoutine').value||null;
-    state.log={ dayId:null, prepared:{}, notes:{}, workoutDate:state.log.workoutDate||todayISO() };
-    state.uiOpen = {};
-    save(); renderSelectors(); buildLog(); buildTrends();
-  }else if(id==='logDaySelect'){
+if(id==='activeRoutine'){
+  state.activeRoutineId = $('activeRoutine').value || null;
+
+  // keep per-exercise kg + notes so they carry forward
+  state.log = {
+    ...state.log,
+    dayId: null,
+    prepared: state.log.prepared || {},
+    notes: state.log.notes || {},
+    workoutDate: state.log.workoutDate || todayISO()
+  };
+
+  state.uiOpen = {};
+  save(); renderSelectors(); buildLog(); buildTrends();
+}else if(id==='logDaySelect'){
     state.log.dayId=$('logDaySelect').value||null; state.uiOpen = {}; save(); buildLog(); buildTrends();
   }else if(id==='trendWeeks'){ buildTrends(); }
 });
