@@ -1531,7 +1531,9 @@ function buildLog(){
     cur += `<tr><td class="sticky-left">${unitLabel}</td>`;
     for(let i=0;i<4;i++){
       const val=prepared[i]?.weight??'';
-      cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="weight" type="number" inputmode="decimal" step="0.01" value="${val}"></td>`;
+      cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="weight"
+       type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off"
+       pattern="[0-9]*[.,]?[0-9]*" value="${val}"></td>`;
     }
     // kg row + Vol (Vol spans both rows)
     cur += `<td id="vol_${ex.id}" class="vol-cell ${cls}" rowspan="2">${vol}</td></tr>`;
@@ -1540,7 +1542,9 @@ function buildLog(){
     cur += `<tr><td class="sticky-left">Reps</td>`;
     for(let i=0;i<4;i++){
       const val=prepared[i]?.reps??'';
-      cur += `<td><input class="reps-input" data-set-index="${i}" data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="reps" type="number" inputmode="numeric" step="1" value="${val}"></td>`;
+      cur += `<td><input class="reps-input" data-set-index="${i}" data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="reps"
+       type="text" inputmode="numeric" enterkeyhint="next" autocomplete="off"
+       pattern="[0-9]*" value="${val}"></td>`;
     }
     cur += `</tr></tbody></table></div></div>`;
    
