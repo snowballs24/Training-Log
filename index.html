@@ -287,15 +287,15 @@ input:focus, select:focus, textarea:focus{
 .table-wrap{ overflow-x:hidden; -webkit-overflow-scrolling:touch; }
 table{ border-collapse:collapse; width:100%; table-layout:fixed; }
 
-td input[type="number"], .cell-static{
-  display:block;                      /* ← ensures full-width box model */
+td input[data-action="upd"], .cell-static{
+  display:block;
   width:100%;
   font-size:16px;
-  height:34px;                        /* was 30px */
+  height:34px;
   line-height:34px;
   padding:0 4px;
-  border-radius:8px;                  /* slightly smaller radius fits better in cells */
-  background-clip: padding-box;       /* prevents the fill from bleeding into borders */
+  border-radius:8px;
+  background-clip: padding-box; /* prevents fill bleeding into borders */
 }
 
 
@@ -318,9 +318,14 @@ thead th.sets-label{ font-weight:800; background: color-mix(in oklab, var(--prim
 thead th.setnum, thead th.volume, thead th.blank-metric{ background: rgba(255,255,255,.03); }
 thead th.date-metric{ font-size:12px; background: linear-gradient(135deg, var(--primary), var(--primary-2)); color:#fff; }
 
-td input[type="number"]{
-  width:100%; text-align:center; border:1px solid var(--line);
-  background: rgba(255,255,255,.02); color:inherit; -webkit-appearance:none; appearance:none;
+td input[data-action="upd"]{
+  width:100%;
+  text-align:center;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.02);
+  color: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
 input[type=number]{ -moz-appearance:textfield; }
