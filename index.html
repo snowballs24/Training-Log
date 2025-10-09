@@ -890,7 +890,6 @@ const LS_KEY = 'workout_logger_mobile_v13_themeOnly';
 const THEME_KEY = 'workout_theme';
 const PREFS_KEY = 'workout_prefs_v13';
 
-const prefs = { units:'kg', accent:'aurora', surface:'glass' };
 const state = {
   routines: [],
   activeRoutineId: null,
@@ -899,11 +898,16 @@ const state = {
   wiz: { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} },
   uiPrevWeeks: {},
   uiPrevWeeksAll: 1,
-  uiTimers: {},
+  uiTimers: {},   // legacy per-ex timers (left in place; no harm)
+  uiTimer: {      // NEW: single shared timer
+    running:false, start:0, elapsed:0, interval:null,
+    alarmEnabled:false, alarmAtMs:0, alarmFired:false, soundFile:'ding.mp3'
+  },
   uiOpen: {},
   trendsDayId: null,         // ⬅️ NEW: day used by History→Trends
   uiTrendsCollapsed: true   // ⬅️ NEW: collapse state
 };
+
 
 
 // --- Tiny sound engine (Web Audio) ---
@@ -1427,69 +1431,77 @@ function buildPrevTables(exId, count){
 
 /* ===== 1RM / Timer / Volume ===== */
 function epley1RM(w,r){ const W=+w||0, R=+r||0; if(W<=0||R<=0) return 0; return Math.round(W*(1+R/30)); }
-function ensureTimer(exId){ if(!state.uiTimers[exId]) state.uiTimers[exId]={running:false, start:0, elapsed:0, interval:null}; }
-function fmtTime(ms){ const s=Math.floor(ms/1000); const m=Math.floor(s/60); const ss=s%60; return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`; }
-function readTimerText(exId){ ensureTimer(exId); const t=state.uiTimers[exId]; return fmtTime(t.running ? (t.elapsed + (Date.now()-t.start)) : t.elapsed); }
+function ensureTimer(){
+  if (!state.uiTimer) {
+    state.uiTimer = { running:false, start:0, elapsed:0, interval:null,
+      alarmEnabled:false, alarmAtMs:0, alarmFired:false, soundFile:'ding.mp3' };
+  }
+  return state.uiTimer;
+}
+function fmtTime(ms){
+  const s=Math.floor(ms/1000); const m=Math.floor(s/60); const ss=s%60;
+  return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+}
+function readTimerText(){
+  const t=ensureTimer();
+  const nowElapsed = t.running ? (t.elapsed + (Date.now()-t.start)) : t.elapsed;
+  return fmtTime(nowElapsed);
+}
+function updateTimerDisplays(){
+  const txt = readTimerText();
+  qsa('.timer .time').forEach(el => { el.textContent = txt; });
+}
+function updateTimerButtons(){
+  const running = ensureTimer().running;
+  qsa('button[data-action="timerToggle"]').forEach(b => {
+    b.textContent = running ? 'Pause' : 'Start';
+  });
+}
+
 
 function timerToggle(exId){
-  ensureTimer(exId);
-  const t = state.uiTimers[exId];
+  const t = ensureTimer();
 
-  // If starting, configure alarm prefs
   if(!t.running){
     const { alarm, durationMin, sound } = getRestPrefs();
     t.alarmEnabled = !!alarm;
-    t.alarmAtMs    = ((durationMin || 5) * 60) * 1000; // minutes → ms
+    t.alarmAtMs    = ((durationMin || 5) * 60) * 1000;
     t.alarmFired   = false;
     t.soundFile    = sound;
-    Sound.resume?.(); // okay if not async in some browsers
-
+    Sound.resume?.();
 
     t.running = true;
     t.start   = Date.now();
     clearInterval(t.interval);
     t.interval = setInterval(()=>{
-      const el=$('t_'+exId);
-      if(el) el.textContent = readTimerText(exId);
+      updateTimerDisplays();
 
-// Alarm check
-if (t.alarmEnabled && !t.alarmFired) {
-  const elapsed = t.elapsed + (Date.now() - t.start);
-  if (elapsed >= t.alarmAtMs) {
-    t.alarmFired = true;
-    // PLAY via Web Audio (no Lock Screen player)
-    Sound.play(t.soundFile).catch(()=>{});
-  }
-}
-
+      if (t.alarmEnabled && !t.alarmFired) {
+        const elapsed = t.elapsed + (Date.now() - t.start);
+        if (elapsed >= t.alarmAtMs) {
+          t.alarmFired = true;
+          Sound.play(t.soundFile).catch(()=>{});
+          try { if (navigator.vibrate) navigator.vibrate([60,40,60]); } catch {}
+        }
+      }
     }, 500);
   } else {
-    // Pausing
     t.running = false;
     t.elapsed += Date.now() - t.start;
     clearInterval(t.interval);
     t.interval = null;
-    const el=$('t_'+exId);
-    if(el) el.textContent = readTimerText(exId);
   }
 
-  const btn = qs(`button[data-action="timerToggle"][data-exid="${exId}"]`);
-  if(btn) btn.textContent = t.running ? 'Pause' : 'Start';
+  updateTimerDisplays();
+  updateTimerButtons();
 }
 
 function timerReset(exId){
-  ensureTimer(exId);
-  const t = state.uiTimers[exId];
-  t.running=false;
-  t.elapsed=0;
-  t.start=0;
-  t.alarmFired=false;
-  clearInterval(t.interval);
-  t.interval=null;
-  const el=$('t_'+exId);
-  if(el) el.textContent='00:00';
-  const btn=qs(`button[data-action="timerToggle"][data-exid="${exId}"]`);
-  if(btn) btn.textContent='Start';
+  const t = ensureTimer();
+  t.running=false; t.elapsed=0; t.start=0; t.alarmFired=false;
+  clearInterval(t.interval); t.interval=null;
+  updateTimerDisplays();
+  updateTimerButtons();
 }
 
 
@@ -1562,10 +1574,13 @@ function buildLog(){
         <button class="ghost" type="button" data-action="toggleNotes" data-exid="${ex.id}">Notes</button>
         <div class="spacer"></div>
         <div class="timer">
-          <span class="time" id="t_${ex.id}">${readTimerText(ex.id)}</span>
-          <button class="ghost" type="button" data-action="timerToggle" data-exid="${ex.id}">${(state.uiTimers[ex.id]?.running)?'Pause':'Start'}</button>
-          <button class="ghost" type="button" data-action="timerReset" data-exid="${ex.id}">Reset</button>
+         <span class="time" id="t_${ex.id}">${readTimerText()}</span>
+         <button class="ghost" type="button" data-action="timerToggle" data-exid="${ex.id}">
+          ${ensureTimer().running ? 'Pause' : 'Start'}
+         </button>
+         <button class="ghost" type="button" data-action="timerReset" data-exid="${ex.id}">Reset</button>
         </div>
+
         <div class="hidden" id="noteWrap_${ex.id}" style="flex-basis:100%; margin-top:6px;">
           <textarea data-action="noteInput" data-exid="${ex.id}" placeholder="Optional notes, cues, RPE…">${note}</textarea>
         </div>
@@ -2158,12 +2173,14 @@ renderTrendsDaySelector();  // ⬅️ ensure dropdown has options on first load
 buildLog();
 buildTrends();
 renderRoutinesList();
+updateTimerDisplays();
+updateTimerButtons();
 const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
 showPage(startPage);
 
-
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
 })();
+
 </script>
 
 <!-- Service worker registration & update prompt -->
