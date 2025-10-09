@@ -1910,30 +1910,45 @@ async function checkForUpdatesAndRefresh() {
   }
 }
 // =========================================================
-// Carry-over helper — fills blank weights from last session
+// Carry-over helper — fills or clears weights from last session
 // =========================================================
 function backfillCarryOverForCurrentDay() {
   const r = activeRoutine();
   const d = dayById(r, state.log.dayId);
   if (!d) return;
 
+  const carryOn = prefs.carryOverWeights; // current setting state
+
   d.exercises.forEach(ex => {
     const prepared = ensureFourSets(state.log.prepared[ex.id] || []);
     const last = sessionsForExercise(ex.id)?.[0]; // most recent session
-    if (!last) return;
+    const lastSets = last ? ensureFourSets(last.sets || []) : [];
 
-    const lastSets = ensureFourSets(last.sets || []);
-    // Fill only blank weights; never overwrite user entries
-    const filled = prepared.map((s, i) => ({
-      set: s.set ?? (i + 1),
-      weight:
-        s.weight === '' || s.weight === null || s.weight === undefined
-          ? (lastSets[i]?.weight ?? '')
-          : s.weight,
-      reps: s.reps ?? ''
-    }));
+    const updated = prepared.map((s, i) => {
+      const repsBlank = !s.reps || s.reps.toString().trim() === '';
 
-    state.log.prepared[ex.id] = filled;
+      // If setting is ON → fill blanks from last session
+      if (carryOn) {
+        return {
+          set: s.set ?? (i + 1),
+          weight:
+            (s.weight === '' || s.weight === null || s.weight === undefined)
+              ? (lastSets[i]?.weight ?? '')
+              : s.weight,
+          reps: s.reps ?? ''
+        };
+      }
+      // If setting is OFF → clear weights only where reps are blank
+      else {
+        return {
+          set: s.set ?? (i + 1),
+          weight: repsBlank ? '' : s.weight,
+          reps: s.reps ?? ''
+        };
+      }
+    });
+
+    state.log.prepared[ex.id] = updated;
   });
 
   save();
@@ -2193,12 +2208,11 @@ $('carryOverWeights')?.addEventListener('change', (e) => {
   prefs.carryOverWeights = on;
   savePrefs();
 
-  if (on) {
-    // Immediately backfill any blank weights from the latest session
-    backfillCarryOverForCurrentDay();
-    buildLog(); // refresh inputs so user sees them instantly
-  }
+  // Always call the helper now, for both on/off
+  backfillCarryOverForCurrentDay();
+  buildLog(); // refresh inputs to reflect new state
 });
+
 
 $('autoTimerEnabled')?.addEventListener('change', ()=> {
   localStorage.setItem('autoTimerEnabled', String($('autoTimerEnabled').checked));
