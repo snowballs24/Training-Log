@@ -42,6 +42,10 @@
 
   /* Sizing */
   --tap: 44px;
+   
+ /* ========= Safe Area ========= */
+ --safe-top: 0px;  /* default for PWA + desktop browsers */
+   
 }
 
 /* Light / Dark surfaces derived from accent choices */
@@ -136,11 +140,15 @@ html,body {
   min-height: 100svh; /* mobile dynamic viewport */
   min-height: 100dvh; /* modern */
 }
-body{
+body {
   /* ✨ update: flex container so content stretches to bottom (no black gap) */
   display: flex;
   flex-direction: column;
+
+  /* ✨ new: safe area support for iOS/Android (Capacitor builds) */
+  padding-top: var(--safe-top);
 }
+
 h1{ margin:14px 18px 2px; font-size:34px; letter-spacing:.2px; font-weight:800; }
 h2{ margin:6px 0; font-weight:800; }
 
@@ -2406,6 +2414,14 @@ function abbrevFromDayName(name=''){
 
   render();
 })();
+</script>
+
+<script>
+  // Only runs when the app is inside Capacitor
+  if (window.Capacitor && (Capacitor.getPlatform() === 'ios' || Capacitor.getPlatform() === 'android')) {
+    // Apply safe area inset (Dynamic Island / status bar padding)
+    document.documentElement.style.setProperty('--safe-top', 'env(safe-area-inset-top)');
+  }
 </script>
 
 
