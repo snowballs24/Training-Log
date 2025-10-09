@@ -889,6 +889,11 @@ button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotat
 const LS_KEY = 'workout_logger_mobile_v13_themeOnly';
 const THEME_KEY = 'workout_theme';
 const PREFS_KEY = 'workout_prefs_v13';
+const prefs = {
+  units: 'kg',
+  accent: 'aurora',
+  surface: 'glass'
+};
 
 const state = {
   routines: [],
@@ -2077,11 +2082,10 @@ if (key === 'reps' && getRestPrefs().auto) {
   const repsNow = parseInt(inp.value || '0', 10);
 
   if (setIdx < 3 && repsNow > 0) {
-    ensureTimer(exId);
-    const t = state.uiTimers[exId];
-    // reset + start fresh
-    timerReset(exId);
-    timerToggle(exId);
+ensureTimer();  // shared timer
+timerReset();   // reset shared
+timerToggle();  // start shared
+
 
     // optional: little pulse effect to show it started
     const pill = qs(`.exercise[data-exid="${exId}"] .timer`);
