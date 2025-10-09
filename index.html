@@ -736,6 +736,20 @@ thead th.setnum{
   </div>
 </div>
 
+<!-- Preferences -->
+<div class="card">
+  <div style="font-weight:800; margin-bottom:6px">Preferences</div>
+
+  <label class="small" style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+    <input type="checkbox" id="carryOverWeights">
+    Carry over last weights to next session
+  </label>
+
+  <div style="display:flex; align-items:center; gap:8px;">
+    <label class="small" for="defaultSetCount" style="flex:1;">Default sets per new exercise</label>
+    <input type="number" id="defaultSetCount" min="1" max="8" step="1" value="4" style="width:60px; text-align:center;">
+  </div>
+</div>
 
       <div class="card">
         <div style="font-weight:800; margin-bottom:6px">Units</div>
@@ -751,11 +765,6 @@ thead th.setnum{
           </label>
         </div>
         <div class="small muted" style="margin-top:6px">Conversion uses 1 kg = 2.20462 lb.</div>
-      
-         <div class="setting-row">
-           <label for="carryOverWeights">Carry over last weights to next session</label>
-           <input type="checkbox" id="carryOverWeights">
-         </div>
       </div>
 
       
