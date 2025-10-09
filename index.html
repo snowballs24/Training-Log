@@ -897,13 +897,6 @@ const prefs = {
 
 const state = {
   routines: [],
-  activeRoutineId: null,
-  // ✅ shared rest timer (new)
-  uiTimer: {
-    running:false, start:0, elapsed:0, interval:null,
-    alarmEnabled:false, alarmAtMs:0, alarmFired:false, soundFile:'ding.mp3'
-  },
-
   sessions: [],
   log: { dayId:null, prepared:{}, notes:{}, workoutDate:null },
   wiz: { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} },
@@ -1459,7 +1452,6 @@ function readTimerText(){
   return fmtTime(nowElapsed);
 }
 
-}
 function updateTimerDisplays(){
   const txt = readTimerText();
   qsa('.timer .time').forEach(el => { el.textContent = txt; });
