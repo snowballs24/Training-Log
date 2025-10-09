@@ -745,14 +745,15 @@ thead th.setnum{
     Carry over last weights to next session
   </label>
 
-   <div style="display:flex; align-items:center; gap:8px;">
-     <label class="small" for="defaultSetCount" style="flex:1;">Default sets per new exercise</label>
-     <select id="defaultSetCount" style="width:80px; text-align:center;">
-       <option value="3">3</option>
-       <option value="4" selected>4</option>
-       <option value="5">5</option>
-     </select>
-   </div>
+   <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+      <label>Default number of sets per exercise
+        <select id="defaultSetCount">
+           <option value="3">3</option>
+           <option value="4" selected>4</option>
+           <option value="5">5</option>
+        </select>
+      </label>
+        
 </div>
 
 
