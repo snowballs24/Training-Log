@@ -893,6 +893,12 @@ const PREFS_KEY = 'workout_prefs_v13';
 const state = {
   routines: [],
   activeRoutineId: null,
+  // ✅ shared rest timer (new)
+  uiTimer: {
+    running:false, start:0, elapsed:0, interval:null,
+    alarmEnabled:false, alarmAtMs:0, alarmFired:false, soundFile:'ding.mp3'
+  },
+
   sessions: [],
   log: { dayId:null, prepared:{}, notes:{}, workoutDate:null },
   wiz: { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} },
@@ -1447,6 +1453,8 @@ function readTimerText(){
   const nowElapsed = t.running ? (t.elapsed + (Date.now()-t.start)) : t.elapsed;
   return fmtTime(nowElapsed);
 }
+
+}
 function updateTimerDisplays(){
   const txt = readTimerText();
   qsa('.timer .time').forEach(el => { el.textContent = txt; });
@@ -1457,6 +1465,7 @@ function updateTimerButtons(){
     b.textContent = running ? 'Pause' : 'Start';
   });
 }
+
 
 
 function timerToggle(exId){
@@ -1503,6 +1512,7 @@ function timerReset(exId){
   updateTimerDisplays();
   updateTimerButtons();
 }
+
 
 
 /* ===== Log view ===== */
@@ -1574,12 +1584,13 @@ function buildLog(){
         <button class="ghost" type="button" data-action="toggleNotes" data-exid="${ex.id}">Notes</button>
         <div class="spacer"></div>
         <div class="timer">
-         <span class="time" id="t_${ex.id}">${readTimerText()}</span>
-         <button class="ghost" type="button" data-action="timerToggle" data-exid="${ex.id}">
-          ${ensureTimer().running ? 'Pause' : 'Start'}
-         </button>
-         <button class="ghost" type="button" data-action="timerReset" data-exid="${ex.id}">Reset</button>
-        </div>
+  <span class="time" id="t_${ex.id}">${readTimerText()}</span>
+  <button class="ghost" type="button" data-action="timerToggle" data-exid="${ex.id}">
+    ${ensureTimer().running ? 'Pause' : 'Start'}
+  </button>
+  <button class="ghost" type="button" data-action="timerReset" data-exid="${ex.id}">Reset</button>
+</div>
+
 
         <div class="hidden" id="noteWrap_${ex.id}" style="flex-basis:100%; margin-top:6px;">
           <textarea data-action="noteInput" data-exid="${ex.id}" placeholder="Optional notes, cues, RPE…">${note}</textarea>
@@ -2177,6 +2188,7 @@ updateTimerDisplays();
 updateTimerButtons();
 const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
 showPage(startPage);
+
 
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
 })();
