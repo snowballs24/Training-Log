@@ -752,6 +752,10 @@ thead th.setnum{
         </div>
         <div class="small muted" style="margin-top:6px">Conversion uses 1 kg = 2.20462 lb.</div>
       </div>
+<div class="setting-row">
+  <label for="carryOverWeights">Carry over last weights to next session</label>
+  <input type="checkbox" id="carryOverWeights">
+</div>
 
       
 <div class="card">
@@ -901,6 +905,7 @@ const prefs = {
   units: 'kg',
   accent: 'aurora',
   surface: 'glass'
+  carryOverWeights: true
 };
 
 const state = {
@@ -1656,13 +1661,14 @@ d.exercises.forEach(ex=>{
   save();
 d.exercises.forEach(ex=>{
   const prev = ensureFourSets(state.log.prepared[ex.id] || []);
-  state.log.prepared[ex.id] = prev.map(s => ({
-    set: s.set,
-    // keep whatever kg was typed (don’t coerce to 0)
-    weight: (s.weight === 0 || s.weight === '0') ? '0' : String(s.weight ?? ''),
-    // clear reps only
-    reps: ''
-  }));
+state.log.prepared[ex.id] = prev.map(s => ({
+  set: s.set,
+  weight: prefs.carryOverWeights
+    ? ((s.weight === 0 || s.weight === '0') ? '0' : String(s.weight ?? ''))
+    : '', // clear weights if carry-over disabled
+  reps: ''
+}));
+
   const wrap = qs(`.exercise[data-exid="${ex.id}"]`);
   if (wrap) wrap.classList.remove('completed');
 });
@@ -2135,6 +2141,11 @@ $('unitSelect').addEventListener('change', (e)=>{
 $('autoTimerEnabled')?.addEventListener('change', ()=> {
   localStorage.setItem('autoTimerEnabled', String($('autoTimerEnabled').checked));
 });
+$('carryOverWeights')?.addEventListener('change', ()=> {
+  prefs.carryOverWeights = $('carryOverWeights').checked;
+  savePrefs();
+});
+
 $('restAlarmEnabled')?.addEventListener('change', ()=> {
   localStorage.setItem('restAlarmEnabled', String($('restAlarmEnabled').checked));
 });
