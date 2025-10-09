@@ -1909,6 +1909,36 @@ async function checkForUpdatesAndRefresh() {
     window.location.href = url.toString();
   }
 }
+// =========================================================
+// Carry-over helper — fills blank weights from last session
+// =========================================================
+function backfillCarryOverForCurrentDay() {
+  const r = activeRoutine();
+  const d = dayById(r, state.log.dayId);
+  if (!d) return;
+
+  d.exercises.forEach(ex => {
+    const prepared = ensureFourSets(state.log.prepared[ex.id] || []);
+    const last = sessionsForExercise(ex.id)?.[0]; // most recent session
+    if (!last) return;
+
+    const lastSets = ensureFourSets(last.sets || []);
+    // Fill only blank weights; never overwrite user entries
+    const filled = prepared.map((s, i) => ({
+      set: s.set ?? (i + 1),
+      weight:
+        s.weight === '' || s.weight === null || s.weight === undefined
+          ? (lastSets[i]?.weight ?? '')
+          : s.weight,
+      reps: s.reps ?? ''
+    }));
+
+    state.log.prepared[ex.id] = filled;
+  });
+
+  save();
+}
+
 /* ===== Events ===== */
 document.addEventListener('click', async (e)=>{
   const btn=e.target.closest('[data-action]'); if(!btn) return;
@@ -2152,6 +2182,21 @@ $('unitSelect').addEventListener('change', (e)=>{
       if(factor!==1) convertAllWeights(factor);
     }
     prefs.units = next; savePrefs(); buildLog(); buildTrends();
+  }
+});
+   
+// =========================================================
+// Carry-over setting toggle
+// =========================================================
+$('carryOverWeights')?.addEventListener('change', (e) => {
+  const on = !!e.target.checked;
+  prefs.carryOverWeights = on;
+  savePrefs();
+
+  if (on) {
+    // Immediately backfill any blank weights from the latest session
+    backfillCarryOverForCurrentDay();
+    buildLog(); // refresh inputs so user sees them instantly
   }
 });
 
