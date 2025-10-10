@@ -509,6 +509,56 @@ thead th.setnum{
     font-size: 1rem !important;
   }
 }
+/* ==== Colored cards (accent-aware) ==== */
+.card {
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--primary)   7%, var(--card) 93%),
+      color-mix(in oklab, var(--primary-2) 7%, var(--card) 93%)
+    );
+  border-color: color-mix(in oklab, var(--primary) 24%, var(--line));
+  box-shadow: var(--shadow-1);
+}
+
+.card:hover {
+  box-shadow: 0 12px 28px rgba(0,0,0,.28);
+  border-color: color-mix(in oklab, var(--primary) 34%, var(--line));
+}
+.card:active {
+  transform: translateY(1px);
+  filter: brightness(.98);
+}
+
+[data-surface="flat"] .card {
+  background: color-mix(in oklab, var(--primary) 6%, var(--surface));
+  border-color: color-mix(in oklab, var(--primary) 22%, var(--line));
+}
+
+[data-theme="light"] .card {
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--primary)   5%, var(--card) 95%),
+      color-mix(in oklab, var(--primary-2) 5%, var(--card) 95%)
+    );
+}
+
+.card .section-title::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  border-radius: 3px;
+  margin-right: 8px;
+  background: linear-gradient(180deg, var(--primary), var(--primary-2));
+  vertical-align: middle;
+}
+
+.exercise:not(.completed) {
+  background: color-mix(in oklab, var(--primary) 3%, var(--surface) 97%);
+}
+.exercise:not(.completed) .ex-head {
+  border-bottom-color: color-mix(in oklab, var(--primary) 20%, var(--line));
+}
 
 </style>
 
