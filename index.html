@@ -2239,6 +2239,20 @@ $('restDurationMin')?.addEventListener('change', ()=> {
   }
 });
 
+$('restSound')?.addEventListener('change', async () => {
+  const file = $('restSound').value;
+  localStorage.setItem('restSound', file);   // persist the choice
+
+  // optional: keep the currently running timer in sync
+  const t = ensureTimer?.();
+  if (t) t.soundFile = file;
+
+  // optional: preview the sound so the user hears it immediately
+  try {
+    await Sound.resume();
+    await Sound.play(file, { volume: 1.0 });
+  } catch {}
+});
 
 
    
