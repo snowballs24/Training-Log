@@ -482,19 +482,6 @@ thead th.setnum{
 .cal-legend .legend-item { display:flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid var(--line); border-radius:8px; }
 .cal-legend .swatch { width:14px; height:14px; border-radius:4px; outline:1px solid rgba(0,0,0,.2); }
 
-.cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; user-select:none; }
-.cal-dow { text-align:center; font-size:.85rem; opacity:.75; padding:6px 0; }
-.cal-day { position:relative; aspect-ratio:1/1; min-height:44px; border-radius:12px;
-  display:flex; align-items:center; justify-content:center; font-weight:800; letter-spacing:.5px;
-  outline:1px solid var(--line); cursor:pointer; transition: transform .08s ease, outline-color .15s ease, box-shadow .15s ease; }
-.cal-day:hover { transform: translateY(-1px); }
-.cal-day:focus-visible { outline:2px solid var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
-.cal-day.disabled { opacity:.35; pointer-events:none; }
-.cal-day .date-label { position:absolute; top:6px; right:8px; font-size:.75rem; font-weight:700; opacity:.9; }
-.cal-day .type-letter { font-size: clamp(1rem, 3.3vw, 1.35rem); text-transform: uppercase; text-shadow: 0 1px 2px rgba(0,0,0,.25); letter-spacing:.6px; }
-.cal-day.empty { background: var(--card); color: var(--muted); }
-.cal-day.low-contrast { outline-color: rgba(255,255,255,.25); box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
-
 .cal-popup[hidden]{ display:none; }
 .cal-popup { position: fixed; inset:0; background: transparent; z-index: 40; }
 .cal-pop-card { position:absolute; min-width:240px; max-width:320px; background: var(--surface); color: var(--text);
@@ -581,9 +568,10 @@ thead th.setnum{
   <div class="wrap">
     <!-- Routines -->
     <section id="routinesPage" class="card hidden">
-      <der:0">
+      <div class="dl-head" style="margin:0;padding-bottom:0;border:0">
         <h2>Routines</h2>
         <div class="dl-controls">
+
           <button id="openWizardBtn" type="button" data-action="openWizard">Create routine</button>
         </div>
       </div>
@@ -663,6 +651,7 @@ thead th.setnum{
    
        </section>
        </section>
+       </section>
       
 
     <!-- Log -->
@@ -730,9 +719,9 @@ thead th.setnum{
   </div>
 
   <!-- Trends card (unchanged UI, just moved under History) -->
-  <div class="card" id="history-trends" style="margin-top:12px">
-<der:0">
-  <h2 style="display:flex;align-items:center;gap:8px">
+<div class="card" id="history-trends" style="margin-top:12px">
+  <div class="dl-head" style="margin:0;padding-bottom:0;border:0">
+    <h2 style="display:flex;align-items:center;gap:8px">
     <button class="icon" type="button" data-action="toggleTrendsCard" aria-expanded="true" aria-controls="trendsContent" title="Collapse / expand">▾</button>
     Trends
   </h2>
@@ -2367,10 +2356,6 @@ $('carryOverWeights')?.addEventListener('change', (e) => {
 
 $('autoTimerEnabled')?.addEventListener('change', ()=> {
   localStorage.setItem('autoTimerEnabled', String($('autoTimerEnabled').checked));
-});
-$('carryOverWeights')?.addEventListener('change', ()=> {
-  prefs.carryOverWeights = $('carryOverWeights').checked;
-  savePrefs();
 });
 
 $('restAlarmEnabled')?.addEventListener('change', ()=> {
