@@ -908,11 +908,6 @@ thead th.setnum{
 
 <style>
 /* ===== Calendar fixes (overrides global button styles) ===== */
-.cal-grid{
-  /* prevent any accidental horizontal overflow */
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  max-width: 100%;
-}
 
 .calendar-page, #historyPage .card { overflow-x: hidden; }
 
@@ -950,9 +945,11 @@ button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotat
   font-weight:800;
 }
 
-/* Grid stable columns, no overflow */
+/* Calendar grid — 7 columns */
 .cal-grid{
+  display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
   max-width: 100%;
   overflow-x: hidden;
 }
