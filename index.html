@@ -1498,12 +1498,16 @@ function updateTimerButtons(){
 function timerToggle(exId){
   const t = ensureTimer();
 
-  if(!t.running){
+  if (!t.running) {
     const { alarm, durationMin, sound } = getRestPrefs();
     t.alarmEnabled = !!alarm;
     t.alarmAtMs    = ((durationMin || 5) * 60) * 1000;
-    t.alarmFired   = false;
     t.soundFile    = sound;
+
+    // ✅ reset any previous run before starting new
+    t.elapsed = 0;
+    t.alarmFired = false;
+
     Sound.resume?.();
 
     t.running = true;
@@ -1531,6 +1535,7 @@ function timerToggle(exId){
   updateTimerDisplays();
   updateTimerButtons();
 }
+
 
 function timerReset(exId){
   const t = ensureTimer();
@@ -2230,18 +2235,17 @@ $('restDurationMin')?.addEventListener('change', ()=> {
   if (isNaN(v)) v = 5;
   v = Math.max(0.5, Math.min(10, v)); // clamp 0.5–10 min
   $('restDurationMin').value = v;
-  localStorage.setItem('restDurationMin', String(v));
-});
-$('restSound')?.addEventListener('change', async () => {
-  const file = $('restSound').value;
-  localStorage.setItem('restSound', file);
 
-  // play preview immediately so users can hear what they chose
-  try {
-    await Sound.resume();          // ensure context is active on iOS
-    await Sound.play(file, { volume: 1.0 });
-  } catch {} // ignore if file missing, etc.
+  // ✅ store and sync immediately
+  localStorage.setItem('restDurationMin', String(v));
+
+  // ✅ update the running shared timer’s alarm target if active
+  const t = ensureTimer?.();
+  if (t) {
+    t.alarmAtMs = (v * 60) * 1000;
+  }
 });
+
 
 
    
