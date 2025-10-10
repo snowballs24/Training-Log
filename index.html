@@ -247,6 +247,8 @@ input:focus, select:focus, textarea:focus{
 .dl-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding-bottom:8px; margin-bottom:8px; }
 .dl-head h2{ margin:0; font-size:1.25rem; }
 
+
+
 /* Exercise blocks */
 .exercise{ border:1px solid var(--line); border-radius:16px; margin:12px 0; overflow:hidden; background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)), var(--surface); box-shadow: var(--shadow-2); }
 .ex-head{
@@ -952,6 +954,13 @@ button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotat
   gap: 8px;
   max-width: 100%;
   overflow-x: hidden;
+}
+/* Center the month nav just on the History calendar card */
+#historyPage .dl-head {
+  justify-content: center;
+}
+#historyPage .cal-monthbar {
+  margin: 0 auto;            /* flex auto-margins: hard-center the bar */
 }
 
 /* Day-of-week row stays subtle */
@@ -2505,25 +2514,18 @@ if ('serviceWorker' in navigator) {
     return map;
   }
 
-  // Aggregate workouts by date and collect which day-types are actually used this month
-  function getWorkoutsByDate(year, month, dayMap){
-    const byDate = {};
-    const usedKeys = new Set();
-
-    (state.sessions || []).forEach(s=>{
-      const iso = (s.workoutDate || s.dateISO || '').slice(0,10);
-      if (!iso) return;
-      const d = new Date(iso);
-      if (isNaN(d)) return;
-      if (d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
-
       // find the day meta to get its name (type)
       const dayMeta = (state.routines || []).flatMap(r => r.days || [])
                          .find(dd => dd.id === s.dayId);
       const dayName = dayMeta?.name || 'Workout';
       const key = dayName.trim().toLowerCase();
-      const info = dayMap.get(key);
-      if (!info) return;
+
+      // ✅ NEW: use fallback color if this key isn't in the map
+      const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
+
+      // Track only real mapped types for the legend
+      if (dayMap.has(key)) usedKeys.add(key);
+
 
       usedKeys.add(key);
 
