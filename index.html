@@ -1799,13 +1799,6 @@ function hydrateRestTimerSettings(){
   $('restDurationMin').value = (isNaN(mins) ? 5 : mins);
   $('restSound').value = sound;
 
-  // ✅ keep storage in sync with UI immediately
-  localStorage.setItem('autoTimerEnabled', String($('autoTimerEnabled').checked));
-  localStorage.setItem('restAlarmEnabled', String($('restAlarmEnabled').checked));
-  localStorage.setItem('restDurationMin', String($('restDurationMin').value));
-  localStorage.setItem('restSound', $('restSound').value);
-}
-
    
 function hydrateSettingsUI(){
   $('unitSelect').value = prefs.units;
