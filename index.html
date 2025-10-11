@@ -1056,6 +1056,32 @@ button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotat
 .cal-dots { display:flex; gap:6px; min-height:10px; }
 .cal-dot  { width:8px; height:8px; border-radius:50%; display:inline-block; box-shadow:0 0 0 1px rgba(0,0,0,.25); }
 
+/* Make day cells that are <button> behave like clean, flat flex boxes */
+button.cal-cell {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  min-height: 44px;
+  gap: 6px;
+  color: var(--text);
+  cursor: pointer;
+}
+button.cal-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Ensure the dot row actually has space */
+.cal-dots {
+  display: flex;
+  gap: 6px;
+  min-height: 10px;
+  margin-top: 2px;
+}
+
 </style>
 
 <div id="modalRoot" class="app-modal hidden" aria-hidden="true">
@@ -2529,57 +2555,51 @@ if ('serviceWorker' in navigator) {
   }
 
         // Collect workouts for the month and which day-types are actually used
-  function getWorkoutsByDate(year, month, dayMap){
-    const byDate = {};
-    const usedKeys = new Set();
+function getWorkoutsByDate(year, month, dayMap){
+  const byDate = {};
+  const usedKeys = new Set();
 
-    (state.sessions || []).forEach(s => {
-      const iso = (s.workoutDate || s.dateISO || '').slice(0,10);
-      if (!iso) return;
-      const d = new Date(iso);
-      if (isNaN(d)) return;
-      if (d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
+  (state.sessions || []).forEach(s => {
+    const iso = (s.workoutDate || s.dateISO || '').slice(0, 10);
+    if (!iso) return;
+    const d = new Date(iso);
+    if (isNaN(d)) return;
+    if (d.getFullYear() !== year || (d.getMonth() + 1) !== month) return;
 
-      // find the day meta to get its name (type)
-      const dayMeta = (state.routines || [])
-        .flatMap(r => r.days || [])
-        .find(dd => dd.id === s.dayId);
+    // find the logged day to determine its "type" (e.g., Chest, Legs)
+    const dayMeta = (state.routines || []).flatMap(r => r.days || []).find(dd => dd.id === s.dayId);
+    const dayName = dayMeta?.name || 'Workout';
+    const key = dayName.trim().toLowerCase();
 
-      const dayName = dayMeta?.name || 'Workout';
-      const key = dayName.trim().toLowerCase();
+    // use palette color if known; fallback gray if not in map
+    const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
 
-      // fallback color if not in the map
-      const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
+    // legend should only show mapped types present in the palette
+    if (dayMap.has(key)) usedKeys.add(key);
 
-      // only mapped types appear in the legend
-      if (dayMap.has(key)) usedKeys.add(key);
+    if (!byDate[iso]) {
+      byDate[iso] = {
+        typeKey: key,
+        title: dayName,
+        colorRGB: info.color,
+        totalSets: 0, totalReps: 0, totalVolume: 0,
+        notes: []
+      };
+    }
 
-      if (!byDate[iso]){
-        byDate[iso] = {
-          typeKey: key,
-          title: dayName,
-          colorRGB: info.color,
-          totalSets: 0,
-          totalReps: 0,
-          totalVolume: 0,
-          notes: []
-        };
-      }
+    const e = byDate[iso];
+    const setsArr = Array.isArray(s.sets) ? s.sets : [];
+    e.totalSets += setsArr.length;
+    e.totalReps += setsArr.reduce((a, x) => a + (+x.reps || 0), 0);
+    e.totalVolume += +s.totalVolume || 0;
+    if (s.note && s.note.trim()) e.notes.push(s.note.trim());
+  });
 
-      const e = byDate[iso];
-      const setsArr = Array.isArray(s.sets) ? s.sets : [];
-      e.totalSets += setsArr.length;
-      e.totalReps += setsArr.reduce((a,x)=> a + (+x.reps || 0), 0);
-      e.totalVolume += +s.totalVolume || 0;
-      if (s.note && s.note.trim()) e.notes.push(s.note.trim());
-    });
+  Object.keys(byDate).forEach(k => { byDate[k].notes = byDate[k].notes.join('\n'); });
 
-    Object.keys(byDate).forEach(k => {
-      byDate[k].notes = byDate[k].notes.join('\n');
-    });
+  return { byDate, usedKeys };
+}
 
-    return { byDate, usedKeys };
-  }
 
 
   // Render a tiny dot with the given color
@@ -2617,12 +2637,13 @@ if ('serviceWorker' in navigator) {
     return el;
   }
 
-  function makeWorkoutCell(dayNum, iso, e){
-  const el = document.createElement('div');      // ⬅ change button → div
+ function makeWorkoutCell(dayNum, iso, e){
+  const el = document.createElement('button');
+  el.type = 'button';
   el.className = 'cal-cell';
   el.setAttribute('role','gridcell');
-  el.title = `${iso}: ${e.title} — ${e.totalSets} sets, ${e.totalReps} reps, volume ${formatVolume(e.totalVolume)}`;
-  el.tabIndex = 0;                                // keep it keyboard focusable
+  el.setAttribute('aria-label', `${iso}: ${e.title}`);
+  el.tabIndex = 0;
 
   const num = document.createElement('div');
   num.className = 'cal-num';
@@ -2630,12 +2651,12 @@ if ('serviceWorker' in navigator) {
 
   const dots = document.createElement('div');
   dots.className = 'cal-dots';
-  dots.appendChild(dot(e.colorRGB));              // the colored dot
+  dots.appendChild(dot(e.colorRGB)); // tiny colored dot
 
   el.appendChild(num);
   el.appendChild(dots);
 
-  // keep popup behavior
+  // Popup behavior + keyboard activation
   el.addEventListener('click', () => openPopupAt(el, e));
   el.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter' || ev.key === ' ') {
@@ -2646,6 +2667,7 @@ if ('serviceWorker' in navigator) {
 
   return el;
 }
+
   // Popup (kept as-is, just decoupled from old styles)
   function openPopupAt(anchorEl,data){
     if (!popEl || !popCard) return;
