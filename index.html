@@ -492,6 +492,48 @@ thead th.setnum{
 .cal-pop-meta { display:grid; gap:4px; font-size:.95rem; margin-bottom:6px; }
 .cal-pop-notes { font-size:.95rem; opacity:.95; white-space:pre-wrap; }
 .cal-pop-close { margin-top:8px; width:100%; background: var(--accent); color:white; border:none; border-radius:8px; padding:10px 12px; font-weight:800; }
+/* ==== Centered, larger popup ==== */
+.cal-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.25); /* subtle backdrop so it feels modal */
+  display: block;
+}
+
+.cal-pop-card {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  padding-bottom: 12px;
+}
+
+.cal-pop-exercises .hdr { margin: 6px 0; color: var(--muted); }
+.cal-ex-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 6px; }
+.cal-ex-list li { padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.02); }
+.cal-ex-meta { display: flex; gap: 8px; font-size: .92rem; color: var(--muted); }
+
+.cal-pop-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Reuse trash-can visual but keep it inline (not absolute) inside popup */
+.cal-pop-card .del-prev-btn {
+  position: static;
+  margin-left: 0;
+  background: transparent;
+}
+
+/* Make Close stretch nicely; keep its strong look */
+.cal-pop-close {
+  flex: 1;
+}
 
 @media (max-width: 480px){
   thead th.sets-label {
@@ -1312,6 +1354,16 @@ function ensureFourSets(arr){
   while(a.length < 4) a.push({ set:a.length+1, weight:'', reps:'' });
   return a.map((s,i)=>({ set:i+1, weight:(s?.weight??''), reps:(s?.reps??'') }));
 }
+function getExerciseNameById(exId){
+  for (const r of (state.routines || [])){
+    for (const d of (r.days || [])){
+      const ex = (d.exercises || []).find(e => e.id === exId);
+      if (ex) return ex.name;
+    }
+  }
+  return 'Exercise';
+}
+  
 function isExerciseCompleted(exId){
   const arr = state.log.prepared[exId] || [];
   return arr.some(s => (parseInt(s?.reps,10) || 0) > 0);
@@ -2236,6 +2288,28 @@ if(act==='editRoutine'){
     modal.alert('Entry deleted.');
     return;
   }
+  else if (act === 'deleteDayHistory') {
+  const iso = btn.dataset.iso;
+  if (!iso) return;
+
+  if (!(await modal.confirm(`Delete all entries for ${iso}? This cannot be undone.`))) return;
+
+  const before = state.sessions.length;
+  state.sessions = state.sessions.filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== iso);
+  save();
+
+  // Close popup
+  const pop = document.getElementById('cal-popup');
+  if (pop) pop.hidden = true;
+
+  // Refresh calendar + trends
+  document.dispatchEvent(new CustomEvent('calendar:refresh'));
+  buildTrends();
+
+  modal.alert(`Deleted ${before - state.sessions.length} entr${(before - state.sessions.length) === 1 ? 'y' : 'ies'} for ${iso}.`);
+  return;
+}
+
 });
   
 function recalcVolume(exId){
@@ -2567,15 +2641,11 @@ function getWorkoutsByDate(year, month, dayMap){
     if (isNaN(d)) return;
     if (d.getFullYear() !== year || (d.getMonth() + 1) !== month) return;
 
-    // find the logged day to determine its "type" (e.g., Chest, Legs)
+    // Workout "type" (day name) + color
     const dayMeta = (state.routines || []).flatMap(r => r.days || []).find(dd => dd.id === s.dayId);
     const dayName = dayMeta?.name || 'Workout';
     const key = dayName.trim().toLowerCase();
-
-    // use palette color if known; fallback gray if not in map
     const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
-
-    // legend should only show mapped types present in the palette
     if (dayMap.has(key)) usedKeys.add(key);
 
     if (!byDate[iso]) {
@@ -2584,22 +2654,35 @@ function getWorkoutsByDate(year, month, dayMap){
         title: dayName,
         colorRGB: info.color,
         totalSets: 0, totalReps: 0, totalVolume: 0,
-        notes: []
+        notes: [],
+        exercises: [] // ⬅️ new: list of exercises for that date
       };
     }
 
     const e = byDate[iso];
     const setsArr = Array.isArray(s.sets) ? s.sets : [];
-    e.totalSets += setsArr.length;
-    e.totalReps += setsArr.reduce((a, x) => a + (+x.reps || 0), 0);
+    const repsSum = setsArr.reduce((a, x) => a + (+x.reps || 0), 0);
+
+    e.totalSets   += setsArr.length;
+    e.totalReps   += repsSum;
     e.totalVolume += +s.totalVolume || 0;
     if (s.note && s.note.trim()) e.notes.push(s.note.trim());
+
+    // Per-exercise line for the popup list
+    e.exercises.push({
+      name: getExerciseNameById(s.exerciseId),
+      sets: setsArr.length,
+      reps: repsSum,
+      volume: +s.totalVolume || 0
+    });
   });
 
   Object.keys(byDate).forEach(k => { byDate[k].notes = byDate[k].notes.join('\n'); });
 
   return { byDate, usedKeys };
 }
+
+document.addEventListener('calendar:refresh', render);
 
 
 
@@ -2670,30 +2753,53 @@ function getWorkoutsByDate(year, month, dayMap){
 }
 
   // Popup (kept as-is, just decoupled from old styles)
-  function openPopupAt(anchorEl,data){
-    if (!popEl || !popCard) return;
-    document.getElementById('pop-title').textContent = data.title || 'Workout';
-    document.getElementById('pop-sets-reps').textContent = `${data.totalSets} sets / ${data.totalReps} reps`;
-    document.getElementById('pop-volume').textContent = formatVolume(data.totalVolume);
-    document.getElementById('pop-notes').textContent = data.notes ? `Notes: ${data.notes}` : '—';
+  function openPopupAt(_anchorEl, data){
+  if (!popEl || !popCard) return;
 
-    const rect = anchorEl.getBoundingClientRect();
-    popEl.hidden = false;
-    const cardRect = popCard.getBoundingClientRect();
-    const margin = 8;
+  // Build exercise list HTML
+  const exList = (data.exercises || []).map(x => `
+    <li>
+      <strong>${x.name}</strong>
+      <div class="cal-ex-meta">
+        <span>${x.sets} sets</span>
+        <span>${x.reps} reps</span>
+        <span>vol ${formatVolume(x.volume)}</span>
+      </div>
+    </li>
+  `).join('') || '<li class="muted">No exercises logged.</li>';
 
-    let top  = window.scrollY + rect.top - cardRect.height - margin;
-    let left = window.scrollX + rect.left + (rect.width - cardRect.width) / 2;
-    if (top < window.scrollY + 8) top = window.scrollY + rect.bottom + margin;
-    left = Math.max(window.scrollX+8, Math.min(left, window.scrollX + window.innerWidth - cardRect.width - 8));
+  // Rebuild the card contents (bigger, with delete)
+  const details = `
+    <div class="cal-pop-title">${data.title || 'Workout'}</div>
 
-    popCard.style.top = `${top}px`;
-    popCard.style.left = `${left}px`;
-    popClose?.focus();
+    <div class="cal-pop-meta">
+      <div><strong>Sets/Reps:</strong> ${data.totalSets} sets / ${data.totalReps} reps</div>
+      <div><strong>Total Volume:</strong> ${formatVolume(data.totalVolume)}</div>
+    </div>
 
-    document.addEventListener('click', onOutside, { capture:true });
-    document.addEventListener('keydown', onEsc);
-  }
+    <div class="cal-pop-exercises">
+      <div class="hdr"><strong>Exercises</strong></div>
+      <ul class="cal-ex-list">${exList}</ul>
+    </div>
+
+    ${data.notes ? `<div class="cal-pop-notes">${data.notes}</div>` : ''}
+
+    <div class="cal-pop-actions">
+      <button id="pop-delete" class="icon del-prev-btn" data-action="deleteDayHistory" data-iso="${data.iso}">🗑️</button>
+      <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
+    </div>
+  `;
+  popCard.innerHTML = details;
+
+  // Show centered (CSS does the centering)
+  popEl.hidden = false;
+
+  // Wire the close button inside the rebuilt card
+  popCard.querySelector('#pop-close')?.addEventListener('click', () => {
+    popEl.hidden = true;
+  });
+}
+
   function onOutside(e){ if (!popCard.contains(e.target)) closePopup(); }
   function onEsc(e){ if (e.key === 'Escape') closePopup(); }
   function closePopup(){
@@ -2739,7 +2845,9 @@ function getWorkoutsByDate(year, month, dayMap){
     for (let d=1; d<=daysInMonth; d++){
       const iso = toISO(view.y, view.m, d);
       const e = byDate[iso];
-      gridEl.appendChild(e ? makeWorkoutCell(d, iso, e) : makeEmptyCell(d, iso));
+      if (e) { e.iso = iso; } // pass the date to the popup for delete action
+gridEl.appendChild(e ? makeWorkoutCell(d, iso, e) : makeEmptyCell(d, iso));
+
     }
 
     renderLegend(dayMap, usedKeys);
