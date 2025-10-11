@@ -484,68 +484,70 @@ thead th.setnum{
 .cal-legend .legend-item { display:flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid var(--line); border-radius:8px; }
 .cal-legend .swatch { width:14px; height:14px; border-radius:4px; outline:1px solid rgba(0,0,0,.2); }
 
+/* === Calendar popup layout (clean, no inline styles) === */
 .cal-popup[hidden]{ display:none; }
+.cal-popup { position: fixed; inset:0; background: rgba(0,0,0,.18); z-index: 60; }
 
-/* Full-screen overlay that centers the card */
-.cal-popup {
+.cal-pop-card{
   position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: rgba(0,0,0,.35);            /* subtle dim */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;                          /* page can scroll if card is tall */
-  padding: 16px;
-}
-
-/* Popup card: narrower than the calendar card, but can be tall */
-.cal-pop-card {
-  position: relative;                      /* no absolute top/left anymore */
-  width: min(520px, 90vw);                 /* narrower than the card below */
+  top: 12vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, 86vw);
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 14px 14px 12px;
-  box-shadow: 0 12px 32px rgba(0,0,0,.35);
-  overflow: visible;                       /* no internal scrollbars */
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.35);
+  padding: 14px 14px 16px;
+  overflow: visible;
 }
 
-.cal-pop-title { font-weight:800; margin-bottom:6px; }
-.cal-pop-meta  { display:grid; gap:4px; font-size:.95rem; margin-bottom:8px; }
-.cal-pop-notes { font-size:.95rem; opacity:.95; white-space:pre-wrap; }
-
-/* Exercise list (name left … sets right) */
-.cal-pop-list { list-style:none; margin:8px 0 0; padding:0; }
-.cal-pop-list li {
-  display:flex; align-items:center; justify-content:space-between;
-  gap:12px; padding:6px 0; border-top:1px dashed var(--line);
-}
-.cal-pop-list .ex-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
-.cal-pop-list .ex-sets { white-space:nowrap; color:var(--muted); font-weight:700; }
-
-/* Actions row inside the popup */
-.cal-pop-actions {
-  display:flex; align-items:center; gap:8px;
-  margin-top:10px;
+.cal-pop-head{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin-bottom: 6px;
 }
 
-/* Reuse the prev-weeks delete look, but make it behave like a normal button in the popup */
-.cal-pop-card .del-prev-btn {
-  position: static;    /* override absolute from history tables */
-  margin-left: auto;   /* push to the right */
+.cal-pop-title{ font-weight: 800; font-size: 1.1rem; }
+
+.cal-pop-trash{
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: .45rem .55rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.cal-pop-trash:hover{
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border-color: color-mix(in oklab, var(--danger) 30%, var(--line));
 }
 
-/* Close button */
-.cal-pop-close {
+.cal-pop-meta{ display:grid; gap:4px; font-size:.95rem; margin: 6px 0 6px; }
+
+.pop-list{ list-style:none; margin:8px 0 12px; padding:0; }
+.pop-row{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:10px 0;
+  border-bottom:1px dashed var(--line);
+}
+.pop-name{ flex:1; min-width:0; }
+.pop-sets{ font-weight:800; }
+
+.cal-pop-close{
+  display:block;
+  margin: 8px auto 0;
+  width: 70%;
   background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
+  color:#fff;
+  border:none;
+  border-radius: 12px;
   padding: 10px 12px;
   font-weight: 800;
+  cursor: pointer;
 }
+
 
 
 @media (max-width: 480px){
@@ -2600,48 +2602,40 @@ if ('serviceWorker' in navigator) {
 </script>
 <script>
 (() => {
-  // ---------- Palette ----------
+  // ---------- palette ----------
   const SAFE_COLORS = [
-    [214, 97, 0], [0, 114, 178], [0, 158, 115], [240, 228, 66],
-    [204, 121, 167], [230, 159, 0], [86, 180, 233], [213, 94, 0],
+    [214, 97, 0], [0,114,178], [0,158,115], [240,228,66],
+    [204,121,167], [230,159,0], [86,180,233], [213,94,0],
   ];
 
-  // ---------- DOM ----------
+  // ---------- dom ----------
   const legendEl = document.getElementById('cal-legend');
   const gridEl   = document.getElementById('cal-grid');
   const labelEl  = document.getElementById('cal-month-label');
   const prevBtn  = document.getElementById('cal-prev');
   const nextBtn  = document.getElementById('cal-next');
-  const popEl    = document.getElementById('cal-popup');     // overlay
-  const popCard  = popEl?.querySelector('.cal-pop-card');    // card (we'll reposition)
-  if (!legendEl || !gridEl || !labelEl || !popEl || !popCard) return;
+  const popEl    = document.getElementById('cal-popup');
+  const popCard  = popEl?.querySelector('.cal-pop-card');
+  const popClose = document.getElementById('pop-close');
+  const popTitle = document.getElementById('pop-title');
+  const popSets  = document.getElementById('pop-sets-reps');
+  const popVol   = document.getElementById('pop-volume');
+  const popList  = document.getElementById('pop-list');   // <ul id="pop-list"></ul>
+  const popDel   = document.getElementById('pop-del');     // delete button (trash)
 
-  // Position the popup near the top and center horizontally
-  // (CSS from JS so you don't need to edit styles elsewhere)
-  Object.assign(popCard.style, {
-    position: 'fixed',
-    top: '12vh',                 // near the top (request #2)
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 'min(560px, 92vw)',   // narrower than the calendar card (request #1)
-    maxHeight: 'unset',          // allow to be taller than the calendar card (request #1)
-  });
+  if (!legendEl || !gridEl || !labelEl) return;
 
-  // ---------- Helpers ----------
-  const unitLabel = (window.prefs?.units || 'kg').toLowerCase();
-  const toISO = (y,m,d) => `${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-
-  // e.g. 5341 -> "5,341 kg"
-  function formatLongVolume(v){
-    const n = Math.max(0, Math.round(+v || 0));
-    return new Intl.NumberFormat(undefined).format(n) + ' ' + unitLabel;
-  }
+  // ---------- utils ----------
+  const toISO = (y,m,d)=>`${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+  const nfInt = new Intl.NumberFormat(undefined);
+  const formatVolumeKG = (v)=> `${nfInt.format(Math.max(0, Math.round(+v||0)))} kg`;
 
   function buildDayColorMap(){
-    const map = new Map(); let i = 0;
+    const map = new Map();
+    let i = 0;
     (state.routines || []).forEach(r=>{
       (r.days || []).forEach(d=>{
-        const key = (d.name||'').trim().toLowerCase();
+        const key = d.name.trim().toLowerCase();
         if (!map.has(key)){
           map.set(key, { color: SAFE_COLORS[i % SAFE_COLORS.length], name: d.name });
           i++;
@@ -2651,54 +2645,47 @@ if ('serviceWorker' in navigator) {
     return map;
   }
 
-  // Collect workouts for month
   function getWorkoutsByDate(year, month, dayMap){
     const byDate = {};
     const usedKeys = new Set();
 
     (state.sessions || []).forEach(s => {
-      const isoFull = (s.workoutDate || s.dateISO || '');
-      const iso = isoFull.slice(0,10);
+      const iso = (s.workoutDate || s.dateISO || '').slice(0,10);
       if (!iso) return;
-
       const d = new Date(iso);
-      if (isNaN(d) || d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
+      if (isNaN(d)) return;
+      if (d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
 
       const dayMeta = (state.routines || []).flatMap(r => r.days || []).find(dd => dd.id === s.dayId);
       const dayName = dayMeta?.name || 'Workout';
       const key = dayName.trim().toLowerCase();
-      const info = dayMap.get(key) || { color:[160,160,160], name:dayName };
 
+      const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
       if (dayMap.has(key)) usedKeys.add(key);
 
-      if (!byDate[iso]) {
+      if (!byDate[iso]){
         byDate[iso] = {
-          dateISO: iso,              // keep the date for popup actions
           typeKey: key,
           title: dayName,
           colorRGB: info.color,
           totalSets: 0, totalReps: 0, totalVolume: 0,
-          notes: [],
-          sessions: []               // store sessions for details & delete
+          notes: []
         };
       }
-
       const e = byDate[iso];
       const setsArr = Array.isArray(s.sets) ? s.sets : [];
-      e.totalSets   += setsArr.length;
-      e.totalReps   += setsArr.reduce((a,x)=>a+(+x.reps||0),0);
-      e.totalVolume += +s.totalVolume || 0;
+      e.totalSets  += setsArr.length;
+      e.totalReps  += setsArr.reduce((a,x)=>a+(+x.reps||0),0);
+      e.totalVolume+= +s.totalVolume || 0;
       if (s.note && s.note.trim()) e.notes.push(s.note.trim());
-      e.sessions.push(s);
     });
 
-    Object.values(byDate).forEach(v => v.notes = v.notes.join('\n'));
+    Object.keys(byDate).forEach(k => byDate[k].notes = byDate[k].notes.join('\n'));
     return { byDate, usedKeys };
   }
 
-  // Small colored dot
-  function dot(rgb){
-    const [r,g,b] = rgb;
+  function dot(colorRGB){
+    const [r,g,b]=colorRGB;
     const span = document.createElement('span');
     span.className = 'cal-dot';
     span.style.background = `rgb(${r}, ${g}, ${b})`;
@@ -2719,125 +2706,115 @@ if ('serviceWorker' in navigator) {
     el.setAttribute('role','gridcell');
     el.title = `${iso}: No workout`;
 
-    const num  = Object.assign(document.createElement('div'), { className:'cal-num',  textContent:String(dayNum) });
-    const dots = Object.assign(document.createElement('div'), { className:'cal-dots' });
+    const num = document.createElement('div');
+    num.className = 'cal-num';
+    num.textContent = String(dayNum);
+
+    const dots = document.createElement('div');
+    dots.className = 'cal-dots';
 
     el.appendChild(num);
     el.appendChild(dots);
     return el;
   }
 
-  function makeWorkoutCell(dayNum, iso, e){
-    const el = document.createElement('button');
-    el.type='button';
-    el.className='cal-cell';
-    el.setAttribute('role','gridcell');
-    el.setAttribute('aria-label', `${iso}: ${e.title}`);
-
-    const num  = Object.assign(document.createElement('div'), { className:'cal-num',  textContent:String(dayNum) });
-    const dots = Object.assign(document.createElement('div'), { className:'cal-dots' });
-    dots.appendChild(dot(e.colorRGB));
-
-    el.appendChild(num);
-    el.appendChild(dots);
-
-    el.addEventListener('click', () => openPopupForDay(e));
-    el.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openPopupForDay(e); }
+  // Build a neat exercise list for a given day (name + sets)
+  function buildExerciseSummary(iso){
+    // Collect by exerciseId
+    const perEx = new Map();
+    const sameDay = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) === iso);
+    sameDay.forEach(s=>{
+      const cur = perEx.get(s.exerciseId) || { sets:0, dayId: s.dayId };
+      cur.sets += (Array.isArray(s.sets) ? s.sets.length : 0);
+      perEx.set(s.exerciseId, cur);
     });
+    if (!sameDay.length) return [];
 
-    return el;
+    // Use the day's exercise order if we can
+    const dayId = sameDay[0].dayId;
+    const day = (state.routines || []).flatMap(r=>r.days||[]).find(d=>d.id===dayId);
+    const orderedIds = day ? day.exercises.map(e=>e.id) : Array.from(perEx.keys());
+
+    const rows = [];
+    orderedIds.forEach(exId=>{
+      if (!perEx.has(exId)) return;
+      const { sets } = perEx.get(exId);
+      // find a name
+      let name = 'Exercise';
+      if (day){
+        const ex = day.exercises.find(e=>e.id===exId);
+        if (ex) name = ex.name;
+      } else {
+        // fallback: scan routines
+        const exMeta = (state.routines||[])
+          .flatMap(r=>r.days||[])
+          .flatMap(d=>d.exercises||[])
+          .find(e=>e.id===exId);
+        if (exMeta) name = exMeta.name;
+      }
+      rows.push({ name, sets });
+    });
+    return rows;
   }
 
-  // ----- Popup (center-top) -----
-  function openPopupForDay(dayData){
-  // Build exercise list with set counts per exercise for that date
-  const exSetCounts = new Map();
-  (dayData.sessions || []).forEach(s => {
-    const exName = lookupExerciseNameById(s.exerciseId) || 'Exercise';
-    exSetCounts.set(exName, (exSetCounts.get(exName) || 0) + (Array.isArray(s.sets) ? s.sets.length : 0));
-  });
+  // OPEN POPUP — centered at top; this replaces any old openPopupAt
+  function openPopupForDay(iso, meta){
+    if (!popEl || !popCard) return;
 
-  const itemsHTML = [...exSetCounts.entries()]
-    .sort((a,b)=> a[0].localeCompare(b[0]))
-    .map(([name, sets]) => `
-      <li class="pop-row">
-        <span class="pop-name">${name}</span>
-        <span class="pop-sets">${sets} sets</span>
-      </li>
-    `).join('') || '<li class="pop-row">No exercises logged</li>';
+    // Header & meta
+    if (popTitle) popTitle.textContent = meta?.title || 'Workout';
+    if (popSets)  popSets.textContent  = `${meta?.totalSets||0} sets / ${meta?.totalReps||0} reps`;
+    if (popVol)   popVol.textContent   = formatVolumeKG(meta?.totalVolume||0);
 
-  // Card content: header w/ title + delete button, meta, list, close button
-  popCard.innerHTML = `
-    <div class="cal-pop-head">
-      <div class="cal-pop-title" id="pop-title">${dayData.title || 'Workout'}</div>
-      <button id="pop-delete" class="cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
-    </div>
+    // Exercise list
+    if (popList){
+      const rows = buildExerciseSummary(iso);
+      popList.innerHTML = rows.map(r=>(
+        `<li class="pop-row"><span class="pop-name">${r.name}</span><span class="pop-sets">${r.sets} sets</span></li>`
+      )).join('') || `<li class="pop-row"><span class="pop-name muted">No exercises logged</span><span class="pop-sets">0</span></li>`;
+    }
 
-    <div class="cal-pop-meta">
-      <div><strong>Sets/Reps:</strong> ${dayData.totalSets} sets / ${dayData.totalReps} reps</div>
-      <div><strong>Total Volume:</strong> ${formatLongVolume(dayData.totalVolume)}</div>
-    </div>
+    // Place the card (CSS handles top-centering)
+    popEl.hidden = false;
 
-    <ul class="pop-list">${itemsHTML}</ul>
+    // Wire close
+    popClose?.addEventListener('click', closePopupOnce, { once:true });
 
-    <button id="pop-close" class="cal-pop-close">Close</button>
-  `;
+    // Wire delete
+    if (popDel){
+      popDel.addEventListener('click', async () => {
+        const ask = typeof modal?.confirm === 'function'
+          ? await modal.confirm(`Delete all entries for ${iso}? This cannot be undone.`)
+          : window.confirm(`Delete all entries for ${iso}? This cannot be undone.`);
+        if (!ask) return;
+        // drop sessions for this date
+        const before = (state.sessions || []).length;
+        state.sessions = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== iso);
+        save?.();
+        // refresh calendar + trends
+        render();
+        if (typeof buildTrends === 'function') buildTrends();
+        if (typeof modal?.alert === 'function' && (state.sessions||[]).length !== before){
+          modal.alert('Entries deleted.');
+        }
+        closePopup();
+      }, { once:true });
+    }
 
-  // Show overlay and adjust size — slightly narrower
-  popEl.hidden = false;
-  Object.assign(popCard.style, {
-    position: 'fixed',
-    top: '12vh',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 'min(480px, 82vw)',    // narrower than before
-    borderRadius: '14px',
-    overflow: 'hidden'
-  });
-
-  // Wire up buttons each time we rebuild innerHTML
-  const closeBtn  = popCard.querySelector('#pop-close');
-  const deleteBtn = popCard.querySelector('#pop-delete');
-
-  closeBtn?.addEventListener('click', closePopup);
-  deleteBtn?.addEventListener('click', async () => {
-    const ok = await modal.confirm(`Delete ALL entries on ${dayData.dateISO}? This cannot be undone.`, 'Confirm');
-    if (!ok) return;
-
-    state.sessions = state.sessions.filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== dayData.dateISO);
-    save();
-    render();
-    buildTrends?.();
-    await modal.alert('Entries deleted.');
-    closePopup();
-  });
-
-  document.addEventListener('click', onOutside, { capture:true });
-  document.addEventListener('keydown', onEsc);
-}
-
-
-  function closePopup(){
-    popEl.hidden = true;
-    document.removeEventListener('click', onOutside, { capture:true });
-    document.removeEventListener('keydown', onEsc);
+    // Dismiss with ESC or backdrop click
+    document.addEventListener('keydown', onEsc, { once:true });
+    popEl.addEventListener('click', onOutside, { once:true, capture:true });
   }
+
   function onOutside(e){ if (!popCard.contains(e.target)) closePopup(); }
   function onEsc(e){ if (e.key === 'Escape') closePopup(); }
-
-  // Lookup utility for exercise name
-  function lookupExerciseNameById(exId){
-    const r = activeRoutine();
-    const allDays = r ? r.days : (state.routines || []).flatMap(rr => rr.days || []);
-    for (const d of allDays){
-      const ex = (d.exercises || []).find(x => x.id === exId);
-      if (ex) return ex.name;
-    }
-    return null;
+  function closePopupOnce(){ closePopup(); }
+  function closePopup(){
+    if (!popEl) return;
+    popEl.hidden = true;
   }
 
-  // ---------- Legend ----------
+  // ---------- legend ----------
   function renderLegend(dayMap, usedKeys){
     const used = [...usedKeys].filter(k => dayMap.has(k));
     if (!used.length) { legendEl.innerHTML = ''; return; }
@@ -2853,15 +2830,40 @@ if ('serviceWorker' in navigator) {
     }).join('');
   }
 
-  // ---------- Month view ----------
+  // ---------- render month ----------
   let view = (()=>{ const n = new Date(); return { y:n.getFullYear(), m:n.getMonth()+1 }; })();
+
+  function makeWorkoutCell(dayNum, iso, meta){
+    const el = document.createElement('button');
+    el.type='button';
+    el.className='cal-cell';
+    el.setAttribute('role','gridcell');
+    el.setAttribute('aria-label', `${iso}: ${meta.title}`);
+
+    const num = document.createElement('div');
+    num.className='cal-num';
+    num.textContent=String(dayNum);
+
+    const dots = document.createElement('div');
+    dots.className='cal-dots';
+    dots.appendChild(dot(meta.colorRGB));
+
+    el.appendChild(num);
+    el.appendChild(dots);
+
+    el.addEventListener('click', ()=> openPopupForDay(iso, meta));
+    el.addEventListener('keydown', (ev)=> {
+      if (ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); openPopupForDay(iso, meta); }
+    });
+
+    return el;
+  }
 
   function render(){
     const dayMap = buildDayColorMap();
-    labelEl.textContent = new Date(view.y, view.m-1, 1)
-      .toLocaleString(undefined,{month:'long', year:'numeric'});
+    labelEl.textContent = new Date(view.y, view.m-1, 1).toLocaleString(undefined,{month:'long', year:'numeric'});
 
-    // Clear grid after DOW headers (first 7)
+    // remove previous days (keep first 7 headers)
     while (gridEl.children.length > 7) gridEl.removeChild(gridEl.lastChild);
 
     const first = new Date(view.y, view.m-1, 1);
@@ -2872,8 +2874,8 @@ if ('serviceWorker' in navigator) {
     for (let i=0; i<start; i++) gridEl.appendChild(makeBlank());
     for (let d=1; d<=daysInMonth; d++){
       const iso = toISO(view.y, view.m, d);
-      const e = byDate[iso];
-      gridEl.appendChild(e ? makeWorkoutCell(d, iso, e) : makeEmptyCell(d, iso));
+      const meta = byDate[iso];
+      gridEl.appendChild(meta ? makeWorkoutCell(d, iso, meta) : makeEmptyCell(d, iso));
     }
 
     renderLegend(dayMap, usedKeys);
@@ -2885,6 +2887,7 @@ if ('serviceWorker' in navigator) {
   render();
 })();
 </script>
+
 
 
 
