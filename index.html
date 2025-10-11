@@ -2600,18 +2600,13 @@ if ('serviceWorker' in navigator) {
 </script>
 <script>
 (() => {
-  // Safe palette reused
+  // ---------- Palette ----------
   const SAFE_COLORS = [
-    [214, 97, 0],   // orange
-    [0, 114, 178],  // blue
-    [0, 158, 115],  // green
-    [240, 228, 66], // yellow
-    [204, 121, 167],// purple-pink
-    [230, 159, 0],  // amber
-    [86, 180, 233], // sky blue
-    [213, 94, 0],   // rust
+    [214, 97, 0], [0, 114, 178], [0, 158, 115], [240, 228, 66],
+    [204, 121, 167], [230, 159, 0], [86, 180, 233], [213, 94, 0],
   ];
 
+  // ---------- DOM ----------
   const legendEl = document.getElementById('cal-legend');
   const gridEl   = document.getElementById('cal-grid');
   const labelEl  = document.getElementById('cal-month-label');
@@ -2620,28 +2615,23 @@ if ('serviceWorker' in navigator) {
   const popEl    = document.getElementById('cal-popup');
   const popCard  = popEl?.querySelector('.cal-pop-card');
   const popClose = document.getElementById('pop-close');
-  if (!legendEl || !gridEl || !labelEl) return;
 
-  const toISO = (y, m, d) =>
-  `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-  const formatVolume = (v)=> (!v||v<=0)?'0':(v>=1000?(v/1000).toFixed(1)+'k':String(v));
-
-  // Tiny helper: 2-letter abbrev (kept only for popup title if you want)
-  function abbrevFromDayName(name=''){
-    const t = (name || '').trim();
-    if (!t) return '•';
-    const a = t.charAt(0);
-    const b = t.charAt(1) || '';
-    return a.toLocaleUpperCase() + (b ? b.toLocaleLowerCase() : '');
+  if (!legendEl || !gridEl || !labelEl || !prevBtn || !nextBtn || !popEl || !popCard) {
+    console.warn('[Calendar] Required nodes not found; skipping init.');
+    return;
   }
 
-  // Build color map by unique day name (consistent across app)
+  // ---------- Utils ----------
+  const toISO = (y,m,d) =>
+    `${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+  const formatVolume = (v)=> (!v||v<=0)?'0':(v>=1000?(v/1000).toFixed(1)+'k':String(v));
+
   function buildDayColorMap(){
     const map = new Map();
     let i = 0;
     (state.routines || []).forEach(r=>{
       (r.days || []).forEach(d=>{
-        const key = d.name.trim().toLowerCase();
+        const key = (d.name || '').trim().toLowerCase();
         if (!map.has(key)){
           const color = SAFE_COLORS[i % SAFE_COLORS.length];
           map.set(key, { color, name: d.name });
@@ -2651,70 +2641,59 @@ if ('serviceWorker' in navigator) {
     });
     return map;
   }
-// Find an exercise display name by its ID (using the logged day)
-function getExerciseNameById(dayId, exerciseId){
-  const day = (state.routines || []).flatMap(r => r.days || []).find(d => d.id === dayId);
-  return day?.exercises?.find(e => e.id === exerciseId)?.name || 'Exercise';
-}
 
-        // Collect workouts for the month and which day-types are actually used
-function getWorkoutsByDate(year, month, dayMap){
-  const byDate = {};
-  const usedKeys = new Set();
+  // Find an exercise display name by its ID (using the logged day)
+  function getExerciseNameById(dayId, exerciseId){
+    const day = (state.routines || []).flatMap(r => r.days || []).find(d => d.id === dayId);
+    return day?.exercises?.find(e => e.id === exerciseId)?.name || 'Exercise';
+  }
 
-  (state.sessions || []).forEach(s => {
-    const iso = (s.workoutDate || s.dateISO || '').slice(0, 10);
-    if (!iso) return;
-    const d = new Date(iso);
-    if (isNaN(d)) return;
-    if (d.getFullYear() !== year || (d.getMonth() + 1) !== month) return;
+  // Collect workouts for the month and which day-types are actually used
+  function getWorkoutsByDate(year, month, dayMap){
+    const byDate = {};
+    const usedKeys = new Set();
 
-    // Workout "type" (day name) + color
-    const dayMeta = (state.routines || []).flatMap(r => r.days || []).find(dd => dd.id === s.dayId);
-    const dayName = dayMeta?.name || 'Workout';
-    const key = dayName.trim().toLowerCase();
-    const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
-    if (dayMap.has(key)) usedKeys.add(key);
+    (state.sessions || []).forEach(s => {
+      const iso = (s.workoutDate || s.dateISO || '').slice(0, 10);
+      if (!iso) return;
+      const d = new Date(iso);
+      if (isNaN(d)) return;
+      if (d.getFullYear() !== year || (d.getMonth() + 1) !== month) return;
 
-    if (!byDate[iso]) {
-      byDate[iso] = {
-        typeKey: key,
-        title: dayName,
-        colorRGB: info.color,
-        totalSets: 0, totalReps: 0, totalVolume: 0,
-        notes: [],
-        exercises: [] // ⬅️ new: list of exercises for that date
-      };
-    }
+      // find the logged day to determine its "type" (e.g., Chest, Legs)
+      const dayMeta = (state.routines || []).flatMap(r => r.days || []).find(dd => dd.id === s.dayId);
+      const dayName = dayMeta?.name || 'Workout';
+      const key = dayName.trim().toLowerCase();
 
-    const e = byDate[iso];
-    const setsArr = Array.isArray(s.sets) ? s.sets : [];
-    const repsSum = setsArr.reduce((a, x) => a + (+x.reps || 0), 0);
+      // use palette color if known; fallback gray if not in map
+      const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
 
-    e.totalSets   += setsArr.length;
-    e.totalReps   += repsSum;
-    e.totalVolume += +s.totalVolume || 0;
-    if (s.note && s.note.trim()) e.notes.push(s.note.trim());
+      if (dayMap.has(key)) usedKeys.add(key);
 
-    // Per-exercise line for the popup list
-    e.exercises.push({
-      name: getExerciseNameById(s.exerciseId),
-      sets: setsArr.length,
-      reps: repsSum,
-      volume: +s.totalVolume || 0
+      if (!byDate[iso]) {
+        byDate[iso] = {
+          typeKey: key,
+          title: dayName,
+          colorRGB: info.color,
+          totalSets: 0, totalReps: 0, totalVolume: 0,
+          notes: [],
+        };
+      }
+
+      const e = byDate[iso];
+      const setsArr = Array.isArray(s.sets) ? s.sets : [];
+      e.totalSets += setsArr.length;
+      e.totalReps += setsArr.reduce((a, x) => a + (+x.reps || 0), 0);
+      e.totalVolume += +s.totalVolume || 0;
+      if (s.note && s.note.trim()) e.notes.push(s.note.trim());
     });
-  });
 
-  Object.keys(byDate).forEach(k => { byDate[k].notes = byDate[k].notes.join('\n'); });
+    Object.keys(byDate).forEach(k => { byDate[k].notes = byDate[k].notes.join('\n'); });
 
-  return { byDate, usedKeys };
-}
+    return { byDate, usedKeys };
+  }
 
-document.addEventListener('calendar:refresh', render);
-
-
-
-  // Render a tiny dot with the given color
+  // ---------- Cells ----------
   function dot(colorRGB){
     const [r,g,b]=colorRGB;
     const span = document.createElement('span');
@@ -2749,102 +2728,106 @@ document.addEventListener('calendar:refresh', render);
     return el;
   }
 
- function makeWorkoutCell(dayNum, iso, e){
-  const el = document.createElement('button');
-  el.type = 'button';
-  el.className = 'cal-cell';
-  el.setAttribute('role','gridcell');
-  el.setAttribute('aria-label', `${iso}: ${e.title}`);
-  el.tabIndex = 0;
+  function makeWorkoutCell(dayNum, iso, e){
+    const el = document.createElement('button');
+    el.type='button';
+    el.className = 'cal-cell';
+    el.setAttribute('role','gridcell');
+    el.setAttribute('aria-label', `${iso}: ${e.title}`);
+    el.tabIndex = 0;
 
-  const num = document.createElement('div');
-  num.className = 'cal-num';
-  num.textContent = String(dayNum);
+    const num = document.createElement('div');
+    num.className = 'cal-num';
+    num.textContent = String(dayNum);
 
-  const dots = document.createElement('div');
-  dots.className = 'cal-dots';
-  dots.appendChild(dot(e.colorRGB)); // tiny colored dot
-  e.dateISO = iso;  // keep the date on the payload for the popup
+    const dots = document.createElement('div');
+    dots.className = 'cal-dots';
+    dots.appendChild(dot(e.colorRGB)); // tiny colored dot
 
-  el.appendChild(num);
-  el.appendChild(dots);
+    // keep date for popup
+    e.dateISO = iso;
 
-  // Popup behavior + keyboard activation
-  el.addEventListener('click', () => openPopupAt(el, e));
-  el.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
-      openPopupAt(el, e);
-    }
-  });
+    el.appendChild(num);
+    el.appendChild(dots);
 
-  return el;
-}
+    el.addEventListener('click', () => openPopupAt(el, e));
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        openPopupAt(el, e);
+      }
+    });
 
-  // Popup (kept as-is, just decoupled from old styles)
+    return el;
+  }
+
+  // ---------- Popup (centered modal) ----------
+  function onOutside(e){ if (!popCard.contains(e.target)) closePopup(); }
+  function onEsc(e){ if (e.key === 'Escape') closePopup(); }
+  function closePopup(){
+    popEl.hidden = true;
+    document.removeEventListener('click', onOutside, { capture:true });
+    document.removeEventListener('keydown', onEsc);
+  }
+
   function openPopupAt(_anchorEl, data){
-  if (!popEl || !popCard) return;
+    if (!popEl || !popCard) return;
 
-  // Centered modal behavior: no manual positioning needed
-  popEl.hidden = false;
+    // Centered modal: just show; CSS handles centering
+    popEl.hidden = false;
 
-  // Header/meta
-  document.getElementById('pop-title').textContent = data.title || 'Workout';
-  document.getElementById('pop-sets-reps').textContent = `${data.totalSets} sets / ${data.totalReps} reps`;
-  document.getElementById('pop-volume').textContent   = formatVolume(data.totalVolume);
-  document.getElementById('pop-notes').textContent    = data.notes ? `Notes: ${data.notes}` : '';
+    // Header/meta
+    document.getElementById('pop-title').textContent = data.title || 'Workout';
+    document.getElementById('pop-sets-reps').textContent = `${data.totalSets} sets / ${data.totalReps} reps`;
+    document.getElementById('pop-volume').textContent   = formatVolume(data.totalVolume);
+    document.getElementById('pop-notes').textContent    = data.notes ? `Notes: ${data.notes}` : '';
 
-  // Build the exercise list with "name …… N sets"
-  const ul = document.getElementById('pop-exercises');
-  ul.innerHTML = '';
-  const iso = data.dateISO?.slice(0,10) || '';   // set in makeWorkoutCell
-  const daySessions = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) === iso);
+    // Build the exercise list with "name …… N sets"
+    const ul = document.getElementById('pop-exercises');
+    if (ul) {
+      ul.innerHTML = '';
+      const iso = data.dateISO?.slice(0,10) || '';
+      const daySessions = (state.sessions || [])
+        .filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) === iso);
 
-  // Aggregate set counts per exercise (by display name)
-  const exMap = new Map();
-  daySessions.forEach(s => {
-    const name = getExerciseNameById(s.dayId, s.exerciseId);
-    const sets = Array.isArray(s.sets) ? s.sets.length : 0;
-    exMap.set(name, (exMap.get(name) || 0) + sets);
-  });
+      const exMap = new Map();
+      daySessions.forEach(s => {
+        const name = getExerciseNameById(s.dayId, s.exerciseId);
+        const sets = Array.isArray(s.sets) ? s.sets.length : 0;
+        exMap.set(name, (exMap.get(name) || 0) + sets);
+      });
 
-  // Render rows
-  [...exMap.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name, sets]) => {
-    const li = document.createElement('li');
-    li.innerHTML = `<span class="ex-name">${name}</span><span class="ex-sets">${sets} sets</span>`;
-    ul.appendChild(li);
-  });
+      [...exMap.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name, sets]) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="ex-name">${name}</span><span class="ex-sets">${sets} sets</span>`;
+        ul.appendChild(li);
+      });
+    }
 
-  // Wire delete for the entire day
-  const delBtn = document.getElementById('pop-delete');
-  delBtn.onclick = async () => {
-    if (!(await modal.confirm('Delete ALL entries for this day? This cannot be undone.'))) return;
-    // Drop every session matching this calendar date
-    const dateKey = iso;
-    state.sessions = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== dateKey);
-    save();
-    closePopup();
-    // Re-render calendar & trends
-    render();
-    window.buildTrends?.();
-    modal.alert('Entries deleted.');
-  };
+    // Wire delete for the entire day
+    const delBtn = document.getElementById('pop-delete');
+    if (delBtn) {
+      const iso = data.dateISO?.slice(0,10) || '';
+      delBtn.onclick = async () => {
+        if (!(await modal.confirm('Delete ALL entries for this day? This cannot be undone.'))) return;
+        state.sessions = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== iso);
+        save();
+        closePopup();
+        render();
+        window.buildTrends?.();
+        modal.alert('Entries deleted.');
+      };
+    }
 
-  // Focus management
-  popClose?.focus();
+    popClose?.focus();
+    document.addEventListener('click', onOutside, { capture:true });
+    document.addEventListener('keydown', onEsc);
+  }
 
-  // Dismiss on ESC or overlay click
-  document.addEventListener('click', onOutside, { capture:true });
-  document.addEventListener('keydown', onEsc);
-}
-
-  popClose?.addEventListener('click', closePopup);
-
-  // Legend: only show types actually used this month
+  // ---------- Legend ----------
   function renderLegend(dayMap, usedKeys){
     const used = [...usedKeys].filter(k => dayMap.has(k));
     if (!used.length) { legendEl.innerHTML = ''; return; }
-
     legendEl.innerHTML = used.map(k => {
       const info = dayMap.get(k);
       const [r,g,b] = info.color;
@@ -2857,12 +2840,13 @@ document.addEventListener('calendar:refresh', render);
     }).join('');
   }
 
-  // Month view state
+  // ---------- View state & Render ----------
   let view = (()=>{ const n = new Date(); return { y:n.getFullYear(), m:n.getMonth()+1 }; })();
 
   function render(){
     const dayMap = buildDayColorMap();
-    labelEl.textContent = new Date(view.y, view.m-1, 1).toLocaleString(undefined,{month:'long', year:'numeric'});
+    labelEl.textContent = new Date(view.y, view.m-1, 1)
+      .toLocaleString(undefined,{month:'long', year:'numeric'});
 
     // Clear grid down to the DOW headers (first 7 items are the weekday names)
     while (gridEl.children.length > 7) gridEl.removeChild(gridEl.lastChild);
@@ -2876,20 +2860,19 @@ document.addEventListener('calendar:refresh', render);
     for (let d=1; d<=daysInMonth; d++){
       const iso = toISO(view.y, view.m, d);
       const e = byDate[iso];
-      if (e) { e.iso = iso; } // pass the date to the popup for delete action
-gridEl.appendChild(e ? makeWorkoutCell(d, iso, e) : makeEmptyCell(d, iso));
-
+      gridEl.appendChild(e ? makeWorkoutCell(d, iso, e) : makeEmptyCell(d, iso));
     }
 
     renderLegend(dayMap, usedKeys);
   }
 
-  prevBtn?.addEventListener('click', ()=>{ view.m--; if(view.m<1){view.m=12; view.y--;} render(); });
-  nextBtn?.addEventListener('click', ()=>{ view.m++; if(view.m>12){view.m=1; view.y++;} render(); });
+  prevBtn.addEventListener('click', ()=>{ view.m--; if(view.m<1){view.m=12; view.y--;} render(); });
+  nextBtn.addEventListener('click', ()=>{ view.m++; if(view.m>12){view.m=1; view.y++;} render(); });
 
   render();
 })();
 </script>
+
 
 <script>
   // Only runs when the app is inside Capacitor
