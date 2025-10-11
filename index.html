@@ -547,6 +547,33 @@ thead th.setnum{
   font-weight: 800;
   cursor: pointer;
 }
+/* === Popup list tweaks (left align + tighter rows) === */
+.cal-pop-list {                 /* the <ul> */
+  margin-left: -6px;            /* nudge list closer to the card edge */
+  margin-right: -4px;           /* keeps right padding visually balanced */
+}
+
+.pop-row,
+.cal-pop-list li {              /* support either class the li may have */
+  padding: 4px 0;               /* tighter than 6–10px */
+  line-height: 1.2;
+  border-top: 1px dashed var(--line);   /* keep your dashed separators */
+}
+
+.pop-name,
+.cal-pop-list .ex-name {
+  flex: 1;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.pop-sets,
+.cal-pop-list .ex-sets {
+  font-weight: 800;
+  white-space: nowrap;
+}
 
 
 
@@ -748,41 +775,41 @@ thead th.setnum{
 
     
 
-    <!-- Calendar grid -->
-    <div class="cal-grid" id="cal-grid" aria-label="Monthly calendar" role="grid" aria-readonly="true" style="margin-top:8px">
-      <div class="cal-dow" role="columnheader" aria-label="Monday">Mon</div>
-      <div class="cal-dow" role="columnheader" aria-label="Tuesday">Tue</div>
-      <div class="cal-dow" role="columnheader" aria-label="Wednesday">Wed</div>
-      <div class="cal-dow" role="columnheader" aria-label="Thursday">Thu</div>
-      <div class="cal-dow" role="columnheader" aria-label="Friday">Fri</div>
-      <div class="cal-dow" role="columnheader" aria-label="Saturday">Sat</div>
-      <div class="cal-dow" role="columnheader" aria-label="Sunday">Sun</div>
-      <!-- days injected here -->
-    </div>
-     
-   <!-- Legend -->
-   <div class="cal-legend" id="cal-legend" aria-label="Workout legend" style="margin-top:8px"></div>
-     
-    <!-- Popup -->
- <div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
-  <div class="cal-pop-card" role="document">
-    <div class="cal-pop-head">
-      <div class="cal-pop-title" id="pop-title">—</div>
-      <button id="pop-delete" class="icon cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
-    </div>
-
-    <div class="cal-pop-meta">
-      <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
-      <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
-    </div>
-
-    <ul class="cal-pop-list" id="pop-exercises"></ul>
-    <div class="cal-pop-notes" id="pop-notes"></div>
-
-    <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
-  </div>
-</div>
-
+       <!-- Calendar grid -->
+       <div class="cal-grid" id="cal-grid" aria-label="Monthly calendar" role="grid" aria-readonly="true" style="margin-top:8px">
+         <div class="cal-dow" role="columnheader" aria-label="Monday">Mon</div>
+         <div class="cal-dow" role="columnheader" aria-label="Tuesday">Tue</div>
+         <div class="cal-dow" role="columnheader" aria-label="Wednesday">Wed</div>
+         <div class="cal-dow" role="columnheader" aria-label="Thursday">Thu</div>
+         <div class="cal-dow" role="columnheader" aria-label="Friday">Fri</div>
+         <div class="cal-dow" role="columnheader" aria-label="Saturday">Sat</div>
+         <div class="cal-dow" role="columnheader" aria-label="Sunday">Sun</div>
+         <!-- days injected here -->
+       </div>
+        
+      <!-- Legend -->
+      <div class="cal-legend" id="cal-legend" aria-label="Workout legend" style="margin-top:8px"></div>
+        
+       <!-- Popup -->
+    <div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
+     <div class="cal-pop-card" role="document">
+       <div class="cal-pop-head">
+         <div class="cal-pop-title" id="pop-title">—</div>
+         <button id="pop-delete" class="icon cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
+       </div>
+   
+       <div class="cal-pop-meta">
+         <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
+         <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
+       </div>
+   
+       <ul class="cal-pop-list" id="pop-exercises"></ul>
+       <div class="cal-pop-notes" id="pop-notes"></div>
+   
+       <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
+     </div>
+   </div>
+   
 
 
   <!-- Trends card (unchanged UI, just moved under History) -->
