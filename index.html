@@ -2751,76 +2751,72 @@ if ('serviceWorker' in navigator) {
 
   // ----- Popup (center-top) -----
   function openPopupForDay(dayData){
-    // Build exercise list with set counts per exercise for that date
-    const exSetCounts = new Map();
-    (dayData.sessions || []).forEach(s => {
-      const exName = lookupExerciseNameById(s.exerciseId) || 'Exercise';
-      exSetCounts.set(exName, (exSetCounts.get(exName) || 0) + (Array.isArray(s.sets) ? s.sets.length : 0));
-    });
+  // Build exercise list with set counts per exercise for that date
+  const exSetCounts = new Map();
+  (dayData.sessions || []).forEach(s => {
+    const exName = lookupExerciseNameById(s.exerciseId) || 'Exercise';
+    exSetCounts.set(exName, (exSetCounts.get(exName) || 0) + (Array.isArray(s.sets) ? s.sets.length : 0));
+  });
 
-    const itemsHTML = [...exSetCounts.entries()]
-      .sort((a,b)=> a[0].localeCompare(b[0]))
-      .map(([name, sets]) => `
-        <li style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
-          <span>${name}</span>
-          <span style="font-weight:800;opacity:.9">${sets} sets</span>
-        </li>
-      `).join('') || '<li style="padding:6px 0;opacity:.8">No exercises logged</li>';
+  const itemsHTML = [...exSetCounts.entries()]
+    .sort((a,b)=> a[0].localeCompare(b[0]))
+    .map(([name, sets]) => `
+      <li class="pop-row">
+        <span class="pop-name">${name}</span>
+        <span class="pop-sets">${sets} sets</span>
+      </li>
+    `).join('') || '<li class="pop-row">No exercises logged</li>';
 
-    // Card content: header w/ title + delete button, meta, list, close button
-    popCard.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-        <div class="cal-pop-title" id="pop-title" style="font-size:1.15rem;font-weight:800">${dayData.title || 'Workout'}</div>
-        <button id="pop-delete" class="icon" title="Delete this day" aria-label="Delete this day"
-                style="background:transparent;border:1px solid var(--line);border-radius:8px;padding:.35rem .5rem">🗑️</button>
-      </div>
+  // Card content: header w/ title + delete button, meta, list, close button
+  popCard.innerHTML = `
+    <div class="cal-pop-head">
+      <div class="cal-pop-title" id="pop-title">${dayData.title || 'Workout'}</div>
+      <button id="pop-delete" class="cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
+    </div>
 
-      <div class="cal-pop-meta" style="display:grid;gap:4px;font-size:.98rem;margin-bottom:6px">
-        <div><strong>Sets/Reps:</strong> ${dayData.totalSets} sets / ${dayData.totalReps} reps</div>
-        <div><strong>Total Volume:</strong> ${formatLongVolume(dayData.totalVolume)}</div>
-      </div>
+    <div class="cal-pop-meta">
+      <div><strong>Sets/Reps:</strong> ${dayData.totalSets} sets / ${dayData.totalReps} reps</div>
+      <div><strong>Total Volume:</strong> ${formatLongVolume(dayData.totalVolume)}</div>
+    </div>
 
-      <ul id="pop-ex-list" style="list-style:none;margin:8px 0 12px 0;padding:0">
-        ${itemsHTML}
-      </ul>
+    <ul class="pop-list">${itemsHTML}</ul>
 
-      <div style="display:flex;justify-content:center">
-        <button id="pop-close" class="cal-pop-close"
-                style="min-width: 200px; padding: 12px 16px; font-weight:800; border-radius:10px; background: var(--accent); color:white;">
-          Close
-        </button>
-      </div>
-    `;
+    <button id="pop-close" class="cal-pop-close">Close</button>
+  `;
 
-    // Show overlay
-    popEl.hidden = false;
+  // Show overlay and adjust size — slightly narrower
+  popEl.hidden = false;
+  Object.assign(popCard.style, {
+    position: 'fixed',
+    top: '12vh',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 'min(480px, 82vw)',    // narrower than before
+    borderRadius: '14px',
+    overflow: 'hidden'
+  });
 
-    // Wire up buttons each time we rebuild innerHTML
-    const closeBtn  = popCard.querySelector('#pop-close');
-    const deleteBtn = popCard.querySelector('#pop-delete');
+  // Wire up buttons each time we rebuild innerHTML
+  const closeBtn  = popCard.querySelector('#pop-close');
+  const deleteBtn = popCard.querySelector('#pop-delete');
 
-    closeBtn?.addEventListener('click', closePopup);
-    deleteBtn?.addEventListener('click', async () => {
-      const ok = await modal.confirm(`Delete ALL entries on ${dayData.dateISO}? This cannot be undone.`, 'Confirm');
-      if (!ok) return;
+  closeBtn?.addEventListener('click', closePopup);
+  deleteBtn?.addEventListener('click', async () => {
+    const ok = await modal.confirm(`Delete ALL entries on ${dayData.dateISO}? This cannot be undone.`, 'Confirm');
+    if (!ok) return;
 
-      // Remove sessions for that date
-      const before = state.sessions.length;
-      state.sessions = state.sessions.filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== dayData.dateISO);
-      save();
+    state.sessions = state.sessions.filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== dayData.dateISO);
+    save();
+    render();
+    buildTrends?.();
+    await modal.alert('Entries deleted.');
+    closePopup();
+  });
 
-      // Re-render calendar month & trends
-      render();
-      buildTrends?.();
+  document.addEventListener('click', onOutside, { capture:true });
+  document.addEventListener('keydown', onEsc);
+}
 
-      await modal.alert('Entries deleted.');
-      closePopup();
-    });
-
-    // Close when clicking outside or pressing Esc
-    document.addEventListener('click', onOutside, { capture:true });
-    document.addEventListener('keydown', onEsc);
-  }
 
   function closePopup(){
     popEl.hidden = true;
