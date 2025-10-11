@@ -764,27 +764,25 @@ thead th.setnum{
    <div class="cal-legend" id="cal-legend" aria-label="Workout legend" style="margin-top:8px"></div>
      
     <!-- Popup -->
-   <div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
+ <div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
   <div class="cal-pop-card" role="document">
-    <div class="cal-pop-title" id="pop-title">—</div>
+    <div class="cal-pop-head">
+      <div class="cal-pop-title" id="pop-title">—</div>
+      <button id="pop-delete" class="icon cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
+    </div>
+
     <div class="cal-pop-meta">
       <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
       <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
     </div>
 
-    <!-- Exercise list gets injected here -->
     <ul class="cal-pop-list" id="pop-exercises"></ul>
-
-    <!-- Optional notes (left as-is) -->
     <div class="cal-pop-notes" id="pop-notes"></div>
 
-    <!-- Actions -->
-    <div class="cal-pop-actions">
-      <button id="pop-delete" class="icon del-prev-btn" title="Delete this day" aria-label="Delete this day">🗑️</button>
-      <button id="pop-close"  class="cal-pop-close"  aria-label="Close details">Close</button>
-    </div>
+    <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
   </div>
 </div>
+
 
 
   <!-- Trends card (unchanged UI, just moved under History) -->
@@ -2616,12 +2614,15 @@ if ('serviceWorker' in navigator) {
   const nextBtn  = document.getElementById('cal-next');
   const popEl    = document.getElementById('cal-popup');
   const popCard  = popEl?.querySelector('.cal-pop-card');
-  const popClose = document.getElementById('pop-close');
+
+  // Popup fields (match your HTML)
   const popTitle = document.getElementById('pop-title');
   const popSets  = document.getElementById('pop-sets-reps');
   const popVol   = document.getElementById('pop-volume');
-  const popList  = document.getElementById('pop-list');   // <ul id="pop-list"></ul>
-  const popDel   = document.getElementById('pop-del');     // delete button (trash)
+  const popNotes = document.getElementById('pop-notes');
+  const popList  = document.getElementById('pop-exercises');
+  const popDel   = document.getElementById('pop-delete');
+  const popClose = document.getElementById('pop-close');
 
   if (!legendEl || !gridEl || !labelEl) return;
 
@@ -2718,9 +2719,8 @@ if ('serviceWorker' in navigator) {
     return el;
   }
 
-  // Build a neat exercise list for a given day (name + sets)
+  // Build "Exercise ….. N sets" list for a given day
   function buildExerciseSummary(iso){
-    // Collect by exerciseId
     const perEx = new Map();
     const sameDay = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) === iso);
     sameDay.forEach(s=>{
@@ -2730,7 +2730,6 @@ if ('serviceWorker' in navigator) {
     });
     if (!sameDay.length) return [];
 
-    // Use the day's exercise order if we can
     const dayId = sameDay[0].dayId;
     const day = (state.routines || []).flatMap(r=>r.days||[]).find(d=>d.id===dayId);
     const orderedIds = day ? day.exercises.map(e=>e.id) : Array.from(perEx.keys());
@@ -2739,13 +2738,11 @@ if ('serviceWorker' in navigator) {
     orderedIds.forEach(exId=>{
       if (!perEx.has(exId)) return;
       const { sets } = perEx.get(exId);
-      // find a name
       let name = 'Exercise';
       if (day){
         const ex = day.exercises.find(e=>e.id===exId);
         if (ex) name = ex.name;
       } else {
-        // fallback: scan routines
         const exMeta = (state.routines||[])
           .flatMap(r=>r.days||[])
           .flatMap(d=>d.exercises||[])
@@ -2757,62 +2754,97 @@ if ('serviceWorker' in navigator) {
     return rows;
   }
 
-  // OPEN POPUP — centered at top; this replaces any old openPopupAt
+  // Ensure we have a header container (title + trash) even if HTML didn't include it
+  function ensurePopupHeader(){
+    if (!popCard) return;
+    // If a head already exists, nothing to do
+    if (popCard.querySelector('.cal-pop-head')) return;
+
+    // Build header wrapper
+    const head = document.createElement('div');
+    head.className = 'cal-pop-head';
+
+    // Move existing title into head
+    if (popTitle) {
+      popTitle.classList.add('cal-pop-title');
+      head.appendChild(popTitle);
+    }
+
+    // Move delete button to the right of the title
+    if (popDel) {
+      popDel.classList.add('cal-pop-trash');
+      head.appendChild(popDel);
+    }
+
+    // Insert header at top of card
+    popCard.insertBefore(head, popCard.firstChild);
+  }
+
+  // OPEN POPUP (top-centered; no off-screen issues)
   function openPopupForDay(iso, meta){
     if (!popEl || !popCard) return;
+
+    ensurePopupHeader(); // make sure header (title + trash) exists/positioned
 
     // Header & meta
     if (popTitle) popTitle.textContent = meta?.title || 'Workout';
     if (popSets)  popSets.textContent  = `${meta?.totalSets||0} sets / ${meta?.totalReps||0} reps`;
     if (popVol)   popVol.textContent   = formatVolumeKG(meta?.totalVolume||0);
 
+    // Notes (optional)
+    if (popNotes) {
+      const txt = meta?.notes || '';
+      popNotes.textContent = txt || '';
+      popNotes.style.display = txt ? '' : 'none';
+    }
+
     // Exercise list
     if (popList){
       const rows = buildExerciseSummary(iso);
-      popList.innerHTML = rows.map(r=>(
+      popList.innerHTML = rows.map(r =>
         `<li class="pop-row"><span class="pop-name">${r.name}</span><span class="pop-sets">${r.sets} sets</span></li>`
-      )).join('') || `<li class="pop-row"><span class="pop-name muted">No exercises logged</span><span class="pop-sets">0</span></li>`;
+      ).join('') || `<li class="pop-row"><span class="pop-name muted">No exercises logged</span><span class="pop-sets">0</span></li>`;
     }
 
-    // Place the card (CSS handles top-centering)
+    // Show popup
     popEl.hidden = false;
 
-    // Wire close
-    popClose?.addEventListener('click', closePopupOnce, { once:true });
+    // Close
+    const onClose = () => closePopup();
+    popClose?.addEventListener('click', onClose, { once:true });
 
-    // Wire delete
+    // Delete (confirm + remove)
     if (popDel){
-      popDel.addEventListener('click', async () => {
-        const ask = typeof modal?.confirm === 'function'
+      const onDelete = async () => {
+        const ok = typeof modal?.confirm === 'function'
           ? await modal.confirm(`Delete all entries for ${iso}? This cannot be undone.`)
           : window.confirm(`Delete all entries for ${iso}? This cannot be undone.`);
-        if (!ask) return;
-        // drop sessions for this date
+        if (!ok) return;
         const before = (state.sessions || []).length;
         state.sessions = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== iso);
         save?.();
-        // refresh calendar + trends
         render();
         if (typeof buildTrends === 'function') buildTrends();
-        if (typeof modal?.alert === 'function' && (state.sessions||[]).length !== before){
-          modal.alert('Entries deleted.');
-        }
+        if ((state.sessions||[]).length !== before) modal?.alert?.('Entries deleted.');
         closePopup();
-      }, { once:true });
+      };
+      // remove any stale listener then add (in case of repeated opens)
+      popDel.replaceWith(popDel.cloneNode(true));
+      const freshDel = document.getElementById('pop-delete');
+      if (freshDel) {
+        freshDel.classList.add('cal-pop-trash');
+        freshDel.addEventListener('click', onDelete, { once:true });
+      }
     }
 
     // Dismiss with ESC or backdrop click
-    document.addEventListener('keydown', onEsc, { once:true });
+    const onEsc = (e)=>{ if (e.key === 'Escape') { closePopup(); document.removeEventListener('keydown', onEsc); } };
+    document.addEventListener('keydown', onEsc);
+    const onOutside = (e)=>{ if (!popCard.contains(e.target)) closePopup(); };
     popEl.addEventListener('click', onOutside, { once:true, capture:true });
   }
 
-  function onOutside(e){ if (!popCard.contains(e.target)) closePopup(); }
-  function onEsc(e){ if (e.key === 'Escape') closePopup(); }
-  function closePopupOnce(){ closePopup(); }
-  function closePopup(){
-    if (!popEl) return;
-    popEl.hidden = true;
-  }
+  function closePopup(){ if (popEl) popEl.hidden = true; }
 
   // ---------- legend ----------
   function renderLegend(dayMap, usedKeys){
@@ -2884,10 +2916,12 @@ if ('serviceWorker' in navigator) {
   prevBtn?.addEventListener('click', ()=>{ view.m--; if(view.m<1){view.m=12; view.y--;} render(); });
   nextBtn?.addEventListener('click', ()=>{ view.m++; if(view.m>12){view.m=1; view.y++;} render(); });
 
+  // Allow outside code to force a refresh (used after deletes)
+  document.addEventListener('calendar:refresh', render);
+
   render();
 })();
 </script>
-
 
 
 
