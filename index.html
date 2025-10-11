@@ -485,55 +485,68 @@ thead th.setnum{
 .cal-legend .swatch { width:14px; height:14px; border-radius:4px; outline:1px solid rgba(0,0,0,.2); }
 
 .cal-popup[hidden]{ display:none; }
-.cal-popup { position: fixed; inset:0; background: transparent; z-index: 40; }
-.cal-pop-card { position:absolute; min-width:240px; max-width:320px; background: var(--surface); color: var(--text);
-  border:1px solid var(--line); border-radius:12px; padding:12px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }
-.cal-pop-title { font-weight:800; margin-bottom:6px; }
-.cal-pop-meta { display:grid; gap:4px; font-size:.95rem; margin-bottom:6px; }
-.cal-pop-notes { font-size:.95rem; opacity:.95; white-space:pre-wrap; }
-.cal-pop-close { margin-top:8px; width:100%; background: var(--accent); color:white; border:none; border-radius:8px; padding:10px 12px; font-weight:800; }
-/* ==== Centered, larger popup ==== */
+
+/* Full-screen overlay that centers the card */
 .cal-popup {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.25); /* subtle backdrop so it feels modal */
-  display: block;
-}
-
-.cal-pop-card {
-  position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  width: min(520px, 92vw);
-  max-height: 80vh;
-  overflow: auto;
-  padding-bottom: 12px;
-}
-
-.cal-pop-exercises .hdr { margin: 6px 0; color: var(--muted); }
-.cal-ex-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 6px; }
-.cal-ex-list li { padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.02); }
-.cal-ex-meta { display: flex; gap: 8px; font-size: .92rem; color: var(--muted); }
-
-.cal-pop-actions {
+  z-index: 40;
+  background: rgba(0,0,0,.35);            /* subtle dim */
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
+  justify-content: center;
+  overflow: auto;                          /* page can scroll if card is tall */
+  padding: 16px;
 }
 
-/* Reuse trash-can visual but keep it inline (not absolute) inside popup */
+/* Popup card: narrower than the calendar card, but can be tall */
+.cal-pop-card {
+  position: relative;                      /* no absolute top/left anymore */
+  width: min(520px, 90vw);                 /* narrower than the card below */
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.35);
+  overflow: visible;                       /* no internal scrollbars */
+}
+
+.cal-pop-title { font-weight:800; margin-bottom:6px; }
+.cal-pop-meta  { display:grid; gap:4px; font-size:.95rem; margin-bottom:8px; }
+.cal-pop-notes { font-size:.95rem; opacity:.95; white-space:pre-wrap; }
+
+/* Exercise list (name left … sets right) */
+.cal-pop-list { list-style:none; margin:8px 0 0; padding:0; }
+.cal-pop-list li {
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; padding:6px 0; border-top:1px dashed var(--line);
+}
+.cal-pop-list .ex-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.cal-pop-list .ex-sets { white-space:nowrap; color:var(--muted); font-weight:700; }
+
+/* Actions row inside the popup */
+.cal-pop-actions {
+  display:flex; align-items:center; gap:8px;
+  margin-top:10px;
+}
+
+/* Reuse the prev-weeks delete look, but make it behave like a normal button in the popup */
 .cal-pop-card .del-prev-btn {
-  position: static;
-  margin-left: 0;
-  background: transparent;
+  position: static;    /* override absolute from history tables */
+  margin-left: auto;   /* push to the right */
 }
 
-/* Make Close stretch nicely; keep its strong look */
+/* Close button */
 .cal-pop-close {
-  flex: 1;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 800;
 }
+
 
 @media (max-width: 480px){
   thead th.sets-label {
@@ -749,18 +762,28 @@ thead th.setnum{
    <div class="cal-legend" id="cal-legend" aria-label="Workout legend" style="margin-top:8px"></div>
      
     <!-- Popup -->
-    <div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
-      <div class="cal-pop-card" role="document">
-        <div class="cal-pop-title" id="pop-title">—</div>
-        <div class="cal-pop-meta">
-          <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
-          <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
-        </div>
-        <div class="cal-pop-notes" id="pop-notes"></div>
-        <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
-      </div>
+   <div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
+  <div class="cal-pop-card" role="document">
+    <div class="cal-pop-title" id="pop-title">—</div>
+    <div class="cal-pop-meta">
+      <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
+      <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
+    </div>
+
+    <!-- Exercise list gets injected here -->
+    <ul class="cal-pop-list" id="pop-exercises"></ul>
+
+    <!-- Optional notes (left as-is) -->
+    <div class="cal-pop-notes" id="pop-notes"></div>
+
+    <!-- Actions -->
+    <div class="cal-pop-actions">
+      <button id="pop-delete" class="icon del-prev-btn" title="Delete this day" aria-label="Delete this day">🗑️</button>
+      <button id="pop-close"  class="cal-pop-close"  aria-label="Close details">Close</button>
     </div>
   </div>
+</div>
+
 
   <!-- Trends card (unchanged UI, just moved under History) -->
 <div class="card" id="history-trends" style="margin-top:12px">
@@ -2628,6 +2651,11 @@ if ('serviceWorker' in navigator) {
     });
     return map;
   }
+// Find an exercise display name by its ID (using the logged day)
+function getExerciseNameById(dayId, exerciseId){
+  const day = (state.routines || []).flatMap(r => r.days || []).find(d => d.id === dayId);
+  return day?.exercises?.find(e => e.id === exerciseId)?.name || 'Exercise';
+}
 
         // Collect workouts for the month and which day-types are actually used
 function getWorkoutsByDate(year, month, dayMap){
@@ -2736,6 +2764,7 @@ document.addEventListener('calendar:refresh', render);
   const dots = document.createElement('div');
   dots.className = 'cal-dots';
   dots.appendChild(dot(e.colorRGB)); // tiny colored dot
+  e.dateISO = iso;  // keep the date on the payload for the popup
 
   el.appendChild(num);
   el.appendChild(dots);
@@ -2756,57 +2785,59 @@ document.addEventListener('calendar:refresh', render);
   function openPopupAt(_anchorEl, data){
   if (!popEl || !popCard) return;
 
-  // Build exercise list HTML
-  const exList = (data.exercises || []).map(x => `
-    <li>
-      <strong>${x.name}</strong>
-      <div class="cal-ex-meta">
-        <span>${x.sets} sets</span>
-        <span>${x.reps} reps</span>
-        <span>vol ${formatVolume(x.volume)}</span>
-      </div>
-    </li>
-  `).join('') || '<li class="muted">No exercises logged.</li>';
-
-  // Rebuild the card contents (bigger, with delete)
-  const details = `
-    <div class="cal-pop-title">${data.title || 'Workout'}</div>
-
-    <div class="cal-pop-meta">
-      <div><strong>Sets/Reps:</strong> ${data.totalSets} sets / ${data.totalReps} reps</div>
-      <div><strong>Total Volume:</strong> ${formatVolume(data.totalVolume)}</div>
-    </div>
-
-    <div class="cal-pop-exercises">
-      <div class="hdr"><strong>Exercises</strong></div>
-      <ul class="cal-ex-list">${exList}</ul>
-    </div>
-
-    ${data.notes ? `<div class="cal-pop-notes">${data.notes}</div>` : ''}
-
-    <div class="cal-pop-actions">
-      <button id="pop-delete" class="icon del-prev-btn" data-action="deleteDayHistory" data-iso="${data.iso}">🗑️</button>
-      <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
-    </div>
-  `;
-  popCard.innerHTML = details;
-
-  // Show centered (CSS does the centering)
+  // Centered modal behavior: no manual positioning needed
   popEl.hidden = false;
 
-  // Wire the close button inside the rebuilt card
-  popCard.querySelector('#pop-close')?.addEventListener('click', () => {
-    popEl.hidden = true;
+  // Header/meta
+  document.getElementById('pop-title').textContent = data.title || 'Workout';
+  document.getElementById('pop-sets-reps').textContent = `${data.totalSets} sets / ${data.totalReps} reps`;
+  document.getElementById('pop-volume').textContent   = formatVolume(data.totalVolume);
+  document.getElementById('pop-notes').textContent    = data.notes ? `Notes: ${data.notes}` : '';
+
+  // Build the exercise list with "name …… N sets"
+  const ul = document.getElementById('pop-exercises');
+  ul.innerHTML = '';
+  const iso = data.dateISO?.slice(0,10) || '';   // set in makeWorkoutCell
+  const daySessions = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) === iso);
+
+  // Aggregate set counts per exercise (by display name)
+  const exMap = new Map();
+  daySessions.forEach(s => {
+    const name = getExerciseNameById(s.dayId, s.exerciseId);
+    const sets = Array.isArray(s.sets) ? s.sets.length : 0;
+    exMap.set(name, (exMap.get(name) || 0) + sets);
   });
+
+  // Render rows
+  [...exMap.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name, sets]) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="ex-name">${name}</span><span class="ex-sets">${sets} sets</span>`;
+    ul.appendChild(li);
+  });
+
+  // Wire delete for the entire day
+  const delBtn = document.getElementById('pop-delete');
+  delBtn.onclick = async () => {
+    if (!(await modal.confirm('Delete ALL entries for this day? This cannot be undone.'))) return;
+    // Drop every session matching this calendar date
+    const dateKey = iso;
+    state.sessions = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== dateKey);
+    save();
+    closePopup();
+    // Re-render calendar & trends
+    render();
+    window.buildTrends?.();
+    modal.alert('Entries deleted.');
+  };
+
+  // Focus management
+  popClose?.focus();
+
+  // Dismiss on ESC or overlay click
+  document.addEventListener('click', onOutside, { capture:true });
+  document.addEventListener('keydown', onEsc);
 }
 
-  function onOutside(e){ if (!popCard.contains(e.target)) closePopup(); }
-  function onEsc(e){ if (e.key === 'Escape') closePopup(); }
-  function closePopup(){
-    popEl.hidden = true;
-    document.removeEventListener('click', onOutside, { capture:true });
-    document.removeEventListener('keydown', onEsc);
-  }
   popClose?.addEventListener('click', closePopup);
 
   // Legend: only show types actually used this month
