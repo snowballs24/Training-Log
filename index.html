@@ -2525,7 +2525,8 @@ if ('serviceWorker' in navigator) {
   const popClose = document.getElementById('pop-close');
   if (!legendEl || !gridEl || !labelEl) return;
 
-  const toISO=(y,m,d)=>`${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}`;
+  const toISO = (y, m, d) =>
+  `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   const formatVolume = (v)=> (!v||v<=0)?'0':(v>=1000?(v/1000).toFixed(1)+'k':String(v));
 
   // Tiny helper: 2-letter abbrev (kept only for popup title if you want)
