@@ -2612,29 +2612,38 @@ if ('serviceWorker' in navigator) {
   const labelEl  = document.getElementById('cal-month-label');
   const prevBtn  = document.getElementById('cal-prev');
   const nextBtn  = document.getElementById('cal-next');
-  const popEl    = document.getElementById('cal-popup');
-  const popCard  = popEl?.querySelector('.cal-pop-card');
-  const popClose = document.getElementById('pop-close');
+  const popEl    = document.getElementById('cal-popup');     // overlay
+  const popCard  = popEl?.querySelector('.cal-pop-card');    // card (we'll reposition)
+  if (!legendEl || !gridEl || !labelEl || !popEl || !popCard) return;
 
-  if (!legendEl || !gridEl || !labelEl || !prevBtn || !nextBtn || !popEl || !popCard) {
-    console.warn('[Calendar] Required nodes not found; skipping init.');
-    return;
+  // Position the popup near the top and center horizontally
+  // (CSS from JS so you don't need to edit styles elsewhere)
+  Object.assign(popCard.style, {
+    position: 'fixed',
+    top: '12vh',                 // near the top (request #2)
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 'min(560px, 92vw)',   // narrower than the calendar card (request #1)
+    maxHeight: 'unset',          // allow to be taller than the calendar card (request #1)
+  });
+
+  // ---------- Helpers ----------
+  const unitLabel = (window.prefs?.units || 'kg').toLowerCase();
+  const toISO = (y,m,d) => `${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+
+  // e.g. 5341 -> "5,341 kg"
+  function formatLongVolume(v){
+    const n = Math.max(0, Math.round(+v || 0));
+    return new Intl.NumberFormat(undefined).format(n) + ' ' + unitLabel;
   }
 
-  // ---------- Utils ----------
-  const toISO = (y,m,d) =>
-    `${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-  const formatVolume = (v)=> (!v||v<=0)?'0':(v>=1000?(v/1000).toFixed(1)+'k':String(v));
-
   function buildDayColorMap(){
-    const map = new Map();
-    let i = 0;
+    const map = new Map(); let i = 0;
     (state.routines || []).forEach(r=>{
       (r.days || []).forEach(d=>{
-        const key = (d.name || '').trim().toLowerCase();
+        const key = (d.name||'').trim().toLowerCase();
         if (!map.has(key)){
-          const color = SAFE_COLORS[i % SAFE_COLORS.length];
-          map.set(key, { color, name: d.name });
+          map.set(key, { color: SAFE_COLORS[i % SAFE_COLORS.length], name: d.name });
           i++;
         }
       });
@@ -2642,60 +2651,54 @@ if ('serviceWorker' in navigator) {
     return map;
   }
 
-  // Find an exercise display name by its ID (using the logged day)
-  function getExerciseNameById(dayId, exerciseId){
-    const day = (state.routines || []).flatMap(r => r.days || []).find(d => d.id === dayId);
-    return day?.exercises?.find(e => e.id === exerciseId)?.name || 'Exercise';
-  }
-
-  // Collect workouts for the month and which day-types are actually used
+  // Collect workouts for month
   function getWorkoutsByDate(year, month, dayMap){
     const byDate = {};
     const usedKeys = new Set();
 
     (state.sessions || []).forEach(s => {
-      const iso = (s.workoutDate || s.dateISO || '').slice(0, 10);
+      const isoFull = (s.workoutDate || s.dateISO || '');
+      const iso = isoFull.slice(0,10);
       if (!iso) return;
-      const d = new Date(iso);
-      if (isNaN(d)) return;
-      if (d.getFullYear() !== year || (d.getMonth() + 1) !== month) return;
 
-      // find the logged day to determine its "type" (e.g., Chest, Legs)
+      const d = new Date(iso);
+      if (isNaN(d) || d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
+
       const dayMeta = (state.routines || []).flatMap(r => r.days || []).find(dd => dd.id === s.dayId);
       const dayName = dayMeta?.name || 'Workout';
       const key = dayName.trim().toLowerCase();
-
-      // use palette color if known; fallback gray if not in map
-      const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
+      const info = dayMap.get(key) || { color:[160,160,160], name:dayName };
 
       if (dayMap.has(key)) usedKeys.add(key);
 
       if (!byDate[iso]) {
         byDate[iso] = {
+          dateISO: iso,              // keep the date for popup actions
           typeKey: key,
           title: dayName,
           colorRGB: info.color,
           totalSets: 0, totalReps: 0, totalVolume: 0,
           notes: [],
+          sessions: []               // store sessions for details & delete
         };
       }
 
       const e = byDate[iso];
       const setsArr = Array.isArray(s.sets) ? s.sets : [];
-      e.totalSets += setsArr.length;
-      e.totalReps += setsArr.reduce((a, x) => a + (+x.reps || 0), 0);
+      e.totalSets   += setsArr.length;
+      e.totalReps   += setsArr.reduce((a,x)=>a+(+x.reps||0),0);
       e.totalVolume += +s.totalVolume || 0;
       if (s.note && s.note.trim()) e.notes.push(s.note.trim());
+      e.sessions.push(s);
     });
 
-    Object.keys(byDate).forEach(k => { byDate[k].notes = byDate[k].notes.join('\n'); });
-
+    Object.values(byDate).forEach(v => v.notes = v.notes.join('\n'));
     return { byDate, usedKeys };
   }
 
-  // ---------- Cells ----------
-  function dot(colorRGB){
-    const [r,g,b]=colorRGB;
+  // Small colored dot
+  function dot(rgb){
+    const [r,g,b] = rgb;
     const span = document.createElement('span');
     span.className = 'cal-dot';
     span.style.background = `rgb(${r}, ${g}, ${b})`;
@@ -2716,12 +2719,8 @@ if ('serviceWorker' in navigator) {
     el.setAttribute('role','gridcell');
     el.title = `${iso}: No workout`;
 
-    const num = document.createElement('div');
-    num.className = 'cal-num';
-    num.textContent = String(dayNum);
-
-    const dots = document.createElement('div');
-    dots.className = 'cal-dots';
+    const num  = Object.assign(document.createElement('div'), { className:'cal-num',  textContent:String(dayNum) });
+    const dots = Object.assign(document.createElement('div'), { className:'cal-dots' });
 
     el.appendChild(num);
     el.appendChild(dots);
@@ -2731,97 +2730,115 @@ if ('serviceWorker' in navigator) {
   function makeWorkoutCell(dayNum, iso, e){
     const el = document.createElement('button');
     el.type='button';
-    el.className = 'cal-cell';
+    el.className='cal-cell';
     el.setAttribute('role','gridcell');
     el.setAttribute('aria-label', `${iso}: ${e.title}`);
-    el.tabIndex = 0;
 
-    const num = document.createElement('div');
-    num.className = 'cal-num';
-    num.textContent = String(dayNum);
-
-    const dots = document.createElement('div');
-    dots.className = 'cal-dots';
-    dots.appendChild(dot(e.colorRGB)); // tiny colored dot
-
-    // keep date for popup
-    e.dateISO = iso;
+    const num  = Object.assign(document.createElement('div'), { className:'cal-num',  textContent:String(dayNum) });
+    const dots = Object.assign(document.createElement('div'), { className:'cal-dots' });
+    dots.appendChild(dot(e.colorRGB));
 
     el.appendChild(num);
     el.appendChild(dots);
 
-    el.addEventListener('click', () => openPopupAt(el, e));
+    el.addEventListener('click', () => openPopupForDay(e));
     el.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' || ev.key === ' ') {
-        ev.preventDefault();
-        openPopupAt(el, e);
-      }
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openPopupForDay(e); }
     });
 
     return el;
   }
 
-  // ---------- Popup (centered modal) ----------
-  function onOutside(e){ if (!popCard.contains(e.target)) closePopup(); }
-  function onEsc(e){ if (e.key === 'Escape') closePopup(); }
+  // ----- Popup (center-top) -----
+  function openPopupForDay(dayData){
+    // Build exercise list with set counts per exercise for that date
+    const exSetCounts = new Map();
+    (dayData.sessions || []).forEach(s => {
+      const exName = lookupExerciseNameById(s.exerciseId) || 'Exercise';
+      exSetCounts.set(exName, (exSetCounts.get(exName) || 0) + (Array.isArray(s.sets) ? s.sets.length : 0));
+    });
+
+    const itemsHTML = [...exSetCounts.entries()]
+      .sort((a,b)=> a[0].localeCompare(b[0]))
+      .map(([name, sets]) => `
+        <li style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
+          <span>${name}</span>
+          <span style="font-weight:800;opacity:.9">${sets} sets</span>
+        </li>
+      `).join('') || '<li style="padding:6px 0;opacity:.8">No exercises logged</li>';
+
+    // Card content: header w/ title + delete button, meta, list, close button
+    popCard.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <div class="cal-pop-title" id="pop-title" style="font-size:1.15rem;font-weight:800">${dayData.title || 'Workout'}</div>
+        <button id="pop-delete" class="icon" title="Delete this day" aria-label="Delete this day"
+                style="background:transparent;border:1px solid var(--line);border-radius:8px;padding:.35rem .5rem">🗑️</button>
+      </div>
+
+      <div class="cal-pop-meta" style="display:grid;gap:4px;font-size:.98rem;margin-bottom:6px">
+        <div><strong>Sets/Reps:</strong> ${dayData.totalSets} sets / ${dayData.totalReps} reps</div>
+        <div><strong>Total Volume:</strong> ${formatLongVolume(dayData.totalVolume)}</div>
+      </div>
+
+      <ul id="pop-ex-list" style="list-style:none;margin:8px 0 12px 0;padding:0">
+        ${itemsHTML}
+      </ul>
+
+      <div style="display:flex;justify-content:center">
+        <button id="pop-close" class="cal-pop-close"
+                style="min-width: 200px; padding: 12px 16px; font-weight:800; border-radius:10px; background: var(--accent); color:white;">
+          Close
+        </button>
+      </div>
+    `;
+
+    // Show overlay
+    popEl.hidden = false;
+
+    // Wire up buttons each time we rebuild innerHTML
+    const closeBtn  = popCard.querySelector('#pop-close');
+    const deleteBtn = popCard.querySelector('#pop-delete');
+
+    closeBtn?.addEventListener('click', closePopup);
+    deleteBtn?.addEventListener('click', async () => {
+      const ok = await modal.confirm(`Delete ALL entries on ${dayData.dateISO}? This cannot be undone.`, 'Confirm');
+      if (!ok) return;
+
+      // Remove sessions for that date
+      const before = state.sessions.length;
+      state.sessions = state.sessions.filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== dayData.dateISO);
+      save();
+
+      // Re-render calendar month & trends
+      render();
+      buildTrends?.();
+
+      await modal.alert('Entries deleted.');
+      closePopup();
+    });
+
+    // Close when clicking outside or pressing Esc
+    document.addEventListener('click', onOutside, { capture:true });
+    document.addEventListener('keydown', onEsc);
+  }
+
   function closePopup(){
     popEl.hidden = true;
     document.removeEventListener('click', onOutside, { capture:true });
     document.removeEventListener('keydown', onEsc);
   }
+  function onOutside(e){ if (!popCard.contains(e.target)) closePopup(); }
+  function onEsc(e){ if (e.key === 'Escape') closePopup(); }
 
-  function openPopupAt(_anchorEl, data){
-    if (!popEl || !popCard) return;
-
-    // Centered modal: just show; CSS handles centering
-    popEl.hidden = false;
-
-    // Header/meta
-    document.getElementById('pop-title').textContent = data.title || 'Workout';
-    document.getElementById('pop-sets-reps').textContent = `${data.totalSets} sets / ${data.totalReps} reps`;
-    document.getElementById('pop-volume').textContent   = formatVolume(data.totalVolume);
-    document.getElementById('pop-notes').textContent    = data.notes ? `Notes: ${data.notes}` : '';
-
-    // Build the exercise list with "name …… N sets"
-    const ul = document.getElementById('pop-exercises');
-    if (ul) {
-      ul.innerHTML = '';
-      const iso = data.dateISO?.slice(0,10) || '';
-      const daySessions = (state.sessions || [])
-        .filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) === iso);
-
-      const exMap = new Map();
-      daySessions.forEach(s => {
-        const name = getExerciseNameById(s.dayId, s.exerciseId);
-        const sets = Array.isArray(s.sets) ? s.sets.length : 0;
-        exMap.set(name, (exMap.get(name) || 0) + sets);
-      });
-
-      [...exMap.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name, sets]) => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span class="ex-name">${name}</span><span class="ex-sets">${sets} sets</span>`;
-        ul.appendChild(li);
-      });
+  // Lookup utility for exercise name
+  function lookupExerciseNameById(exId){
+    const r = activeRoutine();
+    const allDays = r ? r.days : (state.routines || []).flatMap(rr => rr.days || []);
+    for (const d of allDays){
+      const ex = (d.exercises || []).find(x => x.id === exId);
+      if (ex) return ex.name;
     }
-
-    // Wire delete for the entire day
-    const delBtn = document.getElementById('pop-delete');
-    if (delBtn) {
-      const iso = data.dateISO?.slice(0,10) || '';
-      delBtn.onclick = async () => {
-        if (!(await modal.confirm('Delete ALL entries for this day? This cannot be undone.'))) return;
-        state.sessions = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== iso);
-        save();
-        closePopup();
-        render();
-        window.buildTrends?.();
-        modal.alert('Entries deleted.');
-      };
-    }
-
-    popClose?.focus();
-    document.addEventListener('click', onOutside, { capture:true });
-    document.addEventListener('keydown', onEsc);
+    return null;
   }
 
   // ---------- Legend ----------
@@ -2840,7 +2857,7 @@ if ('serviceWorker' in navigator) {
     }).join('');
   }
 
-  // ---------- View state & Render ----------
+  // ---------- Month view ----------
   let view = (()=>{ const n = new Date(); return { y:n.getFullYear(), m:n.getMonth()+1 }; })();
 
   function render(){
@@ -2848,7 +2865,7 @@ if ('serviceWorker' in navigator) {
     labelEl.textContent = new Date(view.y, view.m-1, 1)
       .toLocaleString(undefined,{month:'long', year:'numeric'});
 
-    // Clear grid down to the DOW headers (first 7 items are the weekday names)
+    // Clear grid after DOW headers (first 7)
     while (gridEl.children.length > 7) gridEl.removeChild(gridEl.lastChild);
 
     const first = new Date(view.y, view.m-1, 1);
@@ -2866,12 +2883,13 @@ if ('serviceWorker' in navigator) {
     renderLegend(dayMap, usedKeys);
   }
 
-  prevBtn.addEventListener('click', ()=>{ view.m--; if(view.m<1){view.m=12; view.y--;} render(); });
-  nextBtn.addEventListener('click', ()=>{ view.m++; if(view.m>12){view.m=1; view.y++;} render(); });
+  prevBtn?.addEventListener('click', ()=>{ view.m--; if(view.m<1){view.m=12; view.y--;} render(); });
+  nextBtn?.addEventListener('click', ()=>{ view.m++; if(view.m>12){view.m=1; view.y++;} render(); });
 
   render();
 })();
 </script>
+
 
 
 <script>
