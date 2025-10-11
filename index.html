@@ -2514,43 +2514,59 @@ if ('serviceWorker' in navigator) {
     return map;
   }
 
+        // Collect workouts for the month and which day-types are actually used
+  function getWorkoutsByDate(year, month, dayMap){
+    const byDate = {};
+    const usedKeys = new Set();
+
+    (state.sessions || []).forEach(s => {
+      const iso = (s.workoutDate || s.dateISO || '').slice(0,10);
+      if (!iso) return;
+      const d = new Date(iso);
+      if (isNaN(d)) return;
+      if (d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
+
       // find the day meta to get its name (type)
-      const dayMeta = (state.routines || []).flatMap(r => r.days || [])
-                         .find(dd => dd.id === s.dayId);
+      const dayMeta = (state.routines || [])
+        .flatMap(r => r.days || [])
+        .find(dd => dd.id === s.dayId);
+
       const dayName = dayMeta?.name || 'Workout';
       const key = dayName.trim().toLowerCase();
 
-      // ✅ NEW: use fallback color if this key isn't in the map
+      // fallback color if not in the map
       const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
 
-      // Track only real mapped types for the legend
+      // only mapped types appear in the legend
       if (dayMap.has(key)) usedKeys.add(key);
-
-
-      usedKeys.add(key);
 
       if (!byDate[iso]){
         byDate[iso] = {
-          // we keep a single primary type per day (most apps log one type/day)
           typeKey: key,
           title: dayName,
           colorRGB: info.color,
-          totalSets: 0, totalReps: 0, totalVolume: 0,
-          notes:[]
+          totalSets: 0,
+          totalReps: 0,
+          totalVolume: 0,
+          notes: []
         };
       }
 
       const e = byDate[iso];
       const setsArr = Array.isArray(s.sets) ? s.sets : [];
       e.totalSets += setsArr.length;
-      e.totalReps += setsArr.reduce((a,x)=>a+(+x.reps||0),0);
+      e.totalReps += setsArr.reduce((a,x)=> a + (+x.reps || 0), 0);
       e.totalVolume += +s.totalVolume || 0;
       if (s.note && s.note.trim()) e.notes.push(s.note.trim());
     });
 
-    Object.keys(byDate).forEach(k => byDate[k].notes = byDate[k].notes.join('\n'));
+    Object.keys(byDate).forEach(k => {
+      byDate[k].notes = byDate[k].notes.join('\n');
+    });
+
     return { byDate, usedKeys };
   }
+
 
   // Render a tiny dot with the given color
   function dot(colorRGB){
