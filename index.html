@@ -1042,6 +1042,20 @@ button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotat
 .cal-day.empty,
 .cal-day.low-contrast { all: unset; }
 
+/* Make the month selector centered */
+.cal-monthbar{
+  display:flex;
+  align-items:center;
+  justify-content:center !important; /* force center */
+  gap:10px;
+  width:100%;
+}
+
+/* Day cell is not a button anymore */
+.cal-cell { cursor: pointer; }         /* nice hover target */
+.cal-dots { display:flex; gap:6px; min-height:10px; }
+.cal-dot  { width:8px; height:8px; border-radius:50%; display:inline-block; box-shadow:0 0 0 1px rgba(0,0,0,.25); }
+
 </style>
 
 <div id="modalRoot" class="app-modal hidden" aria-hidden="true">
@@ -2604,28 +2618,34 @@ if ('serviceWorker' in navigator) {
   }
 
   function makeWorkoutCell(dayNum, iso, e){
-    const el = document.createElement('button');
-    el.type='button';
-    el.className = 'cal-cell';
-    el.setAttribute('role','gridcell');
-    el.title = `${iso}: ${e.title} — ${e.totalSets} sets, ${e.totalReps} reps, volume ${formatVolume(e.totalVolume)}`;
+  const el = document.createElement('div');      // ⬅ change button → div
+  el.className = 'cal-cell';
+  el.setAttribute('role','gridcell');
+  el.title = `${iso}: ${e.title} — ${e.totalSets} sets, ${e.totalReps} reps, volume ${formatVolume(e.totalVolume)}`;
+  el.tabIndex = 0;                                // keep it keyboard focusable
 
-    const num = document.createElement('div');
-    num.className = 'cal-num';
-    num.textContent = String(dayNum);
+  const num = document.createElement('div');
+  num.className = 'cal-num';
+  num.textContent = String(dayNum);
 
-    const dots = document.createElement('div');
-    dots.className = 'cal-dots';
-    dots.appendChild(dot(e.colorRGB)); // single dot; add more if you ever support multiple types in one day
+  const dots = document.createElement('div');
+  dots.className = 'cal-dots';
+  dots.appendChild(dot(e.colorRGB));              // the colored dot
 
-    el.appendChild(num);
-    el.appendChild(dots);
+  el.appendChild(num);
+  el.appendChild(dots);
 
-    // keep your popup behavior
-    el.addEventListener('click',()=>openPopupAt(el,e));
-    return el;
-  }
+  // keep popup behavior
+  el.addEventListener('click', () => openPopupAt(el, e));
+  el.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      openPopupAt(el, e);
+    }
+  });
 
+  return el;
+}
   // Popup (kept as-is, just decoupled from old styles)
   function openPopupAt(anchorEl,data){
     if (!popEl || !popCard) return;
