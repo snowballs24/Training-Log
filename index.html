@@ -2434,7 +2434,7 @@ if(act==='editRoutine'){
     const exId=btn.dataset.exid; const w=$('noteWrap_'+exId);
     if(w) w.classList.toggle('hidden');
   }
-  else if (act === 'deleteSession') {
+    else if (act === 'deleteSession') {
     const sid = btn.dataset.sid;
     if (!(await modal.confirm('Delete this logged entry for this exercise? This cannot be undone.'))) return;
     state.sessions = state.sessions.filter(s => s.id !== sid);
@@ -2445,26 +2445,30 @@ if(act==='editRoutine'){
     return;
   }
   else if (act === 'deleteDayHistory') {
-  const iso = btn.dataset.iso;
-  if (!iso) return;
+    const iso = btn.dataset.iso;
+    if (!iso) return;
 
-  if (!(await modal.confirm(`Delete all entries for ${iso}? This cannot be undone.`))) return;
+    if (!(await modal.confirm(`Delete all entries for ${iso}? This cannot be undone.`))) return;
 
-  const before = state.sessions.length;
-  state.sessions = state.sessions.filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) !== iso);
-  save();
+    const before = state.sessions.length;
+    state.sessions = state.sessions.filter(
+      s => (s.workoutDate || s.dateISO || '').slice(0,10) !== iso
+    );
+    save();
 
-  // Close popup
-  const pop = document.getElementById('cal-popup');
-  if (pop) pop.hidden = true;
+    // Close popup
+    const pop = document.getElementById('cal-popup');
+    if (pop) pop.hidden = true;
 
-  // Refresh calendar + trends
-  document.dispatchEvent(new CustomEvent('calendar:refresh'));
-  buildTrends();
+    // Refresh calendar + trends
+    document.dispatchEvent(new CustomEvent('calendar:refresh'));
+    buildTrends();
 
-  modal.alert(`Deleted ${before - state.sessions.length} entr${(before - state.sessions.length) === 1 ? 'y' : 'ies'} for ${iso}.`);
-  return;
-}
+    modal.alert(
+      `Deleted ${before - state.sessions.length} entr${(before - state.sessions.length) === 1 ? 'y' : 'ies'} for ${iso}.`
+    );
+    return;
+  }
   else if (act === 'deleteWorkoutOnDate') {
     const iso   = btn.dataset.iso;
     const dayId = btn.dataset.dayid;
@@ -2501,8 +2505,8 @@ if(act==='editRoutine'){
     modal?.alert?.(`Deleted ${(before - (state.sessions||[]).length)} entr${(before - (state.sessions||[]).length)===1?'y':'ies'}.`);
     return;
   }
+}); // ← keep this line exactly; it closes the click listener
 
-});
   
 function recalcVolume(exId){
   const prepared = ensureFourSets(state.log.prepared[exId]||[]);
