@@ -1717,6 +1717,8 @@ function buildHeaderPrev(dateText){
     <tr><th class="setnum">1</th><th class="setnum">2</th><th class="setnum">3</th><th class="setnum">4</th></tr>
   </thead>`;
 }
+function showVal(v){ return (v === 0 || v === '0') ? '' : (v ?? ''); }
+
 function buildPrevTables(exId, count){
   if (!count) return '';
   const unitLabel = (prefs.units || 'kg').toLowerCase();
@@ -1727,19 +1729,20 @@ function buildPrevTables(exId, count){
     const dText = fmtShortDate(s.workoutDate || s.dateISO);
 
     let body = `<tbody><tr><td class="sticky-left">${unitLabel}</td>`;
-    for (let i=0;i<4;i++){
-      const st = s.sets[i] || { weight:'', reps:'' };
-      body += `<td><div class="cell-static">${st.weight ?? ''}</div></td>`;
-    }
+    // weights row
+   for (let i=0;i<4;i++){
+     const st = s.sets[i] || { weight:'', reps:'' };
+     body += `<td><div class="cell-static">${showVal(st.weight)}</div></td>`;
+   }
     // Vol occupies only the kg row
     body += `<td class="vol-cell vol-neutral">${s.totalVolume ?? 0}</td></tr>`;
    
     // Reps row + empty spacer under Vol
     body += `<tr><td class="sticky-left">Reps</td>`;
-    for (let i=0;i<4;i++){
-      const st = s.sets[i] || { weight:'', reps:'' };
-      body += `<td><div class="cell-static">${st.reps ?? ''}</div></td>`;
-    }
+   for (let i=0;i<4;i++){
+     const st = s.sets[i] || { weight:'', reps:'' };
+     body += `<td><div class="cell-static">${showVal(st.reps)}</div></td>`;
+   }
     body += `<td class="vol-cell-spacer" aria-hidden="true"></td></tr></tbody>`;
 
     return `
@@ -1958,33 +1961,49 @@ function saveDay(){
   const r=activeRoutine(), d=dayById(r,state.log.dayId); if(!d) return;
   const dateISO=new Date().toISOString();
   const workoutDate = state.log.workoutDate || $('workoutDate').value || dateISO.slice(0,10);
-d.exercises.forEach(ex=>{
-  const sets = ensureFourSets(state.log.prepared[ex.id]).map(s => ({
+d.exercises.forEach(ex => {
+  // keep raw strings so we can tell what was blank
+  const raw = ensureFourSets(state.log.prepared[ex.id]).map(s => ({
     set: s.set,
-    weight: +s.weight || 0,
-    reps: +s.reps || 0
+    weight: (s.weight === '' ? '' : (+s.weight || 0)),
+    reps:   (s.reps   === '' ? '' : (+s.reps   || 0)),
   }));
-  const anyReps = sets.some(s => s.reps > 0);
-  if (!anyReps) return; // ⬅️ skip exercises not performed
 
-  const totalVolume = sets.reduce((a,s)=> a + (s.weight * s.reps), 0);
+  // a performed set must have reps > 0 (weight may be 0 for body-weight, that’s fine)
+  const performed = raw.filter(s => typeof s.reps === 'number' && s.reps > 0);
+
+  if (!performed.length) return;
+
+  const totalVolume = performed.reduce((a, s) => a + ((+s.weight || 0) * (+s.reps || 0)), 0);
   const note = state.log.notes[ex.id] || '';
+
   state.sessions.push({
-    id: uid(), dateISO, workoutDate, routineId: r.id, dayId: d.id,
-    exerciseId: ex.id, sets, totalVolume, note
+    id: uid(),
+    dateISO,
+    workoutDate,
+    routineId: r.id,
+    dayId: d.id,
+    exerciseId: ex.id,
+    sets: performed,       // ← save only the sets actually performed
+    totalVolume,
+    note
   });
 });
+
 
   save();
 d.exercises.forEach(ex=>{
   const prev = ensureFourSets(state.log.prepared[ex.id] || []);
-state.log.prepared[ex.id] = prev.map(s => ({
-  set: s.set,
-  weight: prefs.carryOverWeights
-    ? ((s.weight === 0 || s.weight === '0') ? '0' : String(s.weight ?? ''))
-    : '', // clear weights if carry-over disabled
-  reps: ''
-}));
+state.log.prepared[ex.id] = prev.map(s => {
+  const performed = (s.reps !== '' && +s.reps > 0);
+  return {
+    set: s.set,
+    // only carry over weight if that set was actually performed
+    weight: (prefs.carryOverWeights && performed) ? String(s.weight ?? '') : '',
+    reps: ''   // always clear reps
+  };
+});
+
 
   const wrap = qs(`.exercise[data-exid="${ex.id}"]`);
   if (wrap) wrap.classList.remove('completed');
@@ -2594,7 +2613,23 @@ $('importJsonInput').addEventListener('change', async (e)=>{
     localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
   }
   loadPrefs(); applyTheme(); applyAccent(); applySurface(); load();
-  renderSelectors();
+
+(function migrateZeroPlaceholders(){
+  let changed = false;
+  (state.sessions || []).forEach(s => {
+    if (!Array.isArray(s.sets)) return;
+    const before = s.sets.length;
+    // keep only performed sets
+    s.sets = s.sets.filter(x => (+x.reps || 0) > 0);
+    if (s.sets.length !== before) {
+      s.totalVolume = s.sets.reduce((a,t)=> a + ((+t.weight||0) * (+t.reps||0)), 0);
+      changed = true;
+    }
+  });
+  if (changed) save();
+})();
+   
+renderSelectors();
 renderTrendsDaySelector();  // ⬅️ ensure dropdown has options on first load
 buildLog();
 buildTrends();
@@ -2706,9 +2741,10 @@ if ('serviceWorker' in navigator) {
         };
       }
       const e = byDate[iso];
-      const setsArr = Array.isArray(s.sets) ? s.sets : [];
-      e.totalSets  += setsArr.length;
-      e.totalReps  += setsArr.reduce((a,x)=>a+(+x.reps||0),0);
+      const setsArr  = Array.isArray(s.sets) ? s.sets : [];
+      const doneSets = setsArr.filter(x => (+x.reps || 0) > 0);
+      e.totalSets  += doneSets.length;
+      e.totalReps  += doneSets.reduce((a,x)=> a + (+x.reps||0), 0);
       e.totalVolume+= +s.totalVolume || 0;
       if (s.note && s.note.trim()) e.notes.push(s.note.trim());
     });
@@ -2757,7 +2793,10 @@ if ('serviceWorker' in navigator) {
     const sameDay = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) === iso);
     sameDay.forEach(s=>{
       const cur = perEx.get(s.exerciseId) || { sets:0, dayId: s.dayId };
-      cur.sets += (Array.isArray(s.sets) ? s.sets.length : 0);
+      cur.sets += (Array.isArray(s.sets)
+        ? s.sets.filter(x => (+x.reps || 0) > 0).length
+        : 0);
+
       perEx.set(s.exerciseId, cur);
     });
     if (!sameDay.length) return [];
