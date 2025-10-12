@@ -892,7 +892,7 @@ thead th.setnum{
       <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
     </div>
 
-    <ul class="cal-pop-list" id="pop-exercises"></ul>
+    <div class="cal-pop-list" id="pop-exercises"></div>
     <div class="cal-pop-notes" id="pop-notes"></div>
 
     <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
@@ -2898,101 +2898,6 @@ if ('serviceWorker' in navigator) {
       if (dayMap.has(key)) usedKeys.add(key);
     }
   });
-function groupSessionsByWorkout(iso) {
-  // sessions for this date (YYYY-MM-DD)
-  const onDate = (state.sessions || []).filter(s => {
-    const d = (s.workoutDate || s.dateISO || '').slice(0,10);
-    return d === iso;
-  });
-
-  if (!onDate.length) return [];
-
-  // quick Day name lookup
-  const dayNameById = new Map();
-  (state.routines || []).forEach(r => (r.days || []).forEach(d => dayNameById.set(d.id, d.name)));
-
-  // group by dayId
-  const map = new Map();
-  onDate.forEach(s => {
-    if (!map.has(s.dayId)) {
-      map.set(s.dayId, {
-        dayId: s.dayId,
-        name: dayNameById.get(s.dayId) || 'Workout',
-        totalSets: 0,
-        totalReps: 0,
-        totalVolume: 0,
-        exMap: new Map()
-      });
-    }
-    const g = map.get(s.dayId);
-    const setsArr = Array.isArray(s.sets) ? s.sets : [];
-    g.totalSets   += setsArr.length;
-    g.totalReps   += setsArr.reduce((a,x)=> a + (+x.reps || 0), 0);
-    g.totalVolume += (+s.totalVolume || 0);
-
-    const ex = g.exMap.get(s.exerciseId) || { name: getExerciseNameById(s.exerciseId), sets: 0 };
-    ex.sets += setsArr.length;
-    g.exMap.set(s.exerciseId, ex);
-  });
-
-  // preserve order of first appearance
-  const order = [];
-  const seen  = new Set();
-  onDate.forEach(s => { if (!seen.has(s.dayId)) { order.push(s.dayId); seen.add(s.dayId); } });
-
-  return order.map(id => {
-    const g = map.get(id);
-    return {
-      dayId: g.dayId,
-      name: g.name,
-      totalSets: g.totalSets,
-      totalReps: g.totalReps,
-      totalVolume: g.totalVolume,
-      exercises: Array.from(g.exMap.values())
-    };
-  });
-}
-
-function buildWorkoutBlocksHTML(iso) {
-  const groups = groupSessionsByWorkout(iso);
-  if (!groups.length) {
-    return `<div class="muted" style="padding:8px 0">No workouts logged</div>`;
-  }
-
-  const nf = new Intl.NumberFormat(undefined);
-  const fmtVol = v => `${nf.format(Math.max(0, Math.round(+v || 0)))} kg`;
-
-  return groups.map(g => {
-    const rows = g.exercises
-      .map(e => `<li><span class="pop-name">${e.name}</span><span class="pop-sets">${e.sets} ${e.sets===1?'set':'sets'}</span></li>`)
-      .join('');
-
-    return `
-      <section class="wb" data-iso="${iso}" data-dayid="${g.dayId}">
-        <div class="wb-head">
-          <div class="wb-title">${g.name}</div>
-          <button class="icon wb-trash"
-                  title="Delete this workout"
-                  aria-label="Delete this workout"
-                  data-action="deleteWorkoutOnDate"
-                  data-iso="${iso}"
-                  data-dayid="${g.dayId}">🗑️</button>
-        </div>
-        <div class="wb-meta"><strong>Sets/Reps:</strong> ${g.totalSets} sets / ${g.totalReps} reps &nbsp; • &nbsp; <strong>Total Volume:</strong> ${fmtVol(g.totalVolume)}</div>
-        <ul class="wb-list">${rows}</ul>
-      </section>
-    `;
-  }).join('');
-}
-
-  // finalize notes → string
-  Object.keys(byDate).forEach(k => {
-    byDate[k].notes = byDate[k].notes.join('\n');
-    delete byDate[k]._typeKeys; // cleanup internal helper
-  });
-
-  return { byDate, usedKeys };
-}
 
 
   function dot(colorRGB){
@@ -3030,14 +2935,6 @@ function buildWorkoutBlocksHTML(iso) {
       if (popList) {
         popList.innerHTML = buildWorkoutBlocksHTML(iso);
       }
-
-    // Exercise list
-    if (popList){
-      const rows = buildExerciseSummary(iso);
-      popList.innerHTML = rows.map(r =>
-        `<li class="pop-row"><span class="pop-name">${r.name}</span><span class="pop-sets">${r.sets} sets</span></li>`
-      ).join('') || `<li class="pop-row"><span class="pop-name muted">No exercises logged</span><span class="pop-sets">0</span></li>`;
-    }
 
     // Show popup
     popEl.hidden = false;
@@ -3170,6 +3067,101 @@ function buildExerciseSummary(iso){
 
   // return array like [{name:'Bench Press', sets: 8}, ...]
   return Array.from(byName.entries()).map(([name, sets]) => ({ name, sets }));
+}
+function groupSessionsByWorkout(iso) {
+  // sessions for this date (YYYY-MM-DD)
+  const onDate = (state.sessions || []).filter(s => {
+    const d = (s.workoutDate || s.dateISO || '').slice(0,10);
+    return d === iso;
+  });
+
+  if (!onDate.length) return [];
+
+  // quick Day name lookup
+  const dayNameById = new Map();
+  (state.routines || []).forEach(r => (r.days || []).forEach(d => dayNameById.set(d.id, d.name)));
+
+  // group by dayId
+  const map = new Map();
+  onDate.forEach(s => {
+    if (!map.has(s.dayId)) {
+      map.set(s.dayId, {
+        dayId: s.dayId,
+        name: dayNameById.get(s.dayId) || 'Workout',
+        totalSets: 0,
+        totalReps: 0,
+        totalVolume: 0,
+        exMap: new Map()
+      });
+    }
+    const g = map.get(s.dayId);
+    const setsArr = Array.isArray(s.sets) ? s.sets : [];
+    g.totalSets   += setsArr.length;
+    g.totalReps   += setsArr.reduce((a,x)=> a + (+x.reps || 0), 0);
+    g.totalVolume += (+s.totalVolume || 0);
+
+    const ex = g.exMap.get(s.exerciseId) || { name: getExerciseNameById(s.exerciseId), sets: 0 };
+    ex.sets += setsArr.length;
+    g.exMap.set(s.exerciseId, ex);
+  });
+
+  // preserve order of first appearance
+  const order = [];
+  const seen  = new Set();
+  onDate.forEach(s => { if (!seen.has(s.dayId)) { order.push(s.dayId); seen.add(s.dayId); } });
+
+  return order.map(id => {
+    const g = map.get(id);
+    return {
+      dayId: g.dayId,
+      name: g.name,
+      totalSets: g.totalSets,
+      totalReps: g.totalReps,
+      totalVolume: g.totalVolume,
+      exercises: Array.from(g.exMap.values())
+    };
+  });
+}
+
+function buildWorkoutBlocksHTML(iso) {
+  const groups = groupSessionsByWorkout(iso);
+  if (!groups.length) {
+    return `<div class="muted" style="padding:8px 0">No workouts logged</div>`;
+  }
+
+  const nf = new Intl.NumberFormat(undefined);
+  const fmtVol = v => `${nf.format(Math.max(0, Math.round(+v || 0)))} kg`;
+
+  return groups.map(g => {
+    const rows = g.exercises
+      .map(e => `<li><span class="pop-name">${e.name}</span><span class="pop-sets">${e.sets} ${e.sets===1?'set':'sets'}</span></li>`)
+      .join('');
+
+    return `
+      <section class="wb" data-iso="${iso}" data-dayid="${g.dayId}">
+        <div class="wb-head">
+          <div class="wb-title">${g.name}</div>
+          <button class="icon wb-trash"
+                  title="Delete this workout"
+                  aria-label="Delete this workout"
+                  data-action="deleteWorkoutOnDate"
+                  data-iso="${iso}"
+                  data-dayid="${g.dayId}">🗑️</button>
+        </div>
+        <div class="wb-meta"><strong>Sets/Reps:</strong> ${g.totalSets} sets / ${g.totalReps} reps &nbsp; • &nbsp; <strong>Total Volume:</strong> ${fmtVol(g.totalVolume)}</div>
+        <ul class="wb-list">${rows}</ul>
+      </section>
+    `;
+  }).join('');
+}
+
+  // finalize notes → string
+  Object.keys(byDate).forEach(k => {
+    byDate[k].notes = byDate[k].notes.join('\n');
+    delete byDate[k]._typeKeys; // cleanup internal helper
+  });
+
+  return { byDate, usedKeys };
 }
 
 function render(){
