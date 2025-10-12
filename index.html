@@ -516,6 +516,23 @@ thead th.setnum{
 
 .wb-list   { list-style:none; margin:0; padding:0; }
 .wb-list li{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px dashed var(--line); }
+   
+/* === Add inner padding for the calendar popup contents === */
+.cal-pop-card {
+  padding: var(--padX, 14px);
+}
+
+/* Each workout block now keeps a safe inner margin */
+.cal-pop-card .wb {
+  padding-left: var(--padX, 14px);
+  padding-right: var(--padX, 14px);
+}
+
+/* Keep the close button from touching edges */
+.cal-pop-close {
+  margin: 14px auto 6px;
+  width: calc(100% - var(--padX, 14px) * 2);
+}
 
 /* We’re replacing the single “meta” row with per-workout blocks */
 .cal-pop-meta { display:none !important; }
