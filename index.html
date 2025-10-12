@@ -1126,6 +1126,11 @@ button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotat
   border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(0,0,0,.25);
 }
+/* Center a single dot under the date */
+.cal-dots > .cal-dot:only-child {
+  grid-column: 1 / -1;   /* span both columns */
+  justify-self: center;  /* center within the span */
+}
 
 /* ===== Legend (compact, dots only, only used types) ===== */
 .cal-legend {
