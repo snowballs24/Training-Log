@@ -2900,7 +2900,16 @@ if ('serviceWorker' in navigator) {
   });
 
 
-  function dot(colorRGB){
+ 
+  // finalize notes → string
+  Object.keys(byDate).forEach(k => {
+    byDate[k].notes = byDate[k].notes.join('\n');
+    delete byDate[k]._typeKeys; // cleanup internal helper
+  });
+
+  return { byDate, usedKeys };
+}
+ function dot(colorRGB){
     const [r,g,b]=colorRGB;
     const span = document.createElement('span');
     span.className = 'cal-dot';
@@ -3153,15 +3162,6 @@ function buildWorkoutBlocksHTML(iso) {
       </section>
     `;
   }).join('');
-}
-
-  // finalize notes → string
-  Object.keys(byDate).forEach(k => {
-    byDate[k].notes = byDate[k].notes.join('\n');
-    delete byDate[k]._typeKeys; // cleanup internal helper
-  });
-
-  return { byDate, usedKeys };
 }
 
 function render(){
