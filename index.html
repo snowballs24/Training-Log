@@ -504,12 +504,29 @@ thead th.setnum{
   --padX: 14px;
 }
 
-.cal-pop-head{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
+/* ===== Popup Header Row ===== */
+.cal-pop-head {
+  position: relative;
+  display: flex;
+  align-items: center;
   margin-bottom: 6px;
 }
 
-.cal-pop-title{ font-weight: 800; font-size: 1.1rem; }
+.cal-pop-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin-right: auto; /* stays left */
+}
+
+.cal-pop-date {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: .9;
+}
 
 .cal-pop-trash{
   background: rgba(255,255,255,.04);
@@ -797,25 +814,29 @@ thead th.setnum{
       <div class="cal-legend" id="cal-legend" aria-label="Workout legend" style="margin-top:8px"></div>
         
   </div>   
-    <!-- Popup -->
-    <div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
-     <div class="cal-pop-card" role="document">
-       <div class="cal-pop-head">
-         <div class="cal-pop-title" id="pop-title">—</div>
-         <button id="pop-delete" class="icon cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
-       </div>
-   
-       <div class="cal-pop-meta">
-         <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
-         <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
-       </div>
-   
-       <ul class="cal-pop-list" id="pop-exercises"></ul>
-       <div class="cal-pop-notes" id="pop-notes"></div>
-   
-       <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
-     </div>
-   </div>
+<!-- Popup -->
+<div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
+  <div class="cal-pop-card" role="document">
+
+    <!-- Popup Header Row -->
+    <div class="cal-pop-head">
+      <div class="cal-pop-title" id="pop-title">—</div>
+      <div class="cal-pop-date" id="pop-date">—</div>
+      <button id="pop-delete" class="icon cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
+    </div>
+
+    <div class="cal-pop-meta">
+      <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
+      <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
+    </div>
+
+    <ul class="cal-pop-list" id="pop-exercises"></ul>
+    <div class="cal-pop-notes" id="pop-notes"></div>
+
+    <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
+  </div>
+</div>
+
 
   <!-- Trends card (unchanged UI, just moved under History) -->
 <div class="card" id="history-trends" style="margin-top:12px">
@@ -2689,6 +2710,7 @@ if ('serviceWorker' in navigator) {
   const popNotes = document.getElementById('pop-notes');
   const popList  = document.getElementById('pop-exercises');
   const popDel   = document.getElementById('pop-delete');
+  const popDate  = document.getElementById('pop-date');
   const popClose = document.getElementById('pop-close');
 
   if (!legendEl || !gridEl || !labelEl) return;
@@ -2697,6 +2719,20 @@ if ('serviceWorker' in navigator) {
   const toISO = (y,m,d)=>`${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
   const nfInt = new Intl.NumberFormat(undefined);
   const formatVolumeKG = (v)=> `${nfInt.format(Math.max(0, Math.round(+v||0)))} kg`;
+
+  function formatPopupDate(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  const day = d.getDate();
+  const month = d.toLocaleString(undefined, { month: 'long' });
+  const ord = (n)=> {
+    const v = n % 100;
+    if (v >= 11 && v <= 13) return 'th';
+    return ['th','st','nd','rd'][Math.min(n % 10, 4)] || 'th';
+  };
+  return `${day}${ord(day)} ${month}`;
+}
+
 
   function buildDayColorMap(){
     const map = new Map();
@@ -2859,6 +2895,7 @@ if ('serviceWorker' in navigator) {
 
     // Header & meta
     if (popTitle) popTitle.textContent = meta?.title || 'Workout';
+    if (popDate) popDate.textContent = formatPopupDate(iso);
     if (popSets)  popSets.textContent  = `${meta?.totalSets||0} sets / ${meta?.totalReps||0} reps`;
     if (popVol)   popVol.textContent   = formatVolumeKG(meta?.totalVolume||0);
 
