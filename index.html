@@ -1108,20 +1108,22 @@ button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotat
   font-size: clamp(0.95rem, 3.2vw, 1.05rem);
   line-height:1;
 }
-
-/* Dot row under the number (supports 1+ dots if ever needed) */
+/* 2×2 grid for 1–4 dots, centered neatly under the date */
 .cal-dots {
-  display:flex;
-  gap:6px;
-  min-height:10px;
+  display: grid;
+  justify-content: center;
+  align-content: start;
+  grid-template-columns: repeat(2, 6px);
+  grid-auto-rows: 6px;
+  gap: 4px;
+  margin: 2px auto 0;
+  min-height: 16px; /* leaves room even if only 1 dot */
 }
 
-/* The dot itself (calendar) */
 .cal-dot {
-  width:8px;
-  height:8px;
-  border-radius:50%;
-  display:inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(0,0,0,.25);
 }
 
@@ -1171,8 +1173,7 @@ button[data-action="toggleTrendsCard"][aria-expanded="false"] { transform: rotat
 
 /* Day cell is not a button anymore */
 .cal-cell { cursor: pointer; }         /* nice hover target */
-.cal-dots { display:flex; gap:6px; min-height:10px; }
-.cal-dot  { width:8px; height:8px; border-radius:50%; display:inline-block; box-shadow:0 0 0 1px rgba(0,0,0,.25); }
+
 
 /* Make day cells that are <button> behave like clean, flat flex boxes */
 button.cal-cell {
@@ -1192,13 +1193,6 @@ button.cal-cell:focus-visible {
   outline-offset: 2px;
 }
 
-/* Ensure the dot row actually has space */
-.cal-dots {
-  display: flex;
-  gap: 6px;
-  min-height: 10px;
-  margin-top: 2px;
-}
 
 </style>
 
@@ -2750,44 +2744,63 @@ if ('serviceWorker' in navigator) {
   }
 
   function getWorkoutsByDate(year, month, dayMap){
-    const byDate = {};
-    const usedKeys = new Set();
+  const byDate   = {};
+  const usedKeys = new Set();
 
-    (state.sessions || []).forEach(s => {
-      const iso = (s.workoutDate || s.dateISO || '').slice(0,10);
-      if (!iso) return;
-      const d = new Date(iso);
-      if (isNaN(d)) return;
-      if (d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
+  (state.sessions || []).forEach(s => {
+    const iso = (s.workoutDate || s.dateISO || '').slice(0,10);
+    if (!iso) return;
 
-      const dayMeta = (state.routines || []).flatMap(r => r.days || []).find(dd => dd.id === s.dayId);
-      const dayName = dayMeta?.name || 'Workout';
-      const key = dayName.trim().toLowerCase();
+    const d = new Date(iso);
+    if (isNaN(d)) return;
+    if (d.getFullYear() !== year || (d.getMonth()+1) !== month) return;
 
-      const info = dayMap.get(key) || { color: [160,160,160], name: dayName };
+    // Find the day meta (name/type) for color & label
+    const dayMeta = (state.routines || []).flatMap(r => r.days || []).find(dd => dd.id === s.dayId);
+    const dayName = dayMeta?.name || 'Workout';
+    const key     = dayName.trim().toLowerCase();
+
+    // Resolve color from map (fallback gray)
+    const info    = dayMap.get(key) || { color: [160,160,160], name: dayName };
+
+    if (!byDate[iso]){
+      byDate[iso] = {
+        // aggregated stats
+        totalSets: 0, totalReps: 0, totalVolume: 0,
+        // combined notes
+        notes: [],
+        // list of unique types present that day (for the dots + title)
+        types: [],
+        _typeKeys: new Set(), // internal to avoid duplicates
+      };
+    }
+
+    const e = byDate[iso];
+
+    // aggregate stats
+    const setsArr = Array.isArray(s.sets) ? s.sets : [];
+    e.totalSets   += setsArr.length;
+    e.totalReps   += setsArr.reduce((a,x)=>a+(+x.reps||0),0);
+    e.totalVolume += +s.totalVolume || 0;
+    if (s.note && s.note.trim()) e.notes.push(s.note.trim());
+
+    // record this type key once
+    if (!e._typeKeys.has(key)) {
+      e._typeKeys.add(key);
+      e.types.push({ name: dayName, key, colorRGB: info.color });
       if (dayMap.has(key)) usedKeys.add(key);
+    }
+  });
 
-      if (!byDate[iso]){
-        byDate[iso] = {
-          typeKey: key,
-          title: dayName,
-          colorRGB: info.color,
-          totalSets: 0, totalReps: 0, totalVolume: 0,
-          notes: []
-        };
-      }
-      const e = byDate[iso];
-      const setsArr  = Array.isArray(s.sets) ? s.sets : [];
-      const doneSets = setsArr.filter(x => (+x.reps || 0) > 0);
-      e.totalSets  += doneSets.length;
-      e.totalReps  += doneSets.reduce((a,x)=> a + (+x.reps||0), 0);
-      e.totalVolume+= +s.totalVolume || 0;
-      if (s.note && s.note.trim()) e.notes.push(s.note.trim());
-    });
+  // finalize notes → string
+  Object.keys(byDate).forEach(k => {
+    byDate[k].notes = byDate[k].notes.join('\n');
+    delete byDate[k]._typeKeys; // cleanup internal helper
+  });
 
-    Object.keys(byDate).forEach(k => byDate[k].notes = byDate[k].notes.join('\n'));
-    return { byDate, usedKeys };
-  }
+  return { byDate, usedKeys };
+}
+
 
   function dot(colorRGB){
     const [r,g,b]=colorRGB;
@@ -2803,88 +2816,6 @@ if ('serviceWorker' in navigator) {
     el.setAttribute('role','gridcell');
     el.setAttribute('aria-hidden','true');
     return el;
-  }
-
-  function makeEmptyCell(dayNum, iso){
-    const el = document.createElement('div');
-    el.className = 'cal-cell';
-    el.setAttribute('role','gridcell');
-    el.title = `${iso}: No workout`;
-
-    const num = document.createElement('div');
-    num.className = 'cal-num';
-    num.textContent = String(dayNum);
-
-    const dots = document.createElement('div');
-    dots.className = 'cal-dots';
-
-    el.appendChild(num);
-    el.appendChild(dots);
-    return el;
-  }
-
-  // Build "Exercise ….. N sets" list for a given day
-  function buildExerciseSummary(iso){
-    const perEx = new Map();
-    const sameDay = (state.sessions || []).filter(s => (s.workoutDate || s.dateISO || '').slice(0,10) === iso);
-    sameDay.forEach(s=>{
-      const cur = perEx.get(s.exerciseId) || { sets:0, dayId: s.dayId };
-      cur.sets += (Array.isArray(s.sets)
-        ? s.sets.filter(x => (+x.reps || 0) > 0).length
-        : 0);
-
-      perEx.set(s.exerciseId, cur);
-    });
-    if (!sameDay.length) return [];
-
-    const dayId = sameDay[0].dayId;
-    const day = (state.routines || []).flatMap(r=>r.days||[]).find(d=>d.id===dayId);
-    const orderedIds = day ? day.exercises.map(e=>e.id) : Array.from(perEx.keys());
-
-    const rows = [];
-    orderedIds.forEach(exId=>{
-      if (!perEx.has(exId)) return;
-      const { sets } = perEx.get(exId);
-      let name = 'Exercise';
-      if (day){
-        const ex = day.exercises.find(e=>e.id===exId);
-        if (ex) name = ex.name;
-      } else {
-        const exMeta = (state.routines||[])
-          .flatMap(r=>r.days||[])
-          .flatMap(d=>d.exercises||[])
-          .find(e=>e.id===exId);
-        if (exMeta) name = exMeta.name;
-      }
-      rows.push({ name, sets });
-    });
-    return rows;
-  }
-
-  // Ensure we have a header container (title + trash) even if HTML didn't include it
-  function ensurePopupHeader(){
-    if (!popCard) return;
-    // If a head already exists, nothing to do
-    if (popCard.querySelector('.cal-pop-head')) return;
-
-    // Build header wrapper
-    const head = document.createElement('div');
-    head.className = 'cal-pop-head';
-
-    // Move existing title into head
-    if (popTitle) {
-      popTitle.classList.add('cal-pop-title');
-      head.appendChild(popTitle);
-    }
-
-    // Move delete button to the right of the title
-    if (popDel) {
-      popDel.classList.add('cal-pop-trash');
-      head.appendChild(popDel);
-    }
-
-    // Insert header at top of card
-    popCard.insertBefore(head, popCard.firstChild);
   }
 
   // OPEN POPUP (top-centered; no off-screen issues)
@@ -2970,64 +2901,84 @@ if ('serviceWorker' in navigator) {
     }).join('');
   }
 
-  // ---------- render month ----------
-  let view = (()=>{ const n = new Date(); return { y:n.getFullYear(), m:n.getMonth()+1 }; })();
+   // ---------- render month (multi-dot, 2×2 layout) ----------
+let view = (()=>{ 
+  const n = new Date(); 
+  return { y:n.getFullYear(), m:n.getMonth()+1 }; 
+})();
 
-  function makeWorkoutCell(dayNum, iso, meta){
-    const el = document.createElement('button');
-    el.type='button';
-    el.className='cal-cell';
-    el.setAttribute('role','gridcell');
-    el.setAttribute('aria-label', `${iso}: ${meta.title}`);
+function makeWorkoutCell(dayNum, iso, meta){
+  const el = document.createElement('button');
+  el.type='button';
+  el.className='cal-cell';
+  el.setAttribute('role','gridcell');
 
-    const num = document.createElement('div');
-    num.className='cal-num';
-    num.textContent=String(dayNum);
+  // Build a readable title from the types we have that day
+  const typeNames = (meta.types || []).map(t => t.name);
+  const title = typeNames.join(' • ') || 'Workout';
+  el.setAttribute('aria-label', `${iso}: ${title}`);
 
-    const dots = document.createElement('div');
-    dots.className='cal-dots';
-    dots.appendChild(dot(meta.colorRGB));
+  const num = document.createElement('div');
+  num.className='cal-num';
+  num.textContent=String(dayNum);
 
-    el.appendChild(num);
-    el.appendChild(dots);
+  const dots = document.createElement('div');
+  dots.className='cal-dots';
 
-    el.addEventListener('click', ()=> openPopupForDay(iso, meta));
-    el.addEventListener('keydown', (ev)=> {
-      if (ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); openPopupForDay(iso, meta); }
-    });
+  // Up to 4 dots max (2×2 grid). Your CSS already handles the layout.
+  (meta.types || []).slice(0,4).forEach(t => {
+    dots.appendChild(dot(t.colorRGB));
+  });
 
-    return el;
+  el.appendChild(num);
+  el.appendChild(dots);
+
+  // Pass a title to the popup that reflects all types that day
+  el.addEventListener('click', ()=> openPopupForDay(iso, { ...meta, title }));
+  el.addEventListener('keydown', (ev)=> {
+    if (ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); openPopupForDay(iso, { ...meta, title }); }
+  });
+
+  return el;
+}
+
+function render(){
+  const dayMap = buildDayColorMap();
+  labelEl.textContent = new Date(view.y, view.m-1, 1).toLocaleString(
+    undefined,{month:'long', year:'numeric'}
+  );
+
+  // remove previous days (keep first 7 headers)
+  while (gridEl.children.length > 7) gridEl.removeChild(gridEl.lastChild);
+
+  const first = new Date(view.y, view.m-1, 1);
+  const start = (first.getDay()+6)%7; // Monday-first
+  const daysInMonth = new Date(view.y, view.m, 0).getDate();
+  const { byDate, usedKeys } = getWorkoutsByDate(view.y, view.m, dayMap);
+
+  for (let i=0; i<start; i++) gridEl.appendChild(makeBlank());
+  for (let d=1; d<=daysInMonth; d++){
+    const iso = toISO(view.y, view.m, d);
+    const meta = byDate[iso];
+    gridEl.appendChild(meta ? makeWorkoutCell(d, iso, meta) : makeEmptyCell(d, iso));
   }
 
-  function render(){
-    const dayMap = buildDayColorMap();
-    labelEl.textContent = new Date(view.y, view.m-1, 1).toLocaleString(undefined,{month:'long', year:'numeric'});
+  renderLegend(dayMap, usedKeys);
+}
 
-    // remove previous days (keep first 7 headers)
-    while (gridEl.children.length > 7) gridEl.removeChild(gridEl.lastChild);
+prevBtn?.addEventListener('click', ()=>{
+  view.m--; if(view.m<1){view.m=12; view.y--;} render();
+});
+nextBtn?.addEventListener('click', ()=>{
+  view.m++; if(view.m>12){view.m=1; view.y++;} render();
+});
 
-    const first = new Date(view.y, view.m-1, 1);
-    const start = (first.getDay()+6)%7; // Monday-first
-    const daysInMonth = new Date(view.y, view.m, 0).getDate();
-    const { byDate, usedKeys } = getWorkoutsByDate(view.y, view.m, dayMap);
+// Allow outside code to force a refresh (used after deletes)
+document.addEventListener('calendar:refresh', render);
 
-    for (let i=0; i<start; i++) gridEl.appendChild(makeBlank());
-    for (let d=1; d<=daysInMonth; d++){
-      const iso = toISO(view.y, view.m, d);
-      const meta = byDate[iso];
-      gridEl.appendChild(meta ? makeWorkoutCell(d, iso, meta) : makeEmptyCell(d, iso));
-    }
+render();
 
-    renderLegend(dayMap, usedKeys);
-  }
-
-  prevBtn?.addEventListener('click', ()=>{ view.m--; if(view.m<1){view.m=12; view.y--;} render(); });
-  nextBtn?.addEventListener('click', ()=>{ view.m++; if(view.m>12){view.m=1; view.y++;} render(); });
-
-  // Allow outside code to force a refresh (used after deletes)
-  document.addEventListener('calendar:refresh', render);
-
-  render();
+ 
 })();
 </script>
 
