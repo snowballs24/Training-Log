@@ -597,36 +597,34 @@ thead th.setnum{
   white-space: nowrap;
 }
 
+/* ==== Popup header: put date on its own row, centered ==== */
 .cal-pop-head {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;         /* lets items break onto rows */
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .cal-pop-date {
-  font-size: 0.9rem;
-  font-weight: 600;
-  opacity: 0.8;
+  position: static !important;     /* cancel absolute */
+  transform: none !important;      /* cancel translate */
+  order: 0;                        /* show first row */
+  flex: 0 0 100%;                  /* take full width */
+  text-align: center;              
+  font-weight: 700;
+  opacity: .9;
   margin-bottom: 6px;
-  text-align: center;
 }
 
-.cal-pop-head-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 10px;
+/* Title + trash sit on the second row */
+.cal-pop-title { 
+  order: 1; 
+  flex: 1 1 auto; 
+  font-weight: 800; 
+  font-size: 1.1rem; 
+  line-height: 1.25; 
 }
-
-.cal-pop-title {
-  font-weight: 800;
-  font-size: 1.1rem;
-  text-align: left;
-  flex: 1;
-  line-height: 1.3;
-}
+.cal-pop-trash { order: 2; }
 
 
 
