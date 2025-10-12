@@ -597,6 +597,35 @@ thead th.setnum{
   white-space: nowrap;
 }
 
+.cal-pop-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cal-pop-date {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.8;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.cal-pop-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+
+.cal-pop-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  text-align: left;
+  flex: 1;
+}
 
 
 
@@ -819,11 +848,14 @@ thead th.setnum{
   <div class="cal-pop-card" role="document">
 
     <!-- Popup Header Row -->
-    <div class="cal-pop-head">
-      <div class="cal-pop-title" id="pop-title">—</div>
-      <div class="cal-pop-date" id="pop-date">—</div>
-      <button id="pop-delete" class="icon cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
-    </div>
+      <div class="cal-pop-head">
+        <div class="cal-pop-date" id="pop-date">—</div>
+        <div class="cal-pop-head-row">
+          <div class="cal-pop-title" id="pop-title">—</div>
+          <button id="pop-delete" class="icon cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
+        </div>
+      </div>
+
 
     <div class="cal-pop-meta">
       <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
