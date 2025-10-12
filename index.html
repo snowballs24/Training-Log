@@ -501,6 +501,7 @@ thead th.setnum{
   box-shadow: 0 16px 40px rgba(0,0,0,.35);
   padding: 14px 14px 16px;
   overflow: visible;
+  --padX: 14px;
 }
 
 .cal-pop-head{
@@ -550,23 +551,23 @@ thead th.setnum{
 /* === Popup list tweaks (left align + tighter rows) === */
 .cal-pop-list {         
   list-style: none;
-  margin: 6px 0 10px           
+  margin: 8px calc(var(--padX) * -1) 12px;           
   padding: 0;           /* keeps right padding visually balanced */
 }
 
 .pop-row,
 .cal-pop-list li {              /* support either class the li may have */
-  padding: 4px 0;       /* put the 14px back on the item so the dashed line spans full width */
-  border-top: 1px dashed var(--line);
+  padding: 4px var(--padX);       
+  border-bottom: 1px dashed var(--line);
   display: flex; 
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   line-height: 1.2; 
 }
 
-.pop-name,
-.cal-pop-list .ex-name {
+
+.cal-pop-list .pop-name {
   flex: 1;
   min-width: 0;
   text-overflow: ellipsis;
@@ -574,11 +575,11 @@ thead th.setnum{
   overflow: hidden;
 }
 
-.pop-sets,
-.cal-pop-list .ex-sets {
+.cal-pop-list .pop-sets {
   font-weight: 800;
   white-space: nowrap;
 }
+
 
 
 
