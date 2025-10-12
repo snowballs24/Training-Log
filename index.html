@@ -486,7 +486,7 @@ thead th.setnum{
 
 /* === Calendar popup layout (clean, no inline styles) === */
 .cal-popup[hidden]{ display:none; }
-.cal-popup { position: fixed; inset:0; background: rgba(0,0,0,.18); z-index: 60; }
+.cal-popup { position: fixed; inset:0; background: rgba(0,0,0,.18); z-index: 1000; }
 
 .cal-pop-card{
   position: fixed;
@@ -549,7 +549,7 @@ thead th.setnum{
 }
 /* === Popup list tweaks (left align + tighter rows) === */
 .cal-pop-list {                 /* the <ul> */
-  margin-left: -6px;            /* nudge list closer to the card edge */
+  margin-left: -8px;            /* nudge list closer to the card edge */
   margin-right: -4px;           /* keeps right padding visually balanced */
 }
 
@@ -790,7 +790,8 @@ thead th.setnum{
       <!-- Legend -->
       <div class="cal-legend" id="cal-legend" aria-label="Workout legend" style="margin-top:8px"></div>
         
-       <!-- Popup -->
+  </div>   
+    <!-- Popup -->
     <div id="cal-popup" class="cal-popup" role="dialog" aria-modal="true" hidden>
      <div class="cal-pop-card" role="document">
        <div class="cal-pop-head">
@@ -809,8 +810,6 @@ thead th.setnum{
        <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
      </div>
    </div>
-  </div>   
-
 
   <!-- Trends card (unchanged UI, just moved under History) -->
 <div class="card" id="history-trends" style="margin-top:12px">
