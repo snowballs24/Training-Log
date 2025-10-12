@@ -503,6 +503,25 @@ thead th.setnum{
   overflow: visible;
   --padX: 14px;
 }
+/* Popup: per-workout blocks */
+.wb        { margin:10px 0 12px; border-top:1px dashed var(--line); padding-top:10px; }
+.wb:first-child { border-top:0; padding-top:0; }
+
+.wb-head   { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.wb-title  { font-weight:800; font-size:1.05rem; }
+.wb-trash  { background: rgba(255,255,255,.04); border:1px solid var(--line); border-radius:10px; padding:.45rem .55rem; }
+
+/* tiny meta line inside each block */
+.wb-meta   { margin:6px 0 4px; font-size:.95rem; }
+
+.wb-list   { list-style:none; margin:0; padding:0; }
+.wb-list li{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px dashed var(--line); }
+
+/* We’re replacing the single “meta” row with per-workout blocks */
+.cal-pop-meta { display:none !important; }
+
+/* Optional: hide the old single title + top trash (date stays at top center) */
+.cal-pop-title, #pop-delete { display:none !important; }
 
 /* ===== Popup Header Row ===== */
 .cal-pop-head {
@@ -2446,6 +2465,42 @@ if(act==='editRoutine'){
   modal.alert(`Deleted ${before - state.sessions.length} entr${(before - state.sessions.length) === 1 ? 'y' : 'ies'} for ${iso}.`);
   return;
 }
+  else if (act === 'deleteWorkoutOnDate') {
+    const iso   = btn.dataset.iso;
+    const dayId = btn.dataset.dayid;
+    if (!iso || !dayId) return;
+
+    const name = btn.closest('.wb')?.querySelector('.wb-title')?.textContent || 'workout';
+    const ok = await (typeof modal?.confirm === 'function'
+      ? modal.confirm(`Delete this "${name}" workout for ${iso}? This cannot be undone.`)
+      : Promise.resolve(window.confirm('Delete this workout?')));
+
+    if (!ok) return;
+
+    const before = (state.sessions || []).length;
+    state.sessions = (state.sessions || []).filter(s => {
+      const d = (s.workoutDate || s.dateISO || '').slice(0,10);
+      return !(d === iso && s.dayId === dayId);
+    });
+    save();
+
+    // Remove the block from the popup UI
+    const block = btn.closest('.wb');
+    block?.parentElement?.removeChild(block);
+
+    // If no blocks remain, close the popup
+    if (!document.querySelector('#cal-popup .wb')) {
+      const pop = document.getElementById('cal-popup');
+      if (pop) pop.hidden = true;
+    }
+
+    // Refresh calendar + trends
+    document.dispatchEvent(new CustomEvent('calendar:refresh'));
+    if (typeof buildTrends === 'function') buildTrends();
+
+    modal?.alert?.(`Deleted ${(before - (state.sessions||[]).length)} entr${(before - (state.sessions||[]).length)===1?'y':'ies'}.`);
+    return;
+  }
 
 });
   
@@ -2839,6 +2894,92 @@ if ('serviceWorker' in navigator) {
       if (dayMap.has(key)) usedKeys.add(key);
     }
   });
+function groupSessionsByWorkout(iso) {
+  // sessions for this date (YYYY-MM-DD)
+  const onDate = (state.sessions || []).filter(s => {
+    const d = (s.workoutDate || s.dateISO || '').slice(0,10);
+    return d === iso;
+  });
+
+  if (!onDate.length) return [];
+
+  // quick Day name lookup
+  const dayNameById = new Map();
+  (state.routines || []).forEach(r => (r.days || []).forEach(d => dayNameById.set(d.id, d.name)));
+
+  // group by dayId
+  const map = new Map();
+  onDate.forEach(s => {
+    if (!map.has(s.dayId)) {
+      map.set(s.dayId, {
+        dayId: s.dayId,
+        name: dayNameById.get(s.dayId) || 'Workout',
+        totalSets: 0,
+        totalReps: 0,
+        totalVolume: 0,
+        exMap: new Map()
+      });
+    }
+    const g = map.get(s.dayId);
+    const setsArr = Array.isArray(s.sets) ? s.sets : [];
+    g.totalSets   += setsArr.length;
+    g.totalReps   += setsArr.reduce((a,x)=> a + (+x.reps || 0), 0);
+    g.totalVolume += (+s.totalVolume || 0);
+
+    const ex = g.exMap.get(s.exerciseId) || { name: getExerciseNameById(s.exerciseId), sets: 0 };
+    ex.sets += setsArr.length;
+    g.exMap.set(s.exerciseId, ex);
+  });
+
+  // preserve order of first appearance
+  const order = [];
+  const seen  = new Set();
+  onDate.forEach(s => { if (!seen.has(s.dayId)) { order.push(s.dayId); seen.add(s.dayId); } });
+
+  return order.map(id => {
+    const g = map.get(id);
+    return {
+      dayId: g.dayId,
+      name: g.name,
+      totalSets: g.totalSets,
+      totalReps: g.totalReps,
+      totalVolume: g.totalVolume,
+      exercises: Array.from(g.exMap.values())
+    };
+  });
+}
+
+function buildWorkoutBlocksHTML(iso) {
+  const groups = groupSessionsByWorkout(iso);
+  if (!groups.length) {
+    return `<div class="muted" style="padding:8px 0">No workouts logged</div>`;
+  }
+
+  const nf = new Intl.NumberFormat(undefined);
+  const fmtVol = v => `${nf.format(Math.max(0, Math.round(+v || 0)))} kg`;
+
+  return groups.map(g => {
+    const rows = g.exercises
+      .map(e => `<li><span class="pop-name">${e.name}</span><span class="pop-sets">${e.sets} ${e.sets===1?'set':'sets'}</span></li>`)
+      .join('');
+
+    return `
+      <section class="wb" data-iso="${iso}" data-dayid="${g.dayId}">
+        <div class="wb-head">
+          <div class="wb-title">${g.name}</div>
+          <button class="icon wb-trash"
+                  title="Delete this workout"
+                  aria-label="Delete this workout"
+                  data-action="deleteWorkoutOnDate"
+                  data-iso="${iso}"
+                  data-dayid="${g.dayId}">🗑️</button>
+        </div>
+        <div class="wb-meta"><strong>Sets/Reps:</strong> ${g.totalSets} sets / ${g.totalReps} reps &nbsp; • &nbsp; <strong>Total Volume:</strong> ${fmtVol(g.totalVolume)}</div>
+        <ul class="wb-list">${rows}</ul>
+      </section>
+    `;
+  }).join('');
+}
 
   // finalize notes → string
   Object.keys(byDate).forEach(k => {
@@ -2872,18 +3013,19 @@ if ('serviceWorker' in navigator) {
 
     ensurePopupHeader(); // make sure header (title + trash) exists/positioned
 
-    // Header & meta
-    if (popTitle) popTitle.textContent = meta?.title || 'Workout';
-    if (popDate) popDate.textContent = formatPopupDate(iso);
-    if (popSets)  popSets.textContent  = `${meta?.totalSets||0} sets / ${meta?.totalReps||0} reps`;
-    if (popVol)   popVol.textContent   = formatVolumeKG(meta?.totalVolume||0);
-
-    // Notes (optional)
-    if (popNotes) {
-      const txt = meta?.notes || '';
-      popNotes.textContent = txt || '';
-      popNotes.style.display = txt ? '' : 'none';
-    }
+   // Date stays centered at the top
+      if (popDate) popDate.textContent = formatPopupDate(iso);
+      
+      // Hide old single-workout UI (we render blocks instead)
+      const metaRow = popEl.querySelector('.cal-pop-meta');
+      if (metaRow) metaRow.style.display = 'none';
+      if (popTitle) popTitle.textContent = '';       // not used now
+      if (popNotes) { popNotes.textContent = ''; popNotes.style.display = 'none'; }  // notes now per-ex via blocks if needed
+      
+      // Render per-workout blocks into the existing list container
+      if (popList) {
+        popList.innerHTML = buildWorkoutBlocksHTML(iso);
+      }
 
     // Exercise list
     if (popList){
