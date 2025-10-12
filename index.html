@@ -597,34 +597,46 @@ thead th.setnum{
   white-space: nowrap;
 }
 
-/* ==== Popup header: put date on its own row, centered ==== */
+/* ==== Popup header (two rows: date above, title + trash below) ==== */
 .cal-pop-head {
   display: flex;
-  flex-wrap: wrap;         /* lets items break onto rows */
+  flex-direction: column;
   align-items: center;
   margin-bottom: 10px;
 }
 
+/* date line (top row, centered) */
 .cal-pop-date {
-  position: static !important;     /* cancel absolute */
-  transform: none !important;      /* cancel translate */
-  order: 0;                        /* show first row */
-  flex: 0 0 100%;                  /* take full width */
-  text-align: center;              
+  position: static !important;
+  transform: none !important;
+  text-align: center;
   font-weight: 700;
-  opacity: .9;
-  margin-bottom: 6px;
+  opacity: 0.9;
+  margin-bottom: 4px; /* small gap below date */
 }
 
-/* Title + trash sit on the second row */
-.cal-pop-title { 
-  order: 1; 
-  flex: 1 1 auto; 
-  font-weight: 800; 
-  font-size: 1.1rem; 
-  line-height: 1.25; 
+/* row containing title and trash */
+.cal-pop-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
 }
-.cal-pop-trash { order: 2; }
+
+/* title on the left, stays bold and single line */
+.cal-pop-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  flex: 1;
+  text-align: left;
+  line-height: 1.25;
+}
+
+/* trash button stays right-aligned */
+.cal-pop-trash {
+  flex-shrink: 0;
+}
 
 
 
@@ -847,13 +859,13 @@ thead th.setnum{
   <div class="cal-pop-card" role="document">
 
     <!-- Popup Header Row -->
-      <div class="cal-pop-head">
-        <div class="cal-pop-date" id="pop-date">—</div>
-        <div class="cal-pop-head-row">
-          <div class="cal-pop-title" id="pop-title">—</div>
-          <button id="pop-delete" class="icon cal-pop-trash" title="Delete this day" aria-label="Delete this day">🗑️</button>
-        </div>
-      </div>
+   <div class="cal-pop-head">
+     <div class="cal-pop-date" id="pop-date"></div>
+     <div class="cal-pop-head-row">
+       <div class="cal-pop-title" id="pop-title">—</div>
+       <button id="pop-delete" class="icon cal-pop-trash">🗑️</button>
+     </div>
+   </div>
 
 
     <div class="cal-pop-meta">
