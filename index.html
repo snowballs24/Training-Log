@@ -2941,6 +2941,42 @@ function makeWorkoutCell(dayNum, iso, meta){
 
   return el;
 }
+function makeEmptyCell(dayNum, iso){
+  // simple, non-clickable empty day
+  const el  = document.createElement('div');
+  el.className = 'cal-cell';
+  el.setAttribute('role','gridcell');
+
+  const num = document.createElement('div');
+  num.className = 'cal-num';
+  num.textContent = String(dayNum);
+
+  const dots = document.createElement('div');
+  dots.className = 'cal-dots'; // keeps height consistent
+
+  el.appendChild(num);
+  el.appendChild(dots);
+  return el;
+}
+
+// kept for compatibility; popup header is already in your HTML/CSS
+function ensurePopupHeader(){ /* no-op */ }
+
+// Build the popup’s exercise summary for a given date (ISO yyyy-mm-dd)
+function buildExerciseSummary(iso){
+  const byName = new Map();
+  (state.sessions || []).forEach(s => {
+    const d = (s.workoutDate || s.dateISO || '').slice(0,10);
+    if (d !== iso) return;
+
+    const name = getExerciseNameById(s.exerciseId) || 'Exercise';
+    const sets = Array.isArray(s.sets) ? s.sets.length : 0;
+    byName.set(name, (byName.get(name) || 0) + sets);
+  });
+
+  // return array like [{name:'Bench Press', sets: 8}, ...]
+  return Array.from(byName.entries()).map(([name, sets]) => ({ name, sets }));
+}
 
 function render(){
   const dayMap = buildDayColorMap();
