@@ -425,25 +425,25 @@ td.vol-cell-spacer {
 .icon.small{ padding:.35rem .5rem; font-size:1rem; }
 .icon.danger{ background: color-mix(in oklab, var(--danger) 14%, transparent 86%); color:#ffd7d7; border-color: color-mix(in oklab, var(--danger) 25%, transparent 75%); }
 
-/* ===== Routines list: selectable rows (aligned padding) ===== */
-.routine-row {
-  position: relative;
-  cursor: pointer;
-  border-radius: 12px;
+/* ===== Routines list: selectable rows (aligned + padded) ===== */
+.list li.routine-row {
+  /* higher specificity + !important beats the generic .list li padding */
+  padding: 12px 14px !important;
   margin: 2px 0;
-  padding: 10px 12px;            /* consistent padding for all rows */
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;                 /* keep flex layout from .list li */
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   transition: background .2s ease, box-shadow .2s ease, filter .2s ease;
 }
+.list li.routine-row:hover { filter: brightness(1.02); }
 
-.routine-row:hover {
-  filter: brightness(1.02);
-}
-
-.routine-row.is-selected {
+.list li.routine-row.is-selected {
   background: color-mix(in oklab, var(--success) 12%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 25%, var(--line));
 }
-
 
 
 /* Footer nav */
@@ -1593,15 +1593,16 @@ function renderRoutinesList(){
     li.setAttribute('tabindex', '0'); // keyboard focus
     if (r.id === state.activeRoutineId) li.classList.add('is-selected');
 
-    li.innerHTML = `
-      <div style="min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-        ${r.name}
-      </div>
-      <div style="display:flex; gap:6px">
-        <button class="icon" title="Edit" aria-label="Edit" data-action="editRoutine" data-id="${r.id}">🛠️</button>
-        <button class="icon" title="Rename" aria-label="Rename" data-action="renameRoutine" data-id="${r.id}">✏️</button>
-        <button class="icon danger" title="Delete" aria-label="Delete" data-action="deleteRoutine" data-id="${r.id}">🗑️</button>
-      </div>`;
+li.innerHTML = `
+  <div style="min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+    ${r.name}
+  </div>
+  <div class="actions" style="display:flex; gap:6px">
+    <button class="icon" title="Edit" aria-label="Edit" data-action="editRoutine" data-id="${r.id}">🛠️</button>
+    <button class="icon" title="Rename" aria-label="Rename" data-action="renameRoutine" data-id="${r.id}">✏️</button>
+    <button class="icon danger" title="Delete" aria-label="Delete" data-action="deleteRoutine" data-id="${r.id}">🗑️</button>
+  </div>`;
+
     ul.appendChild(li);
   });
 
