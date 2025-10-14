@@ -425,13 +425,13 @@ td.vol-cell-spacer {
 .icon.small{ padding:.35rem .5rem; font-size:1rem; }
 .icon.danger{ background: color-mix(in oklab, var(--danger) 14%, transparent 86%); color:#ffd7d7; border-color: color-mix(in oklab, var(--danger) 25%, transparent 75%); }
 
-/* ===== Routines list: selectable rows (subtle, like completed exercises) ===== */
+/* ===== Routines list: selectable rows (aligned padding) ===== */
 .routine-row {
   position: relative;
   cursor: pointer;
-  border-radius: 10px;           /* soft corners like your cards */
-  margin: 0 -6px;                /* lets the highlight bleed edge-to-edge inside the li */
-  padding: 6px 8px;              /* keep touch target comfy */
+  border-radius: 12px;
+  margin: 2px 0;
+  padding: 10px 12px;            /* consistent padding for all rows */
   transition: background .2s ease, box-shadow .2s ease, filter .2s ease;
 }
 
@@ -440,14 +440,8 @@ td.vol-cell-spacer {
 }
 
 .routine-row.is-selected {
-  /* same soft green background tint, but no side bar */
   background: color-mix(in oklab, var(--success) 12%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 25%, var(--line));
-  border-radius: 12px;
-
-  /* add gentle spacing so text/buttons aren’t flush to the highlight edge */
-  padding: 10px 12px;
-  margin: 2px 0;
 }
 
 
