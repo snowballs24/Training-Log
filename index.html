@@ -425,6 +425,16 @@ td.vol-cell-spacer {
 .icon.small{ padding:.35rem .5rem; font-size:1rem; }
 .icon.danger{ background: color-mix(in oklab, var(--danger) 14%, transparent 86%); color:#ffd7d7; border-color: color-mix(in oklab, var(--danger) 25%, transparent 75%); }
 
+/* ===== Routines list: selectable rows ===== */
+.routine-row { cursor: pointer; }
+.routine-row.is-selected {
+  /* Use your existing success color token */
+  background: color-mix(in oklab, var(--success) 16%, transparent);
+  outline: 2px solid var(--success);
+  outline-offset: 0;
+  border-color: color-mix(in oklab, var(--success) 35%, var(--line));
+}
+
 /* Footer nav */
 nav.card.bottom-nav {
   position: fixed;
@@ -1538,15 +1548,44 @@ function showPage(which){
   if(which==='routinesPage'){ renderRoutinesList(); }
   if(which==='settingsPage'){ hydrateSettingsUI(); }
 }
+/* Select a routine from anywhere and sync UI */
+function selectRoutine(id){
+  if (!id) return;
+  state.activeRoutineId = id;
+  save();
+  renderSelectors();          // updates the Log page routine dropdown
+  renderTrendsDaySelector();  // keep Trends in sync with current routine
+  buildLog();
+  buildTrends();
+  renderRoutinesList();       // re-render to apply green highlight
+}
 
-/* ===== Routines list/manage ===== */
 function renderRoutinesList(){
-  const body=$('routinesListBody'); body.innerHTML='';
-  if(!state.routines.length){ body.className='small muted'; body.textContent='No routines yet.'; return; }
-  const ul=document.createElement('ul'); ul.className='list';
-  state.routines.forEach(r=>{
-    const li=document.createElement('li');
-    li.innerHTML=`<div style="min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.name}</div>
+  const body = $('routinesListBody');
+  body.innerHTML = '';
+
+  if (!state.routines.length){
+    body.className='small muted';
+    body.textContent='No routines yet.';
+    return;
+  }
+
+  const ul = document.createElement('ul');
+  ul.className = 'list';
+
+  state.routines.forEach(r => {
+    const li = document.createElement('li');
+
+    // ⬇️ make the row selectable + identifiable
+    li.className = 'routine-row';
+    li.dataset.id = r.id;
+    li.setAttribute('tabindex', '0'); // keyboard focus
+    if (r.id === state.activeRoutineId) li.classList.add('is-selected');
+
+    li.innerHTML = `
+      <div style="min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        ${r.name}
+      </div>
       <div style="display:flex; gap:6px">
         <button class="icon" title="Edit" aria-label="Edit" data-action="editRoutine" data-id="${r.id}">🛠️</button>
         <button class="icon" title="Rename" aria-label="Rename" data-action="renameRoutine" data-id="${r.id}">✏️</button>
@@ -1554,6 +1593,8 @@ function renderRoutinesList(){
       </div>`;
     ul.appendChild(li);
   });
+
+  body.className = ''; // clear "small muted" if it was set
   body.appendChild(ul);
 }
 
@@ -2547,6 +2588,27 @@ function recalcVolume(exId){
   const rmEl = $('rm_'+exId);
   if (rmEl) rmEl.textContent = est || '—';
 }
+// ===== Routines list row selection (click anywhere except the buttons) =====
+$('routinesListBody')?.addEventListener('click', (e) => {
+  // Ignore clicks on the action buttons inside the row
+  if (e.target.closest('button,[data-action]')) return;
+
+  const row = e.target.closest('.routine-row');
+  if (!row) return;
+
+  const id = row.dataset.id;
+  if (id) selectRoutine(id);
+});
+
+// Keyboard support: Enter/Space selects the focused row
+$('routinesListBody')?.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target.closest('.routine-row');
+  if (!row) return;
+  e.preventDefault();
+  const id = row.dataset.id;
+  if (id) selectRoutine(id);
+});
 
 document.addEventListener('change',(e)=>{
 const id = (e.target && e.target.id) || '';
