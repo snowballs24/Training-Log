@@ -425,15 +425,43 @@ td.vol-cell-spacer {
 .icon.small{ padding:.35rem .5rem; font-size:1rem; }
 .icon.danger{ background: color-mix(in oklab, var(--danger) 14%, transparent 86%); color:#ffd7d7; border-color: color-mix(in oklab, var(--danger) 25%, transparent 75%); }
 
-/* ===== Routines list: selectable rows ===== */
-.routine-row { cursor: pointer; }
-.routine-row.is-selected {
-  /* Use your existing success color token */
-  background: color-mix(in oklab, var(--success) 16%, transparent);
-  outline: 2px solid var(--success);
-  outline-offset: 0;
-  border-color: color-mix(in oklab, var(--success) 35%, var(--line));
+/* ===== Routines list: selectable rows (subtle, like completed exercises) ===== */
+.routine-row {
+  position: relative;
+  cursor: pointer;
+  border-radius: 10px;           /* soft corners like your cards */
+  margin: 0 -6px;                /* lets the highlight bleed edge-to-edge inside the li */
+  padding: 6px 8px;              /* keep touch target comfy */
+  transition: background .2s ease, box-shadow .2s ease, filter .2s ease;
 }
+
+.routine-row:hover {
+  filter: brightness(1.02);
+}
+
+.routine-row.is-selected {
+  /* gentle green wash (no solid border) */
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--success) 16%, transparent),
+    transparent
+  );
+  /* thin, soft inner line instead of an outline */
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 35%, var(--line));
+}
+
+/* slim left accent bar (mirrors the “completed” vibe without a big border) */
+.routine-row.is-selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 4px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--success) 75%, var(--primary) 0%);
+}
+
 
 /* Footer nav */
 nav.card.bottom-nav {
