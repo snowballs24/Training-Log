@@ -1349,7 +1349,7 @@ const state = {
   },
   uiOpen: {},
   trendsDayId: null,         // ⬅️ NEW: day used by History→Trends
-  uiTrendsCollapsed: true   // ⬅️ NEW: collapse state
+  uiTrendsCollapsed: true,   // ⬅️ NEW: collapse state
   tempExercises: {},          // key: "<date>|<dayId>" → [{id,name,category}]
   exerciseNames: {}           // key: exerciseId → name (helps name lookups in History)
 };
@@ -1495,7 +1495,7 @@ Object.assign(state, {
   uiOpen: raw.uiOpen || {},
   log: { ...state.log, ...(raw.log || {}) },
   trendsDayId: raw.trendsDayId || null,
-  uiTrendsCollapsed: !!raw.uiTrendsCollapsed
+  uiTrendsCollapsed: !!raw.uiTrendsCollapsed,
   tempExercises: raw.tempExercises || {},
   exerciseNames: raw.exerciseNames || {},
 
@@ -1519,7 +1519,7 @@ localStorage.setItem(LS_KEY, JSON.stringify({
   uiOpen: state.uiOpen,
   log: state.log,
   trendsDayId: state.trendsDayId,                // ⬅️
-  uiTrendsCollapsed: state.uiTrendsCollapsed     // ⬅️
+  uiTrendsCollapsed: state.uiTrendsCollapsed,     // ⬅️
   tempExercises: state.tempExercises,
   exerciseNames: state.exerciseNames,
 
@@ -2025,6 +2025,10 @@ function buildLog(){
   const r=activeRoutine(), d=dayById(r,state.log.dayId), area=$('logArea');
   if(!r){ area.textContent='Create a routine to begin (Menu → Routines).'; return; }
   if(!d){ area.textContent='Select a day to begin.'; return; }
+const key  = dayDateKey();
+const temp = state.tempExercises[key] || [];
+const allExercises = [...(d.exercises || []), ...temp];
+
 
 // --- NEW: merge routine + temporary exercises ---
 const key = dayDateKey();
@@ -2037,8 +2041,9 @@ allExercises.forEach(ex=>{
   if(state.uiPrevWeeks[ex.id]===undefined) state.uiPrevWeeks[ex.id]=1;
   if(!state.log.notes[ex.id]) state.log.notes[ex.id]='';
   if(state.uiOpen[ex.id]===undefined) state.uiOpen[ex.id]=false;
-  state.exerciseNames[ex.id] = ex.name;
+  state.exerciseNames[ex.id] = ex.name; // keep a name for temp exercises
 });
+
 
 const unitLabel = (prefs.units || 'kg').toLowerCase();
 let html='';
