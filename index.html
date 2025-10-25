@@ -2022,85 +2022,83 @@ function timerReset(exId){
 
 /* ===== Log view ===== */
 function buildLog(){
-  const r=activeRoutine(), d=dayById(r,state.log.dayId), area=$('logArea');
-  if(!r){ area.textContent='Create a routine to begin (Menu → Routines).'; return; }
-  if(!d){ area.textContent='Select a day to begin.'; return; }
-const key  = dayDateKey();
-const temp = state.tempExercises[key] || [];
-const allExercises = [...(d.exercises || []), ...temp];
+  const r = activeRoutine(),
+        d = dayById(r, state.log.dayId),
+        area = $('logArea');
 
+  if(!r){
+    area.textContent = 'Create a routine to begin (Menu → Routines).';
+    return;
+  }
+  if(!d){
+    area.textContent = 'Select a day to begin.';
+    return;
+  }
 
-// --- NEW: merge routine + temporary exercises ---
-const key = dayDateKey();
-const temp = (state.tempExercises[key] || []);
-const allExercises = [...(d.exercises || []), ...(temp || [])];
+  // --- Merge routine + temporary exercises ---
+  const key  = dayDateKey();
+  const temp = state.tempExercises[key] || [];
+  const allExercises = [...(d.exercises || []), ...temp];
 
-// Ensure state exists for all exercises
-allExercises.forEach(ex=>{
-  state.log.prepared[ex.id] = ensureFourSets(state.log.prepared[ex.id]||[]);
-  if(state.uiPrevWeeks[ex.id]===undefined) state.uiPrevWeeks[ex.id]=1;
-  if(!state.log.notes[ex.id]) state.log.notes[ex.id]='';
-  if(state.uiOpen[ex.id]===undefined) state.uiOpen[ex.id]=false;
-  state.exerciseNames[ex.id] = ex.name; // keep a name for temp exercises
-});
-
-
-const unitLabel = (prefs.units || 'kg').toLowerCase();
-let html='';
-
-// render loop now uses allExercises
-allExercises.forEach(ex=>{
-
+  // --- Prepare state for all exercises (permanent + temp) ---
+  allExercises.forEach(ex=>{
+    state.log.prepared[ex.id] = ensureFourSets(state.log.prepared[ex.id] || []);
+    if(state.uiPrevWeeks[ex.id] === undefined) state.uiPrevWeeks[ex.id] = 1;
+    if(!state.log.notes[ex.id]) state.log.notes[ex.id] = '';
+    if(state.uiOpen[ex.id] === undefined) state.uiOpen[ex.id] = false;
+    state.exerciseNames[ex.id] = ex.name; // store names for temp exercises
+  });
 
   const unitLabel = (prefs.units || 'kg').toLowerCase();
-  let html='';
-  d.exercises.forEach(ex=>{
-    const prepared=state.log.prepared[ex.id]||[];
-    const vol=prepared.reduce((a,s)=>a+((+s.weight||0)*(+s.reps||0)),0);
-    const last=sessionsForExercise(ex.id)[0]||null;
+  let html = '';
+
+  // --- Render all exercises (merged list) ---
+  allExercises.forEach(ex=>{
+    const prepared = state.log.prepared[ex.id] || [];
+    const vol = prepared.reduce((a,s)=>a+((+s.weight||0)*(+s.reps||0)),0);
+    const last = sessionsForExercise(ex.id)[0] || null;
     const cls = last ? (vol>=last.totalVolume ? 'vol-good' : 'vol-bad') : 'vol-neutral';
     const prevCount = Math.max(0, Math.min(4, parseInt(state.uiPrevWeeksAll ?? 1, 10)));
     const openClass = state.uiOpen[ex.id] ? ' open' : '';
     const completedClass = isExerciseCompleted(ex.id) ? ' completed' : '';
 
-    const best = prepared.reduce((b,s)=>{ const sc=(+s.weight||0)*(+s.reps||0); return sc>b.sc? {w:+s.weight||0,r:+s.reps||0,sc:sc}:b; }, {w:0,r:0,sc:0});
+    const best = prepared.reduce((b,s)=>{
+      const sc = (+s.weight||0)*(+s.reps||0);
+      return sc > b.sc ? {w:+s.weight||0, r:+s.reps||0, sc:sc} : b;
+    }, {w:0,r:0,sc:0});
     const est = best.w>0 && best.r>0 ? Math.round(best.w*(1+best.r/30)) : 0;
 
-    const topRow = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 8px;flex-wrap:wrap;"><!-- ✨ update: wrap -->
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="small muted">Prev weeks</span>
-        <select data-action="setPrevWeeks" data-exid="${ex.id}">
-          ${[0,1,2,3,4].map(n=>`<option value="${n}"${n===prevCount?' selected':''}>${n}</option>`).join('')}
-        </select>
-      </div>
-      <div class="oneRM">Est. 1RM: <span id="rm_${ex.id}" class="val">${est || '—'}</span></div>
-    </div>`;
+    const topRow = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="small muted">Prev weeks</span>
+          <select data-action="setPrevWeeks" data-exid="${ex.id}">
+            ${[0,1,2,3,4].map(n=>`<option value="${n}"${n===prevCount?' selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div class="oneRM">Est. 1RM: <span id="rm_${ex.id}" class="val">${est || '—'}</span></div>
+      </div>`;
 
     const prevHtml = buildPrevTables(ex.id, prevCount);
 
     let cur = `<div class="week-block current-session"><div class="table-wrap"><table>${buildHeader()}<tbody>`;
     cur += `<tr><td class="sticky-left">${unitLabel}</td>`;
     for(let i=0;i<4;i++){
-      const val=prepared[i]?.weight??'';
+      const val = prepared[i]?.weight ?? '';
       cur += `<td><input data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="weight"
-       type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off"
-       pattern="[0-9]*[.,]?[0-9]*" value="${val}"></td>`;
+        type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off"
+        pattern="[0-9]*[.,]?[0-9]*" value="${val}"></td>`;
     }
-    // kg row + Vol (Vol spans both rows)
     cur += `<td id="vol_${ex.id}" class="vol-cell ${cls}" rowspan="2">${vol}</td></tr>`;
-   
-    // reps row (no extra cell)
+
     cur += `<tr><td class="sticky-left">Reps</td>`;
     for(let i=0;i<4;i++){
-      const val=prepared[i]?.reps??'';
+      const val = prepared[i]?.reps ?? '';
       cur += `<td><input class="reps-input" data-set-index="${i}" data-action="upd" data-exid="${ex.id}" data-idx="${i}" data-key="reps"
-       type="text" inputmode="numeric" enterkeyhint="next" autocomplete="off"
-       pattern="[0-9]*" value="${val}"></td>`;
+        type="text" inputmode="numeric" enterkeyhint="next" autocomplete="off"
+        pattern="[0-9]*" value="${val}"></td>`;
     }
     cur += `</tr></tbody></table></div></div>`;
-   
-   
-
 
     const note = state.log.notes[ex.id] || '';
     const notesRow = `
@@ -2108,43 +2106,38 @@ allExercises.forEach(ex=>{
         <button class="ghost" type="button" data-action="toggleNotes" data-exid="${ex.id}">Notes</button>
         <div class="spacer"></div>
         <div class="timer">
-  <span class="time" id="t_${ex.id}">${readTimerText()}</span>
-  <button class="ghost" type="button" data-action="timerToggle" data-exid="${ex.id}">
-    ${ensureTimer().running ? 'Pause' : 'Start'}
-  </button>
-  <button class="ghost" type="button" data-action="timerReset" data-exid="${ex.id}">Reset</button>
-</div>
-
-
+          <span class="time" id="t_${ex.id}">${readTimerText()}</span>
+          <button class="ghost" type="button" data-action="timerToggle" data-exid="${ex.id}">
+            ${ensureTimer().running ? 'Pause' : 'Start'}
+          </button>
+          <button class="ghost" type="button" data-action="timerReset" data-exid="${ex.id}">Reset</button>
+        </div>
         <div class="hidden" id="noteWrap_${ex.id}" style="flex-basis:100%; margin-top:6px;">
           <textarea data-action="noteInput" data-exid="${ex.id}" placeholder="Optional notes, cues, RPE…">${note}</textarea>
         </div>
       </div>`;
 
-        html += `
-  <div class="exercise${openClass}${completedClass}" data-exid="${ex.id}">
-    <div class="ex-head">
-      <div class="ex-title" title="${ex.name}">${ex.name}</div>
-      <div class="ex-controls">
-        <button class="ex-toggle" type="button" data-action="toggleExercise" data-exid="${ex.id}">
-          ${state.uiOpen[ex.id] ? 'Collapse' : 'Expand'}
-        </button>
-      </div>
-    </div>
-    <div class="ex-body">
-      ${topRow}
-
-      <div class="section-header">Previous Weeks</div>
-      ${prevHtml}
-
-      <div class="section-header">Current Week</div>
-      ${cur}
-
-      <div class="section-header">Timer & Notes</div>
-      ${notesRow}
-    </div>
-  </div>`;
-  }); // ← closes the forEach
+    html += `
+      <div class="exercise${openClass}${completedClass}" data-exid="${ex.id}">
+        <div class="ex-head">
+          <div class="ex-title" title="${ex.name}">${ex.name}</div>
+          <div class="ex-controls">
+            <button class="ex-toggle" type="button" data-action="toggleExercise" data-exid="${ex.id}">
+              ${state.uiOpen[ex.id] ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+        </div>
+        <div class="ex-body">
+          ${topRow}
+          <div class="section-header">Previous Weeks</div>
+          ${prevHtml}
+          <div class="section-header">Current Week</div>
+          ${cur}
+          <div class="section-header">Timer & Notes</div>
+          ${notesRow}
+        </div>
+      </div>`;
+  }); // end forEach
 
   area.innerHTML = html || '<div class="muted">No exercises yet for this day.</div>';
   save();
