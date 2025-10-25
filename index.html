@@ -2318,34 +2318,98 @@ function convertAllWeights(factor){
   save();
 }
 /* Simple promise-based modal API */
+/* Simple promise-based modal API */
 const modal = (() => {
   const root=$('modalRoot'), title=$('modalTitle'), msg=$('modalMsg');
   const inp=$('modalInput'), ok=$('modalOK'), cancel=$('modalCancel');
   let resolver=null, mode='alert';
 
-  function open({kind='alert', heading='Notice', text='', withInput=false, def=''}) {
-    mode=kind; title.textContent=heading; msg.textContent=text;
-    if(withInput){ inp.classList.remove('hidden'); inp.value=def; setTimeout(()=>inp.focus(),0); }
-    else{ inp.classList.add('hidden'); }
-    root.classList.remove('hidden'); root.setAttribute('aria-hidden','false');
-    return new Promise(res=>{ resolver=res; });
+  // unified open() that also sets per-call button labels
+  function open(opts = {}) {
+    const {
+      kind='alert',
+      heading='Notice',
+      text='',
+      withInput=false,
+      def='',
+      okText='OK',
+      cancelText='Cancel'
+    } = opts;
+
+    mode = kind;
+    title.textContent = heading || '';
+    msg.textContent   = text || '';
+
+    if (withInput) {
+      inp.classList.remove('hidden');
+      inp.value = def ?? '';
+      setTimeout(()=> inp.focus(), 0);
+    } else {
+      inp.classList.add('hidden');
+    }
+
+    // per-call button labels
+    if (ok)    ok.textContent    = okText || 'OK';
+    if (cancel) cancel.textContent = cancelText || 'Cancel';
+
+    root.classList.remove('hidden');
+    root.setAttribute('aria-hidden','false');
+    return new Promise(res => { resolver = res; });
   }
-  function close(val){ root.classList.add('hidden'); root.setAttribute('aria-hidden','true'); resolver?.(val); resolver=null; }
+
+  function close(val){
+    root.classList.add('hidden');
+    root.setAttribute('aria-hidden','true');
+    resolver?.(val);
+    resolver = null;
+  }
 
   ok.onclick = () => {
-    if(mode==='prompt') close(inp.value);
-    else if(mode==='confirm') close(true);
+    if (mode === 'prompt') close(inp.value);
     else close(true);
   };
   cancel.onclick = () => { close(mode==='prompt' ? null : false); };
-  root.addEventListener('click', (e)=>{ if(e.target===root) close(mode==='prompt'? null : false); });
+  root.addEventListener('click', (e)=> {
+    if (e.target === root) close(mode==='prompt' ? null : false);
+  });
 
-  return {
-    alert: (text, heading='Notice') => open({kind:'alert', heading, text}).then(()=>{}),
-    confirm: (text, heading='Confirm') => open({kind:'confirm', heading, text}),
-    prompt: (text, def='', heading='Input') => open({kind:'prompt', heading, text, withInput:true, def})
-  };
+  // NEW: confirm that accepts strings OR an options object
+  function confirm(messageOrOptions, maybeOptions){
+    let heading = 'Confirm';
+    let text    = '';
+    let okText = 'OK';
+    let cancelText = 'Cancel';
+
+    if (typeof messageOrOptions === 'string') {
+      text = messageOrOptions;
+      if (typeof maybeOptions === 'string') {
+        heading = maybeOptions;
+      } else if (maybeOptions && typeof maybeOptions === 'object') {
+        heading    = maybeOptions.title      || heading;
+        okText     = maybeOptions.okText     || okText;
+        cancelText = maybeOptions.cancelText || cancelText;
+      }
+    } else if (messageOrOptions && typeof messageOrOptions === 'object') {
+      heading    = messageOrOptions.title      || heading;
+      text       = messageOrOptions.body       || '';
+      okText     = messageOrOptions.okText     || okText;
+      cancelText = messageOrOptions.cancelText || cancelText;
+    }
+
+    return open({ kind:'confirm', heading, text, okText, cancelText });
+  }
+
+  function alert(text, heading='Notice'){
+    return open({ kind:'alert', heading, text }).then(()=>{});
+  }
+
+  function prompt(text, def='', heading='Input'){
+    return open({ kind:'prompt', heading, text, withInput:true, def });
+  }
+
+  return { alert, confirm, prompt };
 })();
+
 
 /* ===== Manual refresh / update (robust) ===== */
 async function checkForUpdatesAndRefresh() {
