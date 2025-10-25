@@ -2145,62 +2145,82 @@ function buildLog(){
 
 /* ===== Save Day ===== */
 function saveDay(){
-  const r=activeRoutine(), d=dayById(r,state.log.dayId); if(!d) return;
-  const dateISO=new Date().toISOString();
+  const r = activeRoutine(), d = dayById(r, state.log.dayId);
+  if (!d) return;
+
+  // Use same date handling you already have
+  const dateISO = new Date().toISOString();
   const workoutDate = state.log.workoutDate || $('workoutDate').value || dateISO.slice(0,10);
-d.exercises.forEach(ex => {
-  // keep raw strings so we can tell what was blank
-  const raw = ensureFourSets(state.log.prepared[ex.id]).map(s => ({
-    set: s.set,
-    weight: (s.weight === '' ? '' : (+s.weight || 0)),
-    reps:   (s.reps   === '' ? '' : (+s.reps   || 0)),
-  }));
 
-  // a performed set must have reps > 0 (weight may be 0 for body-weight, that’s fine)
-  const performed = raw.filter(s => typeof s.reps === 'number' && s.reps > 0);
+  // ---- Merge permanent + "today only" exercises for THIS date|day ----
+  const tempKey = `${workoutDate}|${d.id}`;
+  const temp = state.tempExercises?.[tempKey] || [];
+  const exList = [...(d.exercises || []), ...temp];
 
-  if (!performed.length) return;
+  // ---- Save per-exercise entries (your existing schema) ----
+  exList.forEach(ex => {
+    // keep raw strings so we can tell what was blank
+    const raw = ensureFourSets(state.log.prepared[ex.id]).map(s => ({
+      set: s.set,
+      weight: (s.weight === '' ? '' : (+s.weight || 0)),
+      reps:   (s.reps   === '' ? '' : (+s.reps   || 0)),
+    }));
 
-  const totalVolume = performed.reduce((a, s) => a + ((+s.weight || 0) * (+s.reps || 0)), 0);
-  const note = state.log.notes[ex.id] || '';
+    // a performed set must have reps > 0 (weight may be 0 for body-weight)
+    const performed = raw.filter(s => typeof s.reps === 'number' && s.reps > 0);
+    if (!performed.length && !(state.log.notes[ex.id] || '').trim()) return;
 
-  state.sessions.push({
-    id: uid(),
-    dateISO,
-    workoutDate,
-    routineId: r.id,
-    dayId: d.id,
-    exerciseId: ex.id,
-    sets: performed,       // ← save only the sets actually performed
-    totalVolume,
-    note
+    const totalVolume = performed.reduce((a, s) => a + ((+s.weight || 0) * (+s.reps || 0)), 0);
+    const note = state.log.notes[ex.id] || '';
+
+    state.sessions.push({
+      id: uid(),
+      dateISO,
+      workoutDate,     // yyyy-mm-dd
+      routineId: r.id,
+      dayId: d.id,
+      exerciseId: ex.id,
+      sets: performed, // only the sets actually performed
+      totalVolume,
+      note
+    });
   });
-});
 
+  // ---- IMPORTANT: remove ONLY the temp exercises for this saved day ----
+  if (state.tempExercises && state.tempExercises[tempKey]) {
+    delete state.tempExercises[tempKey];
+  }
 
+  // Persist immediately before UI resets
   save();
-d.exercises.forEach(ex=>{
-  const prev = ensureFourSets(state.log.prepared[ex.id] || []);
-state.log.prepared[ex.id] = prev.map(s => {
-  const performed = (s.reps !== '' && +s.reps > 0);
-  return {
-    set: s.set,
-    // only carry over weight if that set was actually performed
-    weight: (prefs.carryOverWeights && performed) ? String(s.weight ?? '') : '',
-    reps: ''   // always clear reps
-  };
-});
 
+  // ---- Carry-over ONLY for permanent routine exercises (not temp) ----
+  d.exercises.forEach(ex=>{
+    const prev = ensureFourSets(state.log.prepared[ex.id] || []);
+    state.log.prepared[ex.id] = prev.map(s => {
+      const performed = (s.reps !== '' && +s.reps > 0);
+      return {
+        set: s.set,
+        // only carry over weight if that set was actually performed
+        weight: (prefs.carryOverWeights && performed) ? String(s.weight ?? '') : '',
+        reps: ''   // always clear reps
+      };
+    });
 
-  const wrap = qs(`.exercise[data-exid="${ex.id}"]`);
-  if (wrap) wrap.classList.remove('completed');
-});
+    const wrap = qs(`.exercise[data-exid="${ex.id}"]`);
+    if (wrap) wrap.classList.remove('completed');
+  });
 
-// ✅ keep notes as-is (do NOT wipe state.log.notes)
+  // ✅ keep notes as-is (do NOT wipe state.log.notes)
 
+  // Keep your existing behavior of advancing the log date to today
   state.log.workoutDate = todayISO();
   $('workoutDate').value = state.log.workoutDate;
-  modal.alert('Day saved for '+workoutDate+'.'); buildLog(); buildTrends(); save();
+
+  modal.alert('Day saved for ' + workoutDate + '.');
+  buildLog();
+  buildTrends();
+  save();
 
   if (typeof cloudBackupOverwrite === 'function') {
     (async ()=>{ try{
