@@ -878,6 +878,11 @@ thead th.setnum{
       </div>
 
       <div id="logArea" class="muted">Create/select a routine and day.</div>
+    <!-- Add Exercise: anchored at bottom of the log page -->
+      <div id="logActions" style="margin-top:12px; display:flex; justify-content:center">
+        <button type="button" data-action="addExerciseStart">Add exercise</button>
+      </div>
+
     </section>
 
 <!-- History (Calendar + Trends) -->
@@ -1345,6 +1350,8 @@ const state = {
   uiOpen: {},
   trendsDayId: null,         // ⬅️ NEW: day used by History→Trends
   uiTrendsCollapsed: true   // ⬅️ NEW: collapse state
+  tempExercises: {},          // key: "<date>|<dayId>" → [{id,name,category}]
+  exerciseNames: {}           // key: exerciseId → name (helps name lookups in History)
 };
 
 
@@ -1487,8 +1494,11 @@ Object.assign(state, {
   uiPrevWeeksAll: (raw.uiPrevWeeksAll ?? 1),
   uiOpen: raw.uiOpen || {},
   log: { ...state.log, ...(raw.log || {}) },
-  trendsDayId: raw.trendsDayId || null,                 // ⬅️
-  uiTrendsCollapsed: !!raw.uiTrendsCollapsed            // ⬅️
+  trendsDayId: raw.trendsDayId || null,
+  uiTrendsCollapsed: !!raw.uiTrendsCollapsed
+  tempExercises: raw.tempExercises || {},
+  exerciseNames: raw.exerciseNames || {},
+
 });
 
 // optional one-time migration: if no shared value but some per-ex values exist, pick the first
@@ -1510,6 +1520,9 @@ localStorage.setItem(LS_KEY, JSON.stringify({
   log: state.log,
   trendsDayId: state.trendsDayId,                // ⬅️
   uiTrendsCollapsed: state.uiTrendsCollapsed     // ⬅️
+  tempExercises: state.tempExercises,
+  exerciseNames: state.exerciseNames,
+
 }));
 
 }
@@ -1536,8 +1549,11 @@ function getExerciseNameById(exId){
       if (ex) return ex.name;
     }
   }
+  // fallback for temporary or historical sessions
+  if (state.exerciseNames && state.exerciseNames[exId]) return state.exerciseNames[exId];
   return 'Exercise';
 }
+
   
 function isExerciseCompleted(exId){
   const arr = state.log.prepared[exId] || [];
@@ -1546,6 +1562,13 @@ function isExerciseCompleted(exId){
 const MMM = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function fmtShortDate(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return `${d.getDate()} ${MMM[d.getMonth()]}`; }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+// --- NEW helper: identify current day/date key for temp exercises ---
+function dayDateKey(){
+  const iso = state.log.workoutDate || $('workoutDate').value || todayISO();
+  const dId = (state.log && state.log.dayId) ? state.log.dayId : '';
+  return `${iso}|${dId}`;
+}
 
 /* ===== Navigation ===== */
 function showPage(which){
@@ -2003,12 +2026,26 @@ function buildLog(){
   if(!r){ area.textContent='Create a routine to begin (Menu → Routines).'; return; }
   if(!d){ area.textContent='Select a day to begin.'; return; }
 
-  d.exercises.forEach(ex=>{
-    state.log.prepared[ex.id] = ensureFourSets(state.log.prepared[ex.id]||[]);
-    if(state.uiPrevWeeks[ex.id]===undefined) state.uiPrevWeeks[ex.id]=1;
-    if(!state.log.notes[ex.id]) state.log.notes[ex.id]='';
-    if(state.uiOpen[ex.id]===undefined) state.uiOpen[ex.id]=false;
-  });
+// --- NEW: merge routine + temporary exercises ---
+const key = dayDateKey();
+const temp = (state.tempExercises[key] || []);
+const allExercises = [...(d.exercises || []), ...(temp || [])];
+
+// Ensure state exists for all exercises
+allExercises.forEach(ex=>{
+  state.log.prepared[ex.id] = ensureFourSets(state.log.prepared[ex.id]||[]);
+  if(state.uiPrevWeeks[ex.id]===undefined) state.uiPrevWeeks[ex.id]=1;
+  if(!state.log.notes[ex.id]) state.log.notes[ex.id]='';
+  if(state.uiOpen[ex.id]===undefined) state.uiOpen[ex.id]=false;
+  state.exerciseNames[ex.id] = ex.name;
+});
+
+const unitLabel = (prefs.units || 'kg').toLowerCase();
+let html='';
+
+// render loop now uses allExercises
+allExercises.forEach(ex=>{
+
 
   const unitLabel = (prefs.units || 'kg').toLowerCase();
   let html='';
@@ -2467,6 +2504,42 @@ if(act==='editRoutine'){
       name: e.name,
       category: e.category || guessCategory(e.name)
     }));
+  // === Add Exercise flow ===
+  if (act === 'addExerciseStart') {
+    const r = activeRoutine();
+    const d = dayById(r, state.log.dayId);
+    if (!r || !d) { await modal.alert('Select a routine and day first.'); return; }
+
+    const name = await modal.prompt('New exercise name:', '', 'Add exercise');
+    if (!name || !name.trim()) return;
+    const clean = name.trim();
+
+    const perm = await modal.confirm(
+      'Add this exercise permanently to the routine?\n\nOK = Permanently add to this day of the routine\nCancel = Add for today only'
+    );
+
+    const ex = { id: uid(), name: clean, category: guessCategory(clean) };
+
+    if (perm) {
+      d.exercises.push(ex);
+      state.exerciseNames[ex.id] = ex.name;
+      save();
+      renderSelectors();
+      buildLog();
+      buildTrends();
+      await modal.alert(`Added "${clean}" to ${d.name} permanently.`);
+    } else {
+      const key = dayDateKey();
+      if (!state.tempExercises[key]) state.tempExercises[key] = [];
+      state.tempExercises[key].push(ex);
+      state.exerciseNames[ex.id] = ex.name;
+      save();
+      buildLog();
+      await modal.alert(`Added "${clean}" for today only.`);
+    }
+    return;
+  }
+
   });
 
   openWizard(true); 
