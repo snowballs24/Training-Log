@@ -533,7 +533,20 @@ thead th.setnum{
 .wb-trash  { background: rgba(255,255,255,.04); border:1px solid var(--line); border-radius:10px; padding:.45rem .55rem; }
 
 /* tiny meta line inside each block */
-.wb-meta   { margin:6px 0 4px; font-size:.95rem; }
+.wb-meta{
+  margin:6px 0 4px;
+  font-size:.95rem;
+  display:grid;
+  row-gap:4px;
+}
+.wb-meta > div{
+  display:flex;
+  justify-content:space-between;   /* label left, value right */
+  align-items:baseline;
+  gap:10px;
+  white-space:nowrap;               /* keeps label+value on one line */
+}
+
 
 .wb-list   { list-style:none; margin:0; padding:0; }
 .wb-list li{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px dashed var(--line); }
@@ -2218,8 +2231,12 @@ async function saveDay(){
 
 const statsLine = `
   <div class="muted" style="margin:4px 0 10px;">
-    <div><strong>Sets/Reps:</strong> ${totalSets} sets / ${totalReps} reps</div>
-    <div><strong>Total Volume:</strong> ${(totalVol||0).toLocaleString()} ${unitLabel}</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;white-space:nowrap">
+      <strong>Sets/Reps:</strong> <span>${totalSets} sets / ${totalReps} reps</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;white-space:nowrap">
+      <strong>Total Volume:</strong> <span>${(totalVol||0).toLocaleString()} ${unitLabel}</span>
+    </div>
   </div>
 `;
 
@@ -3483,7 +3500,11 @@ function buildWorkoutBlocksHTML(iso) {
                   data-iso="${iso}"
                   data-dayid="${g.dayId}">🗑️</button>
         </div>
-        <div class="wb-meta"><strong>Sets/Reps:</strong> ${g.totalSets} sets / ${g.totalReps} reps &nbsp; • &nbsp; <strong>Total Volume:</strong> ${fmtVol(g.totalVolume)}</div>
+        <div class="wb-meta">
+  <div><strong>Sets/Reps:</strong> ${g.totalSets} sets / ${g.totalReps} reps</div>
+  <div><strong>Total Volume:</strong> ${fmtVol(g.totalVolume)}</div>
+</div>
+
         <ul class="wb-list">${rows}</ul>
       </section>
     `;
