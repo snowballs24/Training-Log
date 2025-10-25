@@ -921,29 +921,29 @@ thead th.setnum{
   <div class="cal-pop-card" role="document">
 
     <!-- Popup Header Row -->
-   <div class="cal-pop-head">
-     <div class="cal-pop-date" id="pop-date"></div>
-     <div class="cal-pop-head-row">
-       <div class="cal-pop-title" id="pop-title">—</div>
-       <button id="pop-delete" class="icon cal-pop-trash">🗑️</button>
-     </div>
-   </div>
+    <div class="cal-pop-head">
+      <div class="cal-pop-date" id="pop-date"></div>
+      <div class="cal-pop-head-row">
+        <div class="cal-pop-title" id="pop-title">—</div>
+        <button id="pop-delete" class="icon cal-pop-trash">🗑️</button>
+      </div>
+    </div>
 
-   <div class="cal-pop-meta">
-   <div class="muted" style="margin:4px 0 10px;">
-     <div><strong>Sets/Reps:</strong> ${totalSets} sets / ${totalReps} reps</div>
-     <div><strong>Total Volume:</strong> ${(totalVol||0).toLocaleString()} ${unitLabel}</div>
-   </div>
+    <!-- Stats (wrapper stays; JS fills values; CSS may hide if you prefer blocks) -->
+    <div class="cal-pop-meta">
+      <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
+      <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
+    </div>
 
-   
-
-
-    <div class="cal-pop-list" id="pop-exercises"></div>
+    <!-- Exercise list + notes -->
+    <ul class="cal-pop-list" id="pop-exercises"></ul>
     <div class="cal-pop-notes" id="pop-notes"></div>
 
+    <!-- Close -->
     <button id="pop-close" class="cal-pop-close" aria-label="Close details">Close</button>
   </div>
 </div>
+
 
 
   <!-- Trends card (unchanged UI, just moved under History) -->
