@@ -2518,9 +2518,13 @@ if(act==='editRoutine'){
     if (!name || !name.trim()) return;
     const clean = name.trim();
 
-    const perm = await modal.confirm(
-      'Add this exercise permanently to the routine?\n\nOK = Permanently add to this day of the routine\nCancel = Add for today only'
-    );
+const perm = await modal.confirm(
+  'Add this exercise permanently to the routine?',
+  {
+    okText: 'Save to Routine',
+    cancelText: 'Today Only'
+  }
+);
 
     const ex = { id: uid(), name: clean, category: guessCategory(clean) };
 
