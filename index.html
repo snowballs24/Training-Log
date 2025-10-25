@@ -929,11 +929,12 @@ thead th.setnum{
      </div>
    </div>
 
+   <div class="cal-pop-meta">
+     <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
+     <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
+   </div>
+   
 
-    <div class="cal-pop-meta">
-      <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
-      <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
-    </div>
 
     <div class="cal-pop-list" id="pop-exercises"></div>
     <div class="cal-pop-notes" id="pop-notes"></div>
@@ -2200,13 +2201,13 @@ async function saveDay(){
       </div>
     `).join('');
 
-  const statsLine = `
-    <div class="muted" style="margin:4px 0 10px;">
-      <strong>Sets/Reps:</strong> ${totalSets} sets / ${totalReps} reps
-      &nbsp; • &nbsp;
-      <strong>Total Volume:</strong><br>${(totalVol||0).toLocaleString()} ${unitLabel}
-    </div>
-  `;
+const statsLine = `
+  <div class="muted" style="margin:4px 0 10px;">
+    <div><strong>Sets/Reps:</strong> ${totalSets} sets / ${totalReps} reps</div>
+    <div><strong>Total Volume:</strong> ${(totalVol||0).toLocaleString()} ${unitLabel}</div>
+  </div>
+`;
+
 
   const headerLine = `
     <div style="font-weight:700; font-size:1.05rem; margin-bottom:2px;">${prettyDay(workoutDate)}</div>
