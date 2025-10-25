@@ -930,9 +930,11 @@ thead th.setnum{
    </div>
 
    <div class="cal-pop-meta">
-     <div><strong>Sets/Reps:</strong> <span id="pop-sets-reps">—</span></div>
-     <div><strong>Total Volume:</strong> <span id="pop-volume">—</span></div>
+   <div class="muted" style="margin:4px 0 10px;">
+     <div><strong>Sets/Reps:</strong> ${totalSets} sets / ${totalReps} reps</div>
+     <div><strong>Total Volume:</strong> ${(totalVol||0).toLocaleString()} ${unitLabel}</div>
    </div>
+
    
 
 
