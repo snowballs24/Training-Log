@@ -539,13 +539,14 @@ thead th.setnum{
   display:grid;
   row-gap:4px;
 }
-.wb-meta > div{
-  display:flex;
-  justify-content:space-between;   /* label left, value right */
-  align-items:baseline;
-  gap:10px;
-  white-space:nowrap;               /* keeps label+value on one line */
+.wb-meta > div {
+  display: inline-flex;
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
 }
+
 
 
 .wb-list   { list-style:none; margin:0; padding:0; }
@@ -619,10 +620,13 @@ thead th.setnum{
 }
 
 .cal-pop-meta > div {
-  display: flex;
-  justify-content: space-between;   /* label on left, value on right */
+  display: inline-flex;
+  justify-content: flex-start;
   align-items: baseline;
+  gap: 8px;               /* small space between label and value */
+  white-space: nowrap;    /* keep on one line */
 }
+
 
 .cal-pop-meta > div strong { font-weight: 700; }
 
@@ -2231,14 +2235,15 @@ async function saveDay(){
 
 const statsLine = `
   <div class="muted" style="margin:4px 0 10px;">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;white-space:nowrap">
-      <strong>Sets/Reps:</strong> <span>${totalSets} sets / ${totalReps} reps</span>
+    <div style="display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap">
+      <strong>Sets/Reps:</strong><span>${totalSets} sets / ${totalReps} reps</span>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;white-space:nowrap">
-      <strong>Total Volume:</strong> <span>${(totalVol||0).toLocaleString()} ${unitLabel}</span>
+    <div style="display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap">
+      <strong>Total Volume:</strong><span>${(totalVol||0).toLocaleString()} ${unitLabel}</span>
     </div>
   </div>
 `;
+
 
 
   const headerLine = `
