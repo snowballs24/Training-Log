@@ -2509,7 +2509,13 @@ if(act==='editRoutine'){
       name: e.name,
       category: e.category || guessCategory(e.name)
     }));
-  // === Add Exercise flow ===
+
+  });
+
+  openWizard(true); 
+  return; 
+}
+ // === Add Exercise flow ===
   if (act === 'addExerciseStart') {
     const r = activeRoutine();
     const d = dayById(r, state.log.dayId);
@@ -2544,13 +2550,6 @@ if(act==='editRoutine'){
     }
     return;
   }
-
-  });
-
-  openWizard(true); 
-  return; 
-}
-
   if(act==='renameRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return; const val = await modal.prompt('Rename routine:', r.name); if(!val) return; r.name=val.trim(); if(state.activeRoutineId===r.id) renderSelectors(); save(); renderRoutinesList(); return; }
   if(act==='deleteRoutine'){ const id=btn.dataset.id; const r=state.routines.find(x=>x.id===id); if(!r) return; if(!(await modal.confirm(`Delete routine "${r.name}"? Past logs remain in Trends.`))) return;
     state.routines = state.routines.filter(x=>x.id!==id); if(state.activeRoutineId===id) state.activeRoutineId = state.routines[0]?.id || null; save(); renderRoutinesList(); renderSelectors(); buildLog(); buildTrends(); return; }
