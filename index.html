@@ -2144,45 +2144,108 @@ function buildLog(){
 }
 
 /* ===== Save Day ===== */
-function saveDay(){
+async function saveDay(){
   const r = activeRoutine(), d = dayById(r, state.log.dayId);
   if (!d) return;
 
   // Use same date handling you already have
-  const dateISO = new Date().toISOString();
-  const workoutDate = state.log.workoutDate || $('workoutDate').value || dateISO.slice(0,10);
+  const nowISO = new Date().toISOString();
+  const workoutDate = state.log.workoutDate || $('workoutDate').value || nowISO.slice(0,10);
 
   // ---- Merge permanent + "today only" exercises for THIS date|day ----
   const tempKey = `${workoutDate}|${d.id}`;
   const temp = state.tempExercises?.[tempKey] || [];
   const exList = [...(d.exercises || []), ...temp];
 
-  // ---- Save per-exercise entries (your existing schema) ----
-  exList.forEach(ex => {
-    // keep raw strings so we can tell what was blank
+  // ---- Build a preview of what will be saved (sets with reps>0, note if any) ----
+  const preview = exList.map(ex=>{
     const raw = ensureFourSets(state.log.prepared[ex.id]).map(s => ({
       set: s.set,
       weight: (s.weight === '' ? '' : (+s.weight || 0)),
       reps:   (s.reps   === '' ? '' : (+s.reps   || 0)),
     }));
-
-    // a performed set must have reps > 0 (weight may be 0 for body-weight)
     const performed = raw.filter(s => typeof s.reps === 'number' && s.reps > 0);
-    if (!performed.length && !(state.log.notes[ex.id] || '').trim()) return;
-
     const totalVolume = performed.reduce((a, s) => a + ((+s.weight || 0) * (+s.reps || 0)), 0);
-    const note = state.log.notes[ex.id] || '';
+    const note = (state.log.notes[ex.id] || '').trim();
+    return { ex, performed, totalVolume, note };
+  });
 
+  // Only show exercises that have data or a note
+  const previewFiltered = preview.filter(p => p.performed.length || p.note);
+
+  // Build HTML summary (simple and compact; mirrors the calendar summary style)
+  const unitLabel = (prefs.units || 'kg').toLowerCase();
+  let summaryHTML = `
+    <div class="save-summary">
+      <div class="small muted" style="margin-bottom:8px;">
+        ${r.name} — ${d.name} — ${workoutDate}
+      </div>
+      ${
+        previewFiltered.length
+        ? previewFiltered.map(p=>{
+            const rows = p.performed.map(s=>`
+              <tr>
+                <td style="padding:2px 6px; text-align:center;">${s.set}</td>
+                <td style="padding:2px 6px; text-align:right;">${s.weight === '' ? '—' : s.weight}</td>
+                <td style="padding:2px 6px; text-align:right;">${s.reps === '' ? '—' : s.reps}</td>
+              </tr>
+            `).join('');
+            const noteBlock = p.note ? `<div class="small muted" style="margin-top:4px;">Note: ${p.note}</div>` : '';
+            return `
+              <div style="margin:8px 0 12px;">
+                <div style="font-weight:600; margin-bottom:4px;">${p.ex.name}</div>
+                <div class="table-wrap" style="overflow:auto;">
+                  <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                      <tr>
+                        <th style="text-align:center; padding:2px 6px; font-weight:500;">Set</th>
+                        <th style="text-align:right; padding:2px 6px; font-weight:500;">${unitLabel}</th>
+                        <th style="text-align:right; padding:2px 6px; font-weight:500;">Reps</th>
+                      </tr>
+                    </thead>
+                    <tbody>${rows || `
+                      <tr><td colspan="3" class="muted" style="padding:4px 6px;">No sets performed</td></tr>
+                    `}</tbody>
+                    <tfoot>
+                      <tr>
+                        <td colspan="3" style="text-align:right; padding:4px 6px;">
+                          <span class="muted">Volume:</span> ${p.totalVolume}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                ${noteBlock}
+              </div>
+            `;
+          }).join('')
+        : `<div class="muted">No sets or notes to save.</div>`
+      }
+    </div>
+  `;
+
+  // ---- Ask for confirmation with the summary shown in the modal body ----
+  const ok = await modal.confirm({
+    title: 'Save today’s workout?',
+    body: summaryHTML,                 // requires msg.innerHTML (Step 1 above)
+    okText: 'Save Day',
+    cancelText: 'Go Back'
+  });
+  if (!ok) return; // user cancelled
+
+  // ---- Persist sessions (same schema you already use) ----
+  const dateISO = nowISO; // keep your source timestamp
+  previewFiltered.forEach(p=>{
     state.sessions.push({
       id: uid(),
       dateISO,
-      workoutDate,     // yyyy-mm-dd
+      workoutDate,     // yyyy-mm-dd (selected day)
       routineId: r.id,
       dayId: d.id,
-      exerciseId: ex.id,
-      sets: performed, // only the sets actually performed
-      totalVolume,
-      note
+      exerciseId: p.ex.id,
+      sets: p.performed,           // only performed sets
+      totalVolume: p.totalVolume,
+      note: p.note || ''
     });
   });
 
@@ -2201,19 +2264,17 @@ function saveDay(){
       const performed = (s.reps !== '' && +s.reps > 0);
       return {
         set: s.set,
-        // only carry over weight if that set was actually performed
         weight: (prefs.carryOverWeights && performed) ? String(s.weight ?? '') : '',
-        reps: ''   // always clear reps
+        reps: ''
       };
     });
-
     const wrap = qs(`.exercise[data-exid="${ex.id}"]`);
     if (wrap) wrap.classList.remove('completed');
   });
 
   // ✅ keep notes as-is (do NOT wipe state.log.notes)
 
-  // Keep your existing behavior of advancing the log date to today
+  // Advance the log date to today (your existing behavior)
   state.log.workoutDate = todayISO();
   $('workoutDate').value = state.log.workoutDate;
 
@@ -2229,6 +2290,7 @@ function saveDay(){
     }catch{} })();
   }
 }
+
 
 /* ===== Trends ===== */
 function renderLineChart(data, labels){
@@ -2358,7 +2420,7 @@ const modal = (() => {
 
     mode = kind;
     title.textContent = heading || '';
-    msg.textContent   = text || '';
+    msg.innerHTML     = text || '';
 
     if (withInput) {
       inp.classList.remove('hidden');
