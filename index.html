@@ -1563,6 +1563,15 @@ const MMM = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","
 function fmtShortDate(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return `${d.getDate()} ${MMM[d.getMonth()]}`; }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 
+// Pretty date like "25th October"
+function ordinal(n){ const s=["th","st","nd","rd"], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function prettyDay(iso){
+  const d = new Date(iso);
+  const day = ordinal(d.getDate());
+  const mo  = d.toLocaleString(undefined, { month:'long' });
+  return `${day} ${mo}`;
+}
+
 // --- NEW helper: identify current day/date key for temp exercises ---
 function dayDateKey(){
   const iso = state.log.workoutDate || $('workoutDate').value || todayISO();
@@ -2173,56 +2182,47 @@ async function saveDay(){
   // Only show exercises that have data or a note
   const previewFiltered = preview.filter(p => p.performed.length || p.note);
 
-  // Build HTML summary (simple and compact; mirrors the calendar summary style)
+    // ---- Build CALENDAR-STYLE summary (title + stats + compact list) ----
   const unitLabel = (prefs.units || 'kg').toLowerCase();
-  let summaryHTML = `
-    <div class="save-summary">
-      <div class="small muted" style="margin-bottom:8px;">
-        ${r.name} — ${d.name} — ${workoutDate}
+
+  // Compute totals like the calendar card
+  const totalSets = preview.reduce((a,p)=> a + p.performed.length, 0);
+  const totalReps = preview.reduce((a,p)=> a + p.performed.reduce((x,s)=>x + (+s.reps||0), 0), 0);
+  const totalVol  = preview.reduce((a,p)=> a + p.totalVolume, 0);
+
+  // Build the list (exercise name on left, "n sets" on right), only if it has data/note
+  const items = preview
+    .filter(p => p.performed.length || p.note)
+    .map(p => `
+      <div class="sum-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);">
+        <div class="sum-name" style="font-weight:600;line-height:1.2">${p.ex.name}</div>
+        <div class="sum-sets muted" style="white-space:nowrap">${p.performed.length} ${p.performed.length===1?'set':'sets'}</div>
       </div>
-      ${
-        previewFiltered.length
-        ? previewFiltered.map(p=>{
-            const rows = p.performed.map(s=>`
-              <tr>
-                <td style="padding:2px 6px; text-align:center;">${s.set}</td>
-                <td style="padding:2px 6px; text-align:right;">${s.weight === '' ? '—' : s.weight}</td>
-                <td style="padding:2px 6px; text-align:right;">${s.reps === '' ? '—' : s.reps}</td>
-              </tr>
-            `).join('');
-            const noteBlock = p.note ? `<div class="small muted" style="margin-top:4px;">Note: ${p.note}</div>` : '';
-            return `
-              <div style="margin:8px 0 12px;">
-                <div style="font-weight:600; margin-bottom:4px;">${p.ex.name}</div>
-                <div class="table-wrap" style="overflow:auto;">
-                  <table style="width:100%; border-collapse:collapse;">
-                    <thead>
-                      <tr>
-                        <th style="text-align:center; padding:2px 6px; font-weight:500;">Set</th>
-                        <th style="text-align:right; padding:2px 6px; font-weight:500;">${unitLabel}</th>
-                        <th style="text-align:right; padding:2px 6px; font-weight:500;">Reps</th>
-                      </tr>
-                    </thead>
-                    <tbody>${rows || `
-                      <tr><td colspan="3" class="muted" style="padding:4px 6px;">No sets performed</td></tr>
-                    `}</tbody>
-                    <tfoot>
-                      <tr>
-                        <td colspan="3" style="text-align:right; padding:4px 6px;">
-                          <span class="muted">Volume:</span> ${p.totalVolume}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                ${noteBlock}
-              </div>
-            `;
-          }).join('')
-        : `<div class="muted">No sets or notes to save.</div>`
-      }
+    `).join('');
+
+  const statsLine = `
+    <div class="muted" style="margin:4px 0 10px;">
+      <strong>Sets/Reps:</strong> ${totalSets} sets / ${totalReps} reps
+      &nbsp; • &nbsp;
+      <strong>Total Volume:</strong><br>${(totalVol||0).toLocaleString()} ${unitLabel}
     </div>
   `;
+
+  const headerLine = `
+    <div style="font-weight:700; font-size:1.05rem; margin-bottom:2px;">${prettyDay(workoutDate)}</div>
+    <div style="font-weight:600; margin-bottom:6px;">${d.name}</div>
+  `;
+
+  const listOrEmpty = items || `<div class="muted">No sets or notes to save.</div>`;
+
+  const summaryHTML = `
+    <div class="calendar-like-summary">
+      ${headerLine}
+      ${statsLine}
+      ${listOrEmpty}
+    </div>
+  `;
+
 
   // ---- Ask for confirmation with the summary shown in the modal body ----
   const ok = await modal.confirm({
