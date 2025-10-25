@@ -555,8 +555,6 @@ thead th.setnum{
   width: calc(100% - var(--padX, 14px) * 2);
 }
 
-/* We’re replacing the single “meta” row with per-workout blocks */
-.cal-pop-meta { display:none !important; }
 
 /* Optional: hide the old single title + top trash (date stays at top center) */
 .cal-pop-title, #pop-delete { display:none !important; }
@@ -599,7 +597,22 @@ thead th.setnum{
   border-color: color-mix(in oklab, var(--danger) 30%, var(--line));
 }
 
-.cal-pop-meta{ display:grid; gap:4px; font-size:.95rem; margin: 6px 0 6px; }
+.cal-pop-meta{
+  display: grid;
+  grid-template-columns: 1fr;   /* one column; rows stack */
+  row-gap: 4px;
+  font-size: .95rem;
+  margin: 6px 0 6px;
+}
+
+.cal-pop-meta > div {
+  display: flex;
+  justify-content: space-between;   /* label on left, value on right */
+  align-items: baseline;
+}
+
+.cal-pop-meta > div strong { font-weight: 700; }
+
 
 .pop-list{ list-style:none; margin:8px 0 12px; padding:0; }
 .pop-row{
