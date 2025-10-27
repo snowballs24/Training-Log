@@ -1635,6 +1635,24 @@ function fmt1dp(v){
   return (r % 1 === 0) ? String(Math.trunc(r)) : String(r);
 }
 
+// Ensure we always have a valid routine, day, and date before building the log
+function ensureActiveSelection(){
+  // Active routine
+  if (!state.activeRoutineId && Array.isArray(state.routines) && state.routines.length){
+    state.activeRoutineId = state.routines[0].id;
+  }
+
+  // Active day
+  const r = activeRoutine();
+  if (r && !state.log.dayId){
+    state.log.dayId = (r.days && r.days.length) ? r.days[0].id : null;
+  }
+
+  // Workout date
+  if (!state.log.workoutDate){
+    state.log.workoutDate = todayISO();
+  }
+}
   
 // ===== Normalize all saved numbers to max 1 decimal (supports both session shapes) =====
 function normalizeHistoryOneDp(){
