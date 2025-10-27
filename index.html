@@ -1614,26 +1614,40 @@ function sanitizeWhileTyping(val){
   return round1Final(val);                         // fallback
 }
    
-// ===== Normalize all saved numbers to max 1 decimal =====
+ // Always format as 1 decimal for display (returns "" if blank/invalid)
+function fmt1dp(v){
+  if (v === '' || v == null || isNaN(+v)) return '';
+  return (+v).toFixed(1);
+}
+  
+// ===== Normalize all saved numbers to max 1 decimal (supports both session shapes) =====
 function normalizeHistoryOneDp(){
-  // Sessions
-  (state.sessions||[]).forEach(sess=>{
+  const to1 = v => (v==='' || v==null) ? '' : +round1Final(v);
+
+  (state.sessions || []).forEach(sess=>{
     if (Array.isArray(sess.entries)) {
+      // Newer shape: one session with entries[]
       sess.entries.forEach(e=>{
         if (Array.isArray(e.sets)) {
           e.sets.forEach(s=>{
-            if (s.weight!=='' && s.weight!=null) s.weight = +round1Final(s.weight);
-            if (s.reps  !=='' && s.reps  !=null) s.reps   = +round1Final(s.reps);
+            s.weight = to1(s.weight);
+            s.reps   = to1(s.reps);
           });
-        }
-        if (typeof e.totalVolume==='number') {
+          // recompute volume
           e.totalVolume = e.sets.reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0);
         }
       });
+    } else if (Array.isArray(sess.sets)) {
+      // Older shape: one record per exercise with sets[]
+      sess.sets.forEach(s=>{
+        s.weight = to1(s.weight);
+        s.reps   = to1(s.reps);
+      });
+      sess.totalVolume = sess.sets.reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0);
     }
   });
 
-  // Current prepared (so UI shows cleaned values)
+  // Current prepared (so UI shows cleaned values too)
   if (state.log && state.log.prepared){
     for (const exId in state.log.prepared){
       state.log.prepared[exId] = ensureFourSets(state.log.prepared[exId]||[]).map(s=>({
@@ -1644,6 +1658,7 @@ function normalizeHistoryOneDp(){
     }
   }
 }
+
 
   
 function isExerciseCompleted(exId){
@@ -2007,7 +2022,8 @@ function buildPrevTables(exId, count){
     // weights row
    for (let i=0;i<4;i++){
      const st = s.sets[i] || { weight:'', reps:'' };
-     body += `<td><div class="cell-static">${showVal(st.weight)}</div></td>`;
+     body += `<td><div class="cell-static">${fmt1dp(st.weight)}</div></td>`;
+
    }
     // Vol occupies only the kg row
     body += `<td class="vol-cell vol-neutral">${s.totalVolume ?? 0}</td></tr>`;
@@ -3002,13 +3018,8 @@ document.addEventListener('input',(e)=>{
 
   state.log.prepared[exId] = ensureFourSets(state.log.prepared[exId]||[]);
 
-  let val = inp.value;
-  if (key === 'weight' || key === 'reps'){
-    // allow natural typing; clamp to 1 dp if user types more
-    val = sanitizeWhileTyping(val);
-    inp.value = val; // reflect immediately
-  }
-
+  // No rounding here — let the user type anything
+  const val = inp.value;
   state.log.prepared[exId][idx][key]=val;
 
   recalcVolume(exId);
@@ -3028,13 +3039,25 @@ document.addEventListener('input',(e)=>{
   }
 });
 
+
 // Finalize formatting on blur (when the input loses focus)
 document.addEventListener('blur',(e)=>{
-  const inp=e.target.closest('input[data-action="upd"]'); if(!inp) return;
-  const exId=inp.dataset.exid, idx=+inp.dataset.idx, key=inp.dataset.key;
+  const inp = e.target.closest('input[data-action="upd"]'); 
+  if (!inp) return;
+
+  const exId = inp.dataset.exid, idx = +inp.dataset.idx, key = inp.dataset.key;
   if (key !== 'weight' && key !== 'reps') return;
 
-  const finalVal = round1Final(inp.value);
+  let finalVal = inp.value;
+
+  if (key === 'weight') {
+    // always show/store 1 decimal place (e.g., "52.0", "52.5")
+    finalVal = fmt1dp(finalVal);
+  } else if (key === 'reps') {
+    // reps are whole numbers
+    finalVal = (finalVal === '' ? '' : String(Math.round(Number(finalVal) || 0)));
+  }
+
   inp.value = finalVal;
   state.log.prepared[exId][idx][key] = finalVal;
   recalcVolume(exId);
