@@ -1614,11 +1614,16 @@ function sanitizeWhileTyping(val){
   return round1Final(val);                         // fallback
 }
    
- // Always format as 1 decimal for display (returns "" if blank/invalid)
+// Format to 1 decimal if needed; drop trailing .0
 function fmt1dp(v){
   if (v === '' || v == null || isNaN(+v)) return '';
-  return (+v).toFixed(1);
+  const n = Number(v);
+  if (!isFinite(n)) return '';
+  const r = Math.round(n * 10) / 10;
+  // remove ".0" if it's an even number
+  return (r % 1 === 0) ? String(Math.trunc(r)) : String(r);
 }
+
   
 // ===== Normalize all saved numbers to max 1 decimal (supports both session shapes) =====
 function normalizeHistoryOneDp(){
