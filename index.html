@@ -1569,6 +1569,17 @@ localStorage.setItem(LS_KEY, JSON.stringify({
 const activeRoutine = () => state.routines.find(r=>r.id===state.activeRoutineId)||null;
 const dayById = (r,id) => r?.days.find(d=>d.id===id)||null;
 const exerciseById = (d,id) => d?.exercises.find(e=>e.id===id)||null;
+// NEW helper — resolve an exercise by id from permanent day OR today-only list
+function getExerciseFromToday(exId){
+  const r = activeRoutine();
+  const d = dayById(r, state.log.dayId);
+  const key = dayDateKey();                          // same key you already use elsewhere
+  const temps = state.tempExercises?.[key] || [];    // today-only exercises
+  const perm  = d?.exercises || [];                  // permanent day exercises
+  return [...perm, ...temps].find(e => e.id === exId) || null;
+}
+
+   
 function sessionsForExercise(exId){
   return state.sessions
     .filter(s=>s.exerciseId===exId)
@@ -1975,7 +1986,7 @@ function renderTrendsDaySelector(){
 
   sel.innerHTML = '';
 
-  const r = activeRoutine();
+  ine();
   if (!r || !r.days || !r.days.length){
     sel.appendChild(new Option('(No days)', ''));
     state.trendsDayId = null;
@@ -3019,7 +3030,8 @@ document.addEventListener('input',(e)=>{
 
   const inp=e.target.closest('input[data-action="upd"]'); if(!inp) return;
   const exId=inp.dataset.exid, idx=+inp.dataset.idx, key=inp.dataset.key;
-  const r=activeRoutine(), d=dayById(r,state.log.dayId), ex=exerciseById(d,exId); if(!ex) return;
+  const ex = getExerciseFromToday(exId); if (!ex) return;
+
 
   state.log.prepared[exId] = ensureFourSets(state.log.prepared[exId]||[]);
 
