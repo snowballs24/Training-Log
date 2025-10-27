@@ -3217,7 +3217,19 @@ buildTrends();
 renderRoutinesList();
 updateTimerDisplays();
 updateTimerButtons();
+renderSelectors();
+renderTrendsDaySelector();  // ⬅️ ensure dropdown has options on first load
+ensureActiveSelection();    // ⬅️ NEW: guarantees routine/day/date are set
+
+buildLog();
+buildTrends();
+renderRoutinesList();
+updateTimerDisplays();
+updateTimerButtons();
+
 const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
+showPage(startPage);
+th) ? 'logPage' : 'routinesPage';
 showPage(startPage);
 
 
