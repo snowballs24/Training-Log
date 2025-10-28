@@ -1847,21 +1847,77 @@ li.innerHTML = `
 
 /* ===== Wizard ===== */
 function show(el,yes){ if(!el) return; el.classList.toggle('hidden', !yes); }
-function openWizard(editing=false){
-  if(!editing){ state.wiz = { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} }; }
-  show($('wizard'), true); show($('wizStep1'), !editing); show($('wizStep2'), false); show($('wizStep3'), editing);
+// Replace the whole function with this version
+function openWizard(editing=false, editingId=null){
+  const wiz = $('wizard');
+  if (!wiz) return;
+
+  // Make sure Cancel exists and is visible
   ensureWizardCancelButton();
-   $('wizCancelBtn')?.classList.remove('hidden'); // always show Cancel (even when editing)
-  if(!editing){
-    $('wizName').value=''; $('wizDaysCount').value=''; $('wizDayNames').innerHTML=''; $('wizExercises').innerHTML='';
-    const sel=$('templateSelect'); if(sel) sel.value='';
-  }else{
-    $('wizName').value=state.wiz.name; $('wizDaysCount').value=state.wiz.daysCount;
-    const namesWrap=$('wizDayNames'); namesWrap.innerHTML='';
-    state.wiz.dayNames.forEach((n,i)=>{ const inp=document.createElement('input'); inp.value=n; inp.addEventListener('input',e=> state.wiz.dayNames[i]=e.target.value); namesWrap.appendChild(inp); });
+  $('wizCancelBtn')?.classList.remove('hidden');
+
+  // Resolve the routine we’re editing (if any)
+  let src = null;
+  if (editing) {
+    if (editingId) {
+      src = (state.routines || []).find(r => r.id === editingId) || null;
+    }
+    if (!src) src = activeRoutine();
+  }
+
+  // Build in-memory wizard state (clone so Cancel discards edits)
+  if (editing && src){
+    state.wiz = makeWizFromRoutine(src);
+  } else {
+    state.wiz = { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} };
+  }
+
+  // Show the correct step for create vs edit
+  show(wiz, true);
+  show($('wizStep1'), !editing);
+  show($('wizStep2'), false);
+  show($('wizStep3'), !!editing);
+
+  // Populate or clear the fields exactly like your original did
+  if (!editing){
+    $('wizName').value = '';
+    $('wizDaysCount').value = '';
+    const namesWrap = $('wizDayNames'); if (namesWrap) namesWrap.innerHTML = '';
+    const exWrap = $('wizExercises'); if (exWrap) exWrap.innerHTML = '';
+    const sel = $('templateSelect'); if (sel) sel.value = '';
+  } else {
+    $('wizName').value = state.wiz.name || '';
+    $('wizDaysCount').value = state.wiz.daysCount || 0;
+
+    const namesWrap = $('wizDayNames');
+    if (namesWrap){
+      namesWrap.innerHTML = '';
+      state.wiz.dayNames.forEach((n,i)=>{
+        const inp = document.createElement('input');
+        inp.value = n;
+        inp.addEventListener('input', e => state.wiz.dayNames[i] = e.target.value);
+        namesWrap.appendChild(inp);
+      });
+    }
+
+    // Rebuild exercises for the editor
     wizToExercises(true);
   }
 }
+function makeWizFromRoutine(r){
+  if (!r) return { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} };
+  const snap = JSON.parse(JSON.stringify(r)); // deep clone
+  return {
+    editingId: r.id,
+    name: snap.name || '',
+    daysCount: (snap.days || []).length,
+    dayNames: (snap.days || []).map(d => d.name || 'Day'),
+    dayExercises: Object.fromEntries(
+      (snap.days || []).map(d => [d.id, (d.exercises || []).map(e => ({...e}))])
+    ),
+  };
+}
+
 // === Wizard Cancel / Close helpers ===
 function closeWizard(){
   // Hide the wizard and discard any in-progress data
