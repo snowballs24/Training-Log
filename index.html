@@ -1850,6 +1850,8 @@ function show(el,yes){ if(!el) return; el.classList.toggle('hidden', !yes); }
 function openWizard(editing=false){
   if(!editing){ state.wiz = { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} }; }
   show($('wizard'), true); show($('wizStep1'), !editing); show($('wizStep2'), false); show($('wizStep3'), editing);
+  ensureWizardCancelButton();
+   $('wizCancelBtn')?.classList.remove('hidden'); // always show Cancel (even when editing)
   if(!editing){
     $('wizName').value=''; $('wizDaysCount').value=''; $('wizDayNames').innerHTML=''; $('wizExercises').innerHTML='';
     const sel=$('templateSelect'); if(sel) sel.value='';
@@ -1860,6 +1862,45 @@ function openWizard(editing=false){
     wizToExercises(true);
   }
 }
+// === Wizard Cancel / Close helpers ===
+function closeWizard(){
+  // Hide the wizard and discard any in-progress data
+  show($('wizard'), false);
+  state.wiz = null;
+}
+
+// Ensure a Cancel button exists in the wizard and wire it up
+function ensureWizardCancelButton(){
+  const wiz = $('wizard');
+  if (!wiz) return;
+
+  let btn = $('wizCancelBtn');
+  if (!btn){
+    btn = document.createElement('button');
+    btn.id = 'wizCancelBtn';
+    btn.type = 'button';
+    btn.textContent = 'Cancel';
+    btn.className = 'btn ghost';  // matches your app’s button styles; adjust if needed
+    // Keep it visible without touching your HTML layout
+    btn.style.position = 'absolute';
+    btn.style.top = '12px';
+    btn.style.right = '12px';
+    btn.style.zIndex = '2';
+    wiz.appendChild(btn);
+  }
+  btn.onclick = closeWizard;
+
+  // Clicking the dark overlay area closes the wizard too
+  wiz.addEventListener('click', (e)=>{
+    if (e.target === wiz) closeWizard();
+  });
+
+  // ESC key closes the wizard
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape' && wiz && !wiz.classList.contains('hidden')) closeWizard();
+  });
+}
+
 function wizToDays(){
   const name=$('wizName').value.trim(); const count=parseInt($('wizDaysCount').value,10);
   if(!name || !count || count<1){ alert('Enter a routine name and number of days.'); return; }
@@ -3331,6 +3372,9 @@ showPage(startPage);
 
 
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
+// Prepare Cancel button and handlers
+ensureWizardCancelButton();
+
 })();
 
 
