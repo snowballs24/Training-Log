@@ -1053,7 +1053,12 @@ thead th.setnum{
         </select>
       </label>
    </div>
-        
+ 
+   <label class="small" style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+  <input type="checkbox" id="shareExerciseHistory">
+  Share history for identical exercise names across all workouts
+</label>
+       
 </div>
 
 
@@ -1366,6 +1371,8 @@ const prefs = {
   accent: 'aurora',
   surface: 'glass',
   carryOverWeights: true
+  shareExerciseHistory: false,
+
 };
 
 const state = {
@@ -1581,10 +1588,41 @@ function getExerciseFromToday(exId){
 
    
 function sessionsForExercise(exId){
-  return state.sessions
-    .filter(s=>s.exerciseId===exId)
-    .sort((a,b)=> new Date(b.workoutDate||b.dateISO) - new Date(a.workoutDate||a.dateISO));
+  // Always include the exact exerciseId
+  const wantedId = exId;
+
+  // If sharing is off, behave exactly as before
+  if (!prefs.shareExerciseHistory) {
+    return (state.sessions || [])
+      .filter(s => s.exerciseId === wantedId)
+      .sort((a,b)=> new Date(b.workoutDate||b.dateISO) - new Date(a.workoutDate||a.dateISO));
+  }
+
+  // When sharing is ON: include other sessions whose exercise name matches this one
+  const targetName = (getExerciseNameById(wantedId) || '').trim().toLowerCase();
+
+  // If we don’t know the name, fall back to id-only
+  if (!targetName) {
+    return (state.sessions || [])
+      .filter(s => s.exerciseId === wantedId)
+      .sort((a,b)=> new Date(b.workoutDate||b.dateISO) - new Date(a.workoutDate||a.dateISO));
+  }
+
+  // Gather sessions that either:
+  //  a) are this exact exId, or
+  //  b) have an exercise with the same resolved name (case-insensitive)
+  const out = (state.sessions || []).filter(s => {
+    if (s.exerciseId === wantedId) return true;
+    const nm = (getExerciseNameById(s.exerciseId) || '').trim().toLowerCase();
+    return nm && nm === targetName;
+  });
+
+  // Sort newest → oldest (by saved-day or timestamp)
+  out.sort((a,b)=> new Date(b.workoutDate||b.dateISO) - new Date(a.workoutDate||a.dateISO));
+
+  return out;
 }
+
 const lastNSessions = (exId,n) => sessionsForExercise(exId).slice(0,n);
 function ensureFourSets(arr){
   const a = Array.isArray(arr) ? arr.slice(0,4) : [];
@@ -2540,6 +2578,7 @@ function hydrateSettingsUI(){
   $('accentSelect').value = prefs.accent;
   const ss = $('surfaceSelect'); if (ss) ss.value = prefs.surface || 'glass'; // ← add
   hydrateRestTimerSettings();
+  $('shareExerciseHistory').checked = !!prefs.shareExerciseHistory; 
 }
 const KG_TO_LB = 2.20462;
 function convertNumber(n, factor){ const x = (parseFloat(n)||0)*factor; return Math.round(x*100)/100; }
@@ -3150,6 +3189,13 @@ $('carryOverWeights')?.addEventListener('change', (e) => {
   // Always call the helper now, for both on/off
   backfillCarryOverForCurrentDay();
   buildLog(); // refresh inputs to reflect new state
+});
+$('shareExerciseHistory')?.addEventListener('change', (e) => {
+  prefs.shareExerciseHistory = !!e.target.checked;
+  savePrefs();
+  // Rebuild so Prev Weeks and Trends immediately use the merged history
+  buildLog();
+  buildTrends();
 });
 
 
