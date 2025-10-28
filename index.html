@@ -2596,12 +2596,18 @@ function hydrateRestTimerSettings(){
 }
    
 function hydrateSettingsUI(){
+  // Theme + appearance
   $('unitSelect').value = prefs.units;
   $('accentSelect').value = prefs.accent;
-  const ss = $('surfaceSelect'); if (ss) ss.value = prefs.surface || 'glass'; // ← add
+  const ss = $('surfaceSelect'); if (ss) ss.value = prefs.surface || 'glass';
+  // Rest timer group
   hydrateRestTimerSettings();
-  $('shareExerciseHistory').checked = !!prefs.shareExerciseHistory; 
+  // Preferences checkboxes
+  $('carryOverWeights').checked      = !!prefs.carryOverWeights;
+  $('shareExerciseHistory').checked  = !!prefs.shareExerciseHistory;
 }
+   
+
 const KG_TO_LB = 2.20462;
 function convertNumber(n, factor){ const x = (parseFloat(n)||0)*factor; return Math.round(x*100)/100; }
 function convertAllWeights(factor){
@@ -3290,6 +3296,9 @@ $('importJsonInput').addEventListener('change', async (e)=>{
   applyAccent();
   applySurface();
   load();
+// Keep settings UI in sync even before opening the Settings page
+const cow = $('carryOverWeights'); if (cow) cow.checked = !!prefs.carryOverWeights;
+const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerciseHistory;
 
   (function migrateZeroPlaceholders(){
     let changed = false;
