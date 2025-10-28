@@ -2042,8 +2042,14 @@ function renderSelectors(){
   else{ state.routines.forEach(r=>{ const o=new Option(r.name,r.id); if(r.id===state.activeRoutineId) o.selected=true; rSel.appendChild(o); }); }
   const a=activeRoutine(), dSel=$('logDaySelect'); dSel.innerHTML='';
   if(a){ a.days.forEach(d=> dSel.appendChild(new Option(d.name,d.id))); if(!state.log.dayId && a.days[0]) state.log.dayId=a.days[0].id; dSel.value=state.log.dayId||''; }
-  const cur = state.log.workoutDate || $('workoutDate').value || todayISO();
-  $('workoutDate').value = cur;
+let cur = state.log.workoutDate || $('workoutDate').value;
+if (!cur) {
+  cur = todayISO();
+  state.log.workoutDate = cur;  // keep state in sync so everyone sees "today"
+  save?.();                     // harmless if save() exists; otherwise ignored
+}
+$('workoutDate').value = cur;
+
 }
 function renderTrendsDaySelector(){
   const sel = $('trendDaySelect');
@@ -3283,19 +3289,20 @@ $('importJsonInput').addEventListener('change', async (e)=>{
     if (changed) save();
   })();
 
-  // --- one clean init pass ---
-  renderSelectors();
-  renderTrendsDaySelector();
-  ensureActiveSelection();
+// --- one clean init pass ---
+ensureActiveSelection();     // ⬅️ ensure routine/day/date exist first
+renderSelectors();
+renderTrendsDaySelector();
 
-  buildLog();
-  buildTrends();
-  renderRoutinesList();
-  updateTimerDisplays();
-  updateTimerButtons();
+buildLog();
+buildTrends();
+renderRoutinesList();
+updateTimerDisplays();
+updateTimerButtons();
 
-  const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
-  showPage(startPage);
+const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
+showPage(startPage);
+
 
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
 })();
