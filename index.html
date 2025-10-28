@@ -1748,7 +1748,14 @@ function isExerciseCompleted(exId){
 }
 const MMM = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function fmtShortDate(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return `${d.getDate()} ${MMM[d.getMonth()]}`; }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+function todayISO(){
+  // Return YYYY-MM-DD in LOCAL time (not UTC), so Perth gets the correct day
+  const now = new Date();
+  const tzms = now.getTimezoneOffset() * 60000; // minutes -> ms
+  const local = new Date(now - tzms);
+  return local.toISOString().slice(0, 10);
+}
+
 
 // Force the log date to today (state + input)
 function resetLogDateToToday(){
