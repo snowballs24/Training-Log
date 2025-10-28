@@ -1637,22 +1637,31 @@ function fmt1dp(v){
 
 // Ensure we always have a valid routine, day, and date before building the log
 function ensureActiveSelection(){
-  // Active routine
-  if (!state.activeRoutineId && Array.isArray(state.routines) && state.routines.length){
+  // Ensure there is an active routine
+  let r = activeRoutine();
+  if (!r && state.routines && state.routines.length){
     state.activeRoutineId = state.routines[0].id;
+    r = activeRoutine();
   }
 
-  // Active day
-  const r = activeRoutine();
-  if (r && !state.log.dayId){
-    state.log.dayId = (r.days && r.days.length) ? r.days[0].id : null;
+  // Ensure there is a selected day
+  if (r && (!state.log.dayId || !r.days.some(d => d.id === state.log.dayId))) {
+    state.log.dayId = r.days?.[0]?.id || null;
   }
 
-  // Workout date
-  if (!state.log.workoutDate){
+  // Ensure there is a date
+  if (!state.log.workoutDate) {
     state.log.workoutDate = todayISO();
   }
+
+  // Also keep Trends day in-bounds
+  if (r && (!state.trendsDayId || !r.days.some(d => d.id === state.trendsDayId))) {
+    state.trendsDayId = r.days?.[0]?.id || null;
+  }
+
+  save();
 }
+
   
 // ===== Normalize all saved numbers to max 1 decimal (supports both session shapes) =====
 function normalizeHistoryOneDp(){
@@ -1727,7 +1736,7 @@ function showPage(which){
 
   ['logPage','routinesPage','historyPage','settingsPage'].forEach(id=> $(id).classList.toggle('hidden', id!==which));
   if(which==='logPage'){ renderSelectors(); buildLog(); }
-  if(which==='historyPage'){ renderSelectors(); renderTrendsDaySelector(); buildTrends(); }
+  if(which==='historyPage'){ renderSelectors(); rr(); buildTrends(); }
   if(which==='routinesPage'){ renderRoutinesList(); }
   if(which==='settingsPage'){ hydrateSettingsUI(); }
 }
@@ -1737,7 +1746,7 @@ function selectRoutine(id){
   state.activeRoutineId = id;
   save();
   renderSelectors();          // updates the Log page routine dropdown
-  renderTrendsDaySelector();  // keep Trends in sync with current routine
+  rr();  // keep Trends in sync with current routine
   buildLog();
   buildTrends();
   renderRoutinesList();       // re-render to apply green highlight
@@ -2004,7 +2013,7 @@ function renderTrendsDaySelector(){
 
   sel.innerHTML = '';
 
-  ine();
+  const r = activeRoutine();
   if (!r || !r.days || !r.days.length){
     sel.appendChild(new Option('(No days)', ''));
     state.trendsDayId = null;
@@ -2023,9 +2032,6 @@ function renderTrendsDaySelector(){
   });
 }
 
-$('workoutDate').addEventListener('change', (e)=>{
-  state.log.workoutDate = e.target.value || todayISO(); save();
-});
 
 /* ===== Tables ===== */
 const headerCols = () => `<colgroup><col class="metric"><col class="set"><col class="set"><col class="set"><col class="set"><col class="volume"></colgroup>`;
@@ -3211,48 +3217,43 @@ $('importJsonInput').addEventListener('change', async (e)=>{
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
   }
-  loadPrefs(); applyTheme(); applyAccent(); applySurface(); load();
+  loadPrefs();
+  applyTheme();
+  applyAccent();
+  applySurface();
+  load();
 
-(function migrateZeroPlaceholders(){
-  let changed = false;
-  (state.sessions || []).forEach(s => {
-    if (!Array.isArray(s.sets)) return;
-    const before = s.sets.length;
-    // keep only performed sets
-    s.sets = s.sets.filter(x => (+x.reps || 0) > 0);
-    if (s.sets.length !== before) {
-      s.totalVolume = s.sets.reduce((a,t)=> a + ((+t.weight||0) * (+t.reps||0)), 0);
-      changed = true;
-    }
-  });
-  if (changed) save();
-})();
-   
-renderSelectors();
-renderTrendsDaySelector();  // ⬅️ ensure dropdown has options on first load
-buildLog();
-buildTrends();
-renderRoutinesList();
-updateTimerDisplays();
-updateTimerButtons();
-renderSelectors();
-renderTrendsDaySelector();  // ⬅️ ensure dropdown has options on first load
-ensureActiveSelection();    // ⬅️ NEW: guarantees routine/day/date are set
+  (function migrateZeroPlaceholders(){
+    let changed = false;
+    (state.sessions || []).forEach(s => {
+      if (!Array.isArray(s.sets)) return;
+      const before = s.sets.length;
+      s.sets = s.sets.filter(x => (+x.reps || 0) > 0);
+      if (s.sets.length !== before) {
+        s.totalVolume = s.sets.reduce((a,t)=> a + ((+t.weight||0) * (+t.reps||0)), 0);
+        changed = true;
+      }
+    });
+    if (changed) save();
+  })();
 
-buildLog();
-buildTrends();
-renderRoutinesList();
-updateTimerDisplays();
-updateTimerButtons();
+  // --- one clean init pass ---
+  renderSelectors();
+  renderTrendsDaySelector();
+  ensureActiveSelection();
 
-const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
-showPage(startPage);
-th) ? 'logPage' : 'routinesPage';
-showPage(startPage);
+  buildLog();
+  buildTrends();
+  renderRoutinesList();
+  updateTimerDisplays();
+  updateTimerButtons();
 
+  const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
+  showPage(startPage);
 
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
 })();
+
 
 </script>
 
