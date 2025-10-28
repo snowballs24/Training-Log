@@ -1750,6 +1750,15 @@ const MMM = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","
 function fmtShortDate(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return `${d.getDate()} ${MMM[d.getMonth()]}`; }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 
+// Force the log date to today (state + input)
+function resetLogDateToToday(){
+  const t = todayISO();
+  state.log = state.log || {};
+  state.log.workoutDate = t;
+  const inp = $('workoutDate');
+  if (inp) inp.value = t;
+}
+   
 // Pretty date like "25th October"
 function ordinal(n){ const s=["th","st","nd","rd"], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 function prettyDay(iso){
@@ -1773,7 +1782,7 @@ function showPage(which){
   currentPage = which;
 
   ['logPage','routinesPage','historyPage','settingsPage'].forEach(id=> $(id).classList.toggle('hidden', id!==which));
-  if(which==='logPage'){ renderSelectors(); buildLog(); }
+  if(which==='logPage'){ resetLogDateToToday(); renderSelectors(); buildLog(); }
   if(which==='historyPage'){ renderSelectors(); rr(); buildTrends(); }
   if(which==='routinesPage'){ renderRoutinesList(); }
   if(which==='settingsPage'){ hydrateSettingsUI(); }
@@ -3291,6 +3300,7 @@ $('importJsonInput').addEventListener('change', async (e)=>{
 
 // --- one clean init pass ---
 ensureActiveSelection();     // ⬅️ ensure routine/day/date exist first
+resetLogDateToToday();
 renderSelectors();
 renderTrendsDaySelector();
 
