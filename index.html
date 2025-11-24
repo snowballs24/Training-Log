@@ -158,7 +158,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-gradient, linear-gradient(135deg,#0f172a,#020617));
+    background:
+    radial-gradient(circle at top, rgba(16, 185, 129, 0.22), transparent 60%),
+    linear-gradient(135deg, #022c22, #020617);
   pointer-events: none;
   opacity: 1;
   transform: translateY(0);
@@ -217,7 +219,7 @@ body {
 
 /* slower multi-flip spin */
 .splash-logo.is-spinning {
-  animation: splash-spin 3.2s ease-in-out forwards;
+  animation: splash-spin 4.2s ease-in-out forwards;
 }
 
 /*
@@ -3550,7 +3552,7 @@ function hideSplash() {
   if (!splash) return;
 
   const elapsed = performance.now() - splashStart;
-  const minVisible = 3400; // keep splash visible ~3.4 sec
+  const minVisible = 4500; // keep splash visible ~4.5 sec
   const remain = Math.max(0, minVisible - elapsed);
 
   setTimeout(() => {
