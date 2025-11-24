@@ -150,6 +150,120 @@ body {
   padding-top: var(--safe-top);
 }
 
+/* ===== Splash screen ===== */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(255,255,255,0.08), transparent 60%),
+    linear-gradient(135deg, var(--primary-2), var(--primary));
+  color: #f9fafb;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity .28s ease-out;
+}
+
+#splash.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-inner {
+  text-align: center;
+  padding: 22px 24px 26px;
+  border-radius: 24px;
+  background: radial-gradient(circle at top, rgba(15,23,42,.90), rgba(15,23,42,.72));
+  border: 1px solid rgba(148,163,184,.45);
+  box-shadow: 0 24px 60px rgba(15,23,42,.7);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  max-width: 280px;
+  width: 100%;
+}
+
+/* 3D spinning logo */
+.splash-logo-wrap {
+  perspective: 1100px;
+}
+
+.splash-logo {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 16px;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: splash-spin 1.35s ease-out .15s 1 forwards;
+}
+
+.splash-logo-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 32px;
+  background-size: cover;
+  background-position: center;
+  backface-visibility: hidden;
+}
+
+/* Front: gradient pill */
+.splash-logo-front {
+  transform: rotateY(0deg);
+  background-image: url("./icons/front.png");
+}
+
+/* Back: chrome pill */
+.splash-logo-back {
+  transform: rotateY(180deg);
+  background-image: url("./icons/back.png");
+}
+
+@keyframes splash-spin {
+  0%   { transform: rotateY(0deg) scale(0.96); opacity: 0; }
+  10%  { opacity: 1; }
+  65%  { transform: rotateY(540deg) scale(1.0); }
+  100% { transform: rotateY(720deg) scale(1.0); }
+}
+
+.splash-title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.splash-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Small animated dots under the text */
+.splash-dots {
+  margin-top: 16px;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.splash-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(248,250,252,0.9);
+  animation: splash-dot 1s infinite ease-in-out;
+}
+
+.splash-dots span:nth-child(2) { animation-delay: .16s; }
+.splash-dots span:nth-child(3) { animation-delay: .32s; }
+
+@keyframes splash-dot {
+  0%, 80%, 100% { transform: translateY(0); opacity: .45; }
+  40%          { transform: translateY(-4px); opacity: 1; }
+}
+
 h1{ margin:14px 18px 2px; font-size:34px; letter-spacing:.2px; font-weight:800; }
 h2{ margin:6px 0; font-weight:800; }
 
@@ -791,6 +905,24 @@ thead th.setnum{
 
 </head>
 <body data-theme="dark" data-accent="aurora">
+   
+<!-- Splash screen overlay -->
+<div id="splash">
+  <div class="splash-inner">
+    <div class="splash-logo-wrap">
+      <div class="splash-logo">
+        <div class="splash-logo-face splash-logo-front"></div>
+        <div class="splash-logo-face splash-logo-back"></div>
+      </div>
+    </div>
+    <div class="splash-title">Training Log</div>
+    <div class="splash-subtitle">Stronger every week</div>
+    <div class="splash-dots">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</div>
+
   <div class="title-wrap">
     <h1>Training Log</h1>
     <span class="settings-wrap">
@@ -3372,6 +3504,23 @@ $('importJsonInput').addEventListener('change', async (e)=>{
   }catch(err){ modal.alert('Import failed: '+err.message); }
 });
 
+// --- Splash handling ---
+const appStartedAt = performance.now();
+
+function hideSplash() {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+
+  const elapsed = performance.now() - appStartedAt;
+  const minVisible = 600; // ms
+  const delay = Math.max(0, minVisible - elapsed);
+
+  setTimeout(() => {
+    splash.classList.add('is-hidden');
+    setTimeout(() => splash.remove(), 320);
+  }, delay);
+}
+
 /* ===== Init ===== */
 (function init(){
   if(!localStorage.getItem(THEME_KEY)){
@@ -3418,8 +3567,12 @@ showPage(startPage);
 
 
   $('openWizardBtn')?.addEventListener('click', ()=> openWizard(false));
+   
 // Prepare Cancel button and handlers
 ensureWizardCancelButton();
+   
+// Hide splash after first render
+hideSplash();
 
 })();
 
