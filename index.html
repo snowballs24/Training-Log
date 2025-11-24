@@ -1800,6 +1800,7 @@ function selectRoutine(id){
   state.activeRoutineId = id;
   save();
   renderSelectors();          // updates the Log page routine dropdown
+  renderTrendsDaySelector(); // refresh the Trends day selector so its options match the new routine
   rr();  // keep Trends in sync with current routine
   buildLog();
   buildTrends();
