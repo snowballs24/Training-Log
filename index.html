@@ -3445,6 +3445,12 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 <script>
+   
+// Helper: refresh the History calendar safely
+function rr() {
+  // Tell the calendar module to re-render (if it’s listening)
+  document.dispatchEvent(new CustomEvent('calendar:refresh'));
+}
 (() => {
   // ---------- palette ----------
   const SAFE_COLORS = [
