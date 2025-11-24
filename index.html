@@ -17,15 +17,15 @@
    (No layout/orientation changes — only visual polish)
    ========================================================= */
 :root {
-  /* Neutrals */
-  --bg: #0e0f1a;           /* fallback; will be overridden by theme */
-  --bg-2: #121326;
-  --surface: #161832;
-  --card: #0f1228;
-  --line: rgba(255,255,255,.08);
-  --text: #eaf0ff;
-  --muted: #9fb1d8;
-
+  /* Neutrals – neutral, modern dark defaults */
+  --bg: #020617;           /* near-black background */
+  --bg-2: #020617;
+  --surface: #050816;      /* slightly lifted surface for bars/sections */
+  --card: #020617;         /* card base; shadows + borders create separation */
+  --line: rgba(148,163,184,.45); /* soft slate border, much clearer than 0.08 white */
+  --text: #e5e7eb;         /* neutral light gray for primary text */
+  --muted: #9ca3af;        /* softer gray for secondary text */
+   
   /* Accents (will be themed) */
   --primary: #6ddcff;
   --primary-2:#7f7cff;
@@ -59,13 +59,14 @@
   --muted:#637190;
 }
 [data-theme="dark"] {
-  --bg: #0b0e1a;
-  --bg-2: #0e1130;
-  --surface:#0f142e;
-  --card:#0c1026;
-  --line: rgba(255,255,255,.08);
-  --text:#eaf0ff;
-  --muted:#9fb1d8;
+  /* Neutral, high-contrast dark mode */
+  --bg: #020617;           /* main app background */
+  --bg-2: #020617;         /* used in gradients; keep neutral */
+  --surface:#050816;       /* nav/header/footer surfaces */
+  --card:#020617;          /* cards & sheets (slight separation via shadow/border) */
+  --line: rgba(148,163,184,.45);  /* clearer but still soft borders */
+  --text:#e5e7eb;          /* primary text */
+  --muted:#9ca3af;         /* secondary text */
 }
 
 /* ***** Colorful Accent Themes (no layout changes) ***** */
