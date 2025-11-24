@@ -3565,12 +3565,6 @@ function hideSplash() {
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
   }
-/* ===== Init ===== */
-(function init(){
-  if(!localStorage.getItem(THEME_KEY)){
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
-  }
   loadPrefs();
   applyTheme();
   applyAccent();
