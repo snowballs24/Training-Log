@@ -3527,7 +3527,7 @@ $('importJsonInput').addEventListener('change', async (e)=>{
 });
 
 // --- Splash handling ---
-const appStartedAt = performance.now();
+let splashStart = performance.now();
 
 function hideSplash() {
   const splash = document.getElementById('splash');
@@ -3549,12 +3549,35 @@ function hideSplash() {
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
   }
+/* ===== Init ===== */
+(function init(){
+  if(!localStorage.getItem(THEME_KEY)){
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    localStorage.setItem(THEME_KEY, prefersDark?'dark':'light');
+  }
   loadPrefs();
   applyTheme();
   applyAccent();
   applySurface();
+
+  // Kick off splash animation (spin logo + reset timer)
+  const splash = document.getElementById('splash');
+  if (splash) {
+    const logo = splash.querySelector('.splash-logo');
+    splashStart = performance.now(); // reset start time to when animation begins
+    if (logo) {
+      requestAnimationFrame(() => {
+        logo.classList.add('is-spinning');
+      });
+    }
+  }
+
   load();
-// Keep settings UI in sync even before opening the Settings page
+  // Keep settings UI in sync even before opening the Settings page
+  const cow = $('carryOverWeights'); if (cow) cow.checked = !!prefs.carryOverWeights;
+  const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerciseHistory;
+  ...
+
 const cow = $('carryOverWeights'); if (cow) cow.checked = !!prefs.carryOverWeights;
 const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerciseHistory;
 
