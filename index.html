@@ -3529,6 +3529,22 @@ $('importJsonInput').addEventListener('change', async (e)=>{
 // --- Splash handling ---
 let splashStart = performance.now();
 
+function startSplashAnimation() {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  const logo = splash.querySelector('.splash-logo');
+
+  // reset start time to when we actually kick off the animation
+  splashStart = performance.now();
+
+  if (logo) {
+    // next frame so the CSS animation picks up cleanly
+    requestAnimationFrame(() => {
+      logo.classList.add('is-spinning');
+    });
+  }
+}
+
 function hideSplash() {
   const splash = document.getElementById('splash');
   if (!splash) return;
@@ -3539,7 +3555,7 @@ function hideSplash() {
 
   setTimeout(() => {
     splash.classList.add('splash-hidden');
-    setTimeout(() => splash.remove(), 600); 
+    setTimeout(() => splash.remove(), 600);
   }, remain);
 }
 
@@ -3574,10 +3590,6 @@ function hideSplash() {
 
   load();
   // Keep settings UI in sync even before opening the Settings page
-  const cow = $('carryOverWeights'); if (cow) cow.checked = !!prefs.carryOverWeights;
-  const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerciseHistory;
-  ...
-
 const cow = $('carryOverWeights'); if (cow) cow.checked = !!prefs.carryOverWeights;
 const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerciseHistory;
 
