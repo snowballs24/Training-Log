@@ -983,21 +983,33 @@ thead th.setnum{
           Start From a Template
         </h3>
         <div class="card" style="background:rgba(255,255,255,.03); border-color:var(--line); margin-top:0">
-          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-            <select id="templateSelect" style="flex:1 1 240px">
-              <option value="">Choose a template…</option>
-              <option value="stronglifts">StrongLifts 5×5</option>
-              <option value="startingstrength">Starting Strength</option>
-              <option value="ppl">Push / Pull / Legs</option>
-              <option value="upperlower">Upper / Lower 4-day</option>
-              <option value="brosplit">Bro Split 5-day</option>
-              <option value="fullbody3">Full Body 3-day</option>
-              <option value="phul">PHUL 4-day</option>
-              <option value="phat">PHAT 5-day</option>
-              <option value="snowy">Snowy’s Log</option>
-            </select>
-            <button class="ghost" data-action="useTemplateSelected">Import</button>
-          </div>
+         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+           <select id="templateSelect" style="flex:1 1 240px">
+             <option value="">Choose a template…</option>
+             <option value="arnold">Arnold Classic Split</option>
+             <option value="jeff">Jeff Nippard (Full Body)</option>
+             <option value="layne">Layne Norton PHAT</option>
+             <option value="ppl">Push / Pull / Legs</option>
+             <option value="fullbody3">Full Body 3-day</option>
+             <option value="hyper4">Hypertrophy 4-day</option>
+             <option value="strength3">Strength 3-day</option>
+             <option value="fatloss3">Fat Loss 3-day</option>
+           </select>
+         
+           <button class="ghost" data-action="useTemplateSelected">Import</button>
+         
+           <!-- New info button -->
+           <button
+             type="button"
+             class="icon ghost"
+             data-action="showTemplateInfo"
+             title="About this template"
+             aria-label="About this template"
+           >
+             ⓘ
+           </button>
+         </div>
+
         </div>
          
                
@@ -1601,37 +1613,423 @@ const Sound = (() => {
 let currentPage = 'logPage';
 let lastNonSettingsPage = 'logPage';
 
-/* ====== Templates & Exercise Library (unchanged) ====== */
-function tStrongLifts(){ return { name:'StrongLifts', days:[ {name:'Workout A', ex:['Back Squat','Barbell Bench Press','Barbell Row']}, {name:'Workout B', ex:['Back Squat','Overhead Press','Deadlift']} ] }; }
-function tStartingStrength(){ return { name:'Starting Strength', days:[ {name:'Day A', ex:['Back Squat','Barbell Bench Press','Deadlift']}, {name:'Day B', ex:['Back Squat','Overhead Press','Power Clean (or Rows)']} ] }; }
-function tPPL(){ return { name:'Push / Pull / Legs', days:[ {name:'Push', ex:['Barbell Bench Press','Overhead Press','Incline Dumbbell Press','Lateral Raise','Cable Pressdown']}, {name:'Pull', ex:['Deadlift','Barbell Row','Lat Pulldown / Pull-Up','Face Pull','Barbell Curl']}, {name:'Legs', ex:['Back Squat','Romanian Deadlift','Leg Press','Leg Extension','Seated Leg Curl','Standing Calf Raise']} ] }; }
-function tUpperLower(){ return { name:'Upper / Lower 4-day', days:[ {name:'Upper 1', ex:['Barbell Bench Press','Row (Barbell/Cable)','Overhead Press','Lat Pulldown / Pull-Up','Dumbbell Curl','Cable Pressdown']}, {name:'Lower 1', ex:['Back Squat','Romanian Deadlift','Leg Press','Leg Extension','Seated Leg Curl','Standing Calf Raise']}, {name:'Upper 2', ex:['Incline Bench Press','Chest-Supported Row','Dumbbell Shoulder Press','Chin-Up','Hammer Curl','Skull Crusher']}, {name:'Lower 2', ex:['Front Squat (or Back Squat)','Hip Thrust','Lying Leg Curl','Leg Extension','Seated Calf Raise']} ] }; }
-function tBroSplit(){ return { name:'Bro Split 5-day', days:[ {name:'Chest', ex:['Barbell Bench Press','Incline Dumbbell Press','Dumbbell Flye','Cable Flye','Push-Up']}, {name:'Back', ex:['Deadlift','Barbell Row','Lat Pulldown','Seated Cable Row','Face Pull']}, {name:'Shoulders', ex:['Overhead Press','Dumbbell Shoulder Press','Lateral Raise','Rear Delt Flye','Front Raise']}, {name:'Legs', ex:['Back Squat','Romanian Deadlift','Leg Press','Leg Extension','Seated Leg Curl','Standing Calf Raise']}, {name:'Arms', ex:['Barbell Curl','Hammer Curl','Cable Curl','Skull Crusher','Cable Pressdown','Dip']} ] }; }
-function tFullBody3(){ return { name:'Full Body 3-day', days:[ {name:'Full A', ex:['Back Squat','Barbell Bench Press','Barbell Row','Lateral Raise','Standing Calf Raise']}, {name:'Full B', ex:['Deadlift','Overhead Press','Lat Pulldown','Incline Dumbbell Press','Leg Press']}, {name:'Full C', ex:['Front Squat','Incline Bench Press','Chest-Supported Row','Hip Thrust','Hanging Leg Raise']} ] }; }
-function tPHUL(){ return { name:'PHUL 4-day', days:[ {name:'Upper Power', ex:['Barbell Bench Press','Barbell Row','Overhead Press','Lat Pulldown']}, {name:'Lower Power', ex:['Back Squat','Romanian Deadlift','Leg Press','Standing Calf Raise']}, {name:'Upper Hypertrophy', ex:['Incline Dumbbell Press','Chest-Supported Row','Lateral Raise','Barbell Curl','Cable Pressdown']}, {name:'Lower Hypertrophy', ex:['Front Squat','Hip Thrust','Leg Extension','Seated Leg Curl','Seated Calf Raise']} ] }; }
-function tPHAT(){ return { name:'PHAT 5-day', days:[ {name:'Upper Power', ex:['Barbell Bench Press','Barbell Row','Overhead Press']}, {name:'Lower Power', ex:['Back Squat','Deadlift','Standing Calf Raise']}, {name:'Back/Shoulders', ex:['Lat Pulldown','Chest-Supported Row','Lateral Raise','Face Pull']}, {name:'Lower Hypertrophy', ex:['Front Squat','Leg Press','Leg Extension','Seated Leg Curl','Seated Calf Raise']}, {name:'Chest/Arms', ex:['Incline Dumbbell Press','Dumbbell Flye','Barbell Curl','Cable Pressdown']} ] }; }
+/* ====== Templates & Exercise Library ====== */
 
-/* ✨ update: Snowy's Log template */
-function tSnowy(){
+/* Note: these are “inspired by” well-known routines, not official paid programs. */
+
+function tArnoldSplit(){
   return {
-    name: "Snowy's Log",
+    name: 'Arnold Classic Split',
     days: [
-      { name:'Chest', ex:[
-        'Barbell Bench Press','Machine Chest Press','Machine Shoulder Press',
-        'Incline Dumbbell Press','Machine Chest Fly','Overhead Rope Triceps Extension'
-      ]},
-      { name:'Legs', ex:[
-        'Seated Leg Curl','Leg Press','Leg Press Calf Raise','Leg Extensions',
-        'Hip Thrusts','Hip Adductors','Hip Abductors'
-      ]},
-      { name:'Back/Shoulders', ex:[
-        'Upright Row','Machine Row','Close Grip Lat Pulldown','Seated Cable Row',
-        'Reverse Machine Fly','Cable Lateral Raise','Dumbbell Shrugs','Hammer Curls'
-      ]},
-      { name:'Core', ex:['Decline Ab Crunch','Machine Crunch','Wood Chopper','Dumbbell Side Bend'] }
+      {
+        name: 'Chest / Back',
+        ex: [
+          'Barbell Bench Press',
+          'Incline Dumbbell Press',
+          'Dumbbell Flye',
+          'Barbell Row',
+          'Lat Pulldown'
+        ]
+      },
+      {
+        name: 'Shoulders / Arms',
+        ex: [
+          'Overhead Press',
+          'Lateral Raise',
+          'Rear Delt Flye',
+          'Barbell Curl',
+          'Skull Crusher'
+        ]
+      },
+      {
+        name: 'Legs',
+        ex: [
+          'Back Squat',
+          'Romanian Deadlift',
+          'Leg Press',
+          'Leg Extension',
+          'Seated Leg Curl',
+          'Standing Calf Raise'
+        ]
+      }
     ]
   };
 }
+
+function tJeffFullBody(){
+  return {
+    name: 'Jeff Nippard Full Body',
+    days: [
+      {
+        name: 'Full A',
+        ex: [
+          'Back Squat',
+          'Barbell Bench Press',
+          'Barbell Row',
+          'Lateral Raise',
+          'Hanging Leg Raise'
+        ]
+      },
+      {
+        name: 'Full B',
+        ex: [
+          'Deadlift',
+          'Overhead Press',
+          'Lat Pulldown',
+          'Incline Dumbbell Press',
+          'Plank'
+        ]
+      },
+      {
+        name: 'Full C',
+        ex: [
+          'Front Squat',
+          'Chest-Supported Row',
+          'Dumbbell Shoulder Press',
+          'Hip Thrust',
+          'Cable Curl'
+        ]
+      }
+    ]
+  };
+}
+
+function tLaynePHAT(){
+  return {
+    name: 'Layne Norton PHAT',
+    days: [
+      {
+        name: 'Upper Power',
+        ex: [
+          'Barbell Bench Press',
+          'Barbell Row',
+          'Overhead Press',
+          'Pull-Up'
+        ]
+      },
+      {
+        name: 'Lower Power',
+        ex: [
+          'Back Squat',
+          'Romanian Deadlift',
+          'Leg Press',
+          'Standing Calf Raise'
+        ]
+      },
+      {
+        name: 'Back / Shoulders (Hypertrophy)',
+        ex: [
+          'Lat Pulldown',
+          'Chest-Supported Row',
+          'Lateral Raise',
+          'Face Pull'
+        ]
+      },
+      {
+        name: 'Lower (Hypertrophy)',
+        ex: [
+          'Front Squat',
+          'Leg Extension',
+          'Seated Leg Curl',
+          'Seated Calf Raise'
+        ]
+      },
+      {
+        name: 'Chest / Arms (Hypertrophy)',
+        ex: [
+          'Incline Dumbbell Press',
+          'Dumbbell Flye',
+          'Barbell Curl',
+          'Cable Pressdown'
+        ]
+      }
+    ]
+  };
+}
+
+function tClassicPPL(){
+  return {
+    name: 'Push / Pull / Legs',
+    days: [
+      {
+        name: 'Push',
+        ex: [
+          'Barbell Bench Press',
+          'Incline Dumbbell Press',
+          'Overhead Press',
+          'Lateral Raise',
+          'Cable Pressdown'
+        ]
+      },
+      {
+        name: 'Pull',
+        ex: [
+          'Deadlift',
+          'Barbell Row',
+          'Lat Pulldown',
+          'Face Pull',
+          'Barbell Curl'
+        ]
+      },
+      {
+        name: 'Legs',
+        ex: [
+          'Back Squat',
+          'Romanian Deadlift',
+          'Leg Press',
+          'Leg Extension',
+          'Seated Leg Curl',
+          'Standing Calf Raise'
+        ]
+      }
+    ]
+  };
+}
+
+function tFullBody3(){
+  return {
+    name: 'Full Body 3-day',
+    days: [
+      {
+        name: 'Full A',
+        ex: [
+          'Back Squat',
+          'Barbell Bench Press',
+          'Barbell Row',
+          'Lateral Raise',
+          'Standing Calf Raise'
+        ]
+      },
+      {
+        name: 'Full B',
+        ex: [
+          'Deadlift',
+          'Overhead Press',
+          'Lat Pulldown',
+          'Incline Dumbbell Press',
+          'Plank'
+        ]
+      },
+      {
+        name: 'Full C',
+        ex: [
+          'Front Squat',
+          'Chest-Supported Row',
+          'Hip Thrust',
+          'Hanging Leg Raise'
+        ]
+      }
+    ]
+  };
+}
+
+function tHypertrophy4(){
+  return {
+    name: 'Hypertrophy 4-day',
+    days: [
+      {
+        name: 'Upper 1',
+        ex: [
+          'Barbell Bench Press',
+          'Row (Barbell/Cable)',
+          'Overhead Press',
+          'Lat Pulldown',
+          'Cable Pressdown'
+        ]
+      },
+      {
+        name: 'Lower 1',
+        ex: [
+          'Back Squat',
+          'Romanian Deadlift',
+          'Leg Press',
+          'Leg Extension',
+          'Seated Leg Curl',
+          'Standing Calf Raise'
+        ]
+      },
+      {
+        name: 'Upper 2',
+        ex: [
+          'Incline Dumbbell Press',
+          'Chest-Supported Row',
+          'Lateral Raise',
+          'Barbell Curl'
+        ]
+      },
+      {
+        name: 'Lower 2',
+        ex: [
+          'Front Squat',
+          'Hip Thrust',
+          'Lying Leg Curl',
+          'Seated Calf Raise'
+        ]
+      }
+    ]
+  };
+}
+
+function tStrength3(){
+  return {
+    name: 'Strength 3-day',
+    days: [
+      {
+        name: 'Heavy Squat',
+        ex: [
+          'Back Squat',
+          'Front Squat',
+          'Romanian Deadlift',
+          'Leg Press'
+        ]
+      },
+      {
+        name: 'Heavy Bench',
+        ex: [
+          'Barbell Bench Press',
+          'Incline Barbell Bench Press',
+          'Overhead Press',
+          'Barbell Row'
+        ]
+      },
+      {
+        name: 'Heavy Deadlift',
+        ex: [
+          'Deadlift',
+          'Deficit Deadlift',
+          'Chest-Supported Row',
+          'Pull-Up'
+        ]
+      }
+    ]
+  };
+}
+
+function tFatLoss3(){
+  return {
+    name: 'Fat Loss 3-day',
+    days: [
+      {
+        name: 'Full Body A',
+        ex: [
+          'Back Squat',
+          'Barbell Bench Press',
+          'Lat Pulldown',
+          'Walking Lunge',
+          'Plank'
+        ]
+      },
+      {
+        name: 'Full Body B',
+        ex: [
+          'Deadlift',
+          'Overhead Press',
+          'Seated Cable Row',
+          'Step-Up',
+          'Hanging Leg Raise'
+        ]
+      },
+      {
+        name: 'Full Body C',
+        ex: [
+          'Front Squat',
+          'Incline Dumbbell Press',
+          'Dumbbell Row',
+          'Hip Thrust',
+          'Side Plank'
+        ]
+      }
+    ]
+  };
+}
+
+/* Short info blurbs for the “i” button */
+const TEMPLATE_INFO = {
+  arnold: {
+    title: 'Arnold Classic Split',
+    body: `
+      <p><strong>Best for:</strong> Classic bodybuilding-style hypertrophy with higher volume.</p>
+      <p><strong>Why pick this:</strong> Emphasises chest, back, shoulders and arms with a dedicated leg day. Suits people who enjoy training 3+ days per week.</p>
+      <p class="muted">Inspired by Arnold Schwarzenegger’s classic training approach (not an official program).</p>
+    `
+  },
+  jeff: {
+    title: 'Jeff Nippard Full Body',
+    body: `
+      <p><strong>Best for:</strong> Balanced full-body hypertrophy and strength.</p>
+      <p><strong>Why pick this:</strong> Trains all major muscle groups multiple times per week with moderate volume and focus on big compounds.</p>
+      <p class="muted">Inspired by Jeff Nippard’s evidence-based full-body structures.</p>
+    `
+  },
+  layne: {
+    title: 'Layne Norton PHAT',
+    body: `
+      <p><strong>Best for:</strong> Power & hypertrophy together (powerbuilding).</p>
+      <p><strong>Why pick this:</strong> Combines heavy “power” days with higher-rep hypertrophy days for the same muscles.</p>
+      <p class="muted">Inspired by Layne Norton’s PHAT concept.</p>
+    `
+  },
+  ppl: {
+    title: 'Push / Pull / Legs',
+    body: `
+      <p><strong>Best for:</strong> Simple 3-day split that’s easy to understand.</p>
+      <p><strong>Why pick this:</strong> Groups pushing muscles, pulling muscles, and legs. Great for 3–6 days/week depending how often you cycle it.</p>
+    `
+  },
+  fullbody3: {
+    title: 'Full Body 3-day',
+    body: `
+      <p><strong>Best for:</strong> Busy people who can train ~3 days/week.</p>
+      <p><strong>Why pick this:</strong> Every session hits most major muscles so you don’t “miss” a body part if life gets in the way.</p>
+    `
+  },
+  hyper4: {
+    title: 'Hypertrophy 4-day',
+    body: `
+      <p><strong>Best for:</strong> Muscle gain with a bit more weekly volume.</p>
+      <p><strong>Why pick this:</strong> Upper/lower style split with dedicated hypertrophy days and a mix of compound and isolation lifts.</p>
+    `
+  },
+  strength3: {
+    title: 'Strength 3-day',
+    body: `
+      <p><strong>Best for:</strong> Getting stronger on squat, bench and deadlift.</p>
+      <p><strong>Why pick this:</strong> Each day is organised around one main lift with supporting accessories.</p>
+    `
+  },
+  fatloss3: {
+    title: 'Fat Loss 3-day',
+    body: `
+      <p><strong>Best for:</strong> Cutting phases where fat loss is the main goal.</p>
+      <p><strong>Why pick this:</strong> Full-body compounds plus core work to burn more calories per session. Pair with a calorie deficit.</p>
+    `
+  }
+};
+function showTemplateInfo(){
+  const sel = $('templateSelect');
+  if (!sel) return;
+
+  const key = sel.value;
+  if (!key){
+    modal.alert('Choose a template first.', 'Template info');
+    return;
+  }
+
+  const info = TEMPLATE_INFO[key];
+  if (!info){
+    modal.alert('No extra info available for this template yet.', 'Template info');
+    return;
+  }
+
+  const body = `
+    <div class="small">
+      ${info.body}
+    </div>
+  `;
+
+  modal.alert(body, info.title || 'Template info');
+}
+
 
 const EX_LIB = {
   "Chest": ["Barbell Bench Press","Incline Barbell Bench Press","Dumbbell Bench Press","Incline Dumbbell Press","Decline Bench Press","Dumbbell Flye","Cable Flye","Push-Up","Machine Chest Press","Smith Machine Bench Press","Pec Deck","Dips (Chest)"],
@@ -2234,23 +2632,47 @@ function enableReorder(container, onChange){
 }
 function useTemplateSelected(){ const v=$('templateSelect').value; if(!v){ alert('Choose a template first.'); return; } useTemplate(v); }
 function useTemplate(which){
-  let t=null; if(which==='stronglifts') t=tStrongLifts();
-  else if(which==='startingstrength') t=tStartingStrength();
-  else if(which==='ppl') t=tPPL();
-  else if(which==='upperlower') t=tUpperLower();
-  else if(which==='brosplit') t=tBroSplit();
-  else if(which==='fullbody3') t=tFullBody3();
-  else if(which==='phul') t=tPHUL();
-  else if(which==='phat') t=tPHAT();
-  else if(which==='snowy') t=tSnowy(); /* ✨ update: Snowy's Log mapping */
-  if(!t) return;
-  state.wiz = { editingId:null, name:t.name, daysCount:t.days.length, dayNames:t.days.map(d=>d.name), dayExercises:{} };
-  $('wizName').value=t.name; $('wizDaysCount').value=t.days.length;
-  const namesWrap=$('wizDayNames'); namesWrap.innerHTML='';
-  t.days.forEach((d,i)=>{ const inp=document.createElement('input'); inp.value=d.name; inp.addEventListener('input',e=> state.wiz.dayNames[i]=e.target.value); namesWrap.appendChild(inp); });
-  t.days.forEach((d,idx)=>{ state.wiz.dayExercises['day_'+idx] = d.ex.map((name)=>({ id:uid(), name, category:guessCategory(name) })); });
+  let t = null;
+
+  if (which === 'arnold')       t = tArnoldSplit();
+  else if (which === 'jeff')   t = tJeffFullBody();
+  else if (which === 'layne')  t = tLaynePHAT();
+  else if (which === 'ppl')    t = tClassicPPL();
+  else if (which === 'fullbody3') t = tFullBody3();
+  else if (which === 'hyper4') t = tHypertrophy4();
+  else if (which === 'strength3') t = tStrength3();
+  else if (which === 'fatloss3')  t = tFatLoss3();
+
+  if (!t) return;
+
+  state.wiz = {
+    editingId: null,
+    name: t.name,
+    daysCount: t.days.length,
+    dayNames: t.days.map(d => d.name),
+    dayExercises: {}
+  };
+
+  $('wizName').value = t.name;
+  $('wizDaysCount').value = t.days.length;
+
+  const namesWrap = $('wizDayNames');
+  namesWrap.innerHTML = '';
+  t.days.forEach((d, i) => {
+    const inp = document.createElement('input');
+    inp.value = d.name;
+    inp.addEventListener('input', e => state.wiz.dayNames[i] = e.target.value);
+    namesWrap.appendChild(inp);
+  });
+
+  t.days.forEach((d, idx) => {
+    state.wiz.dayExercises['day_'+idx] =
+      d.ex.map(name => ({ id: uid(), name, category: guessCategory(name) }));
+  });
+
   wizToExercises();
 }
+
 function guessCategory(name){
   const n=name.toLowerCase();
   if(n.includes('bench') && !n.includes('close-grip')) return 'Chest';
@@ -3167,7 +3589,8 @@ const perm = await modal.confirm({
   else if(act==='wizRemoveExercise') wizRemoveExercise(btn);
   else if(act==='wizFinish') wizFinish();
   else if(act==='useTemplateSelected') useTemplateSelected();
-
+  else if (act === 'showTemplateInfo') showTemplateInfo();
+     
   else if(act==='saveDay'){ saveDay(); }
   else if(act==='toggleExercise'){
     const exId=btn.dataset.exid;
