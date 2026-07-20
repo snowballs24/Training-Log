@@ -1585,7 +1585,7 @@ button.cal-cell:focus-visible {
 @media (min-width:700px){
   .dashboard-stack{ grid-template-columns:repeat(2,minmax(0,1fr)); }
   .dashboard-primary,.dashboard-strength,.dashboard-recent{ grid-column:1/-1; }
-  .dashboard-summary-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .dashboard-summary-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
 @media (max-width:380px){
   .dashboard-actions{ grid-template-columns:1fr; }
@@ -1633,7 +1633,7 @@ const prefs = {
 const state = {
   routines: [],
   sessions: [],
-  log: { dayId:null, prepared:{}, notes:{}, workoutDate:null, exerciseContexts:{}, startedAt:null },
+  log: { dayId:null, prepared:{}, notes:{}, workoutDate:null, exerciseContexts:{}, isActive:false },
   wiz: { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} },
   uiPrevWeeks: {},
   uiPrevWeeksAll: 1,
@@ -2191,6 +2191,13 @@ Object.assign(state, {
 
 });
 
+// Preserve an active draft created by the earlier dashboard implementation,
+// while no longer retaining a timestamp that implies workout duration tracking.
+if (state.log.isActive !== true && +(raw.log?.startedAt) > 0) {
+  state.log.isActive = true;
+}
+delete state.log.startedAt;
+
 // optional one-time migration...
 if (raw.uiPrevWeeksAll === undefined) {
   const first = Object.values(state.uiPrevWeeks)[0];
@@ -2241,7 +2248,7 @@ function rememberCurrentExerciseContext(exId){
   const d = dayById(r, state.log.dayId);
   const ex = getExerciseFromToday(exId);
   if (!r || !d || !ex) return;
-  if (!(+state.log.startedAt > 0)) state.log.startedAt = Date.now();
+  state.log.isActive = true;
   if (!state.log.exerciseContexts) state.log.exerciseContexts = {};
   state.log.exerciseContexts[exId] = {
     routineId: r.id,
@@ -2561,18 +2568,11 @@ function dashboardFormatDate(iso){
   const d = dashboardDate(iso);
   return d ? d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:d.getFullYear()===new Date().getFullYear()?undefined:'numeric'}) : 'Date unavailable';
 }
-function dashboardFormatDuration(ms){
-  const mins = Math.max(0, Math.round((+ms||0)/60000));
-  if (!mins) return '—';
-  if (mins < 60) return `${mins} min`;
-  const h=Math.floor(mins/60), m=mins%60;
-  return m ? `${h} h ${m} min` : `${h} h`;
-}
 function dashboardEscape(value){
   return String(value ?? '').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
 }
 function hasActiveWorkoutDraft(){
-  if (+state.log?.startedAt > 0) return true;
+  if (state.log?.isActive === true) return true;
   return Object.values(state.log?.prepared || {}).some(sets=>(Array.isArray(sets)?sets:[]).some(s=>(+s?.reps||0)>0));
 }
 function dashboardMuscleGroup(ex){
@@ -2606,13 +2606,12 @@ function calculateDashboardData(now=new Date()){
     if(!date) continue;
     const dayId=String(s.dayId||''), routineId=String(s.routineId||'');
     const key=`${iso}|${dayId||routineId||'workout'}`;
-    if(!groups.has(key)) groups.set(key,{key,iso,date,dayId,routineId,sessions:[],exerciseIds:new Set(),totalSets:0,totalReps:0,totalVolume:0,durationMs:0,hasPR:false});
+    if(!groups.has(key)) groups.set(key,{key,iso,date,dayId,routineId,sessions:[],exerciseIds:new Set(),totalSets:0,totalReps:0,totalVolume:0,hasPR:false});
     const g=groups.get(key), sets=Array.isArray(s.sets)?s.sets:[];
     g.sessions.push(s); g.exerciseIds.add(s.exerciseId);
     g.totalSets+=sets.filter(x=>(+x?.reps||0)>0).length;
     g.totalReps+=sets.reduce((a,x)=>a+Math.max(0,Math.round(+x?.reps||0)),0);
     g.totalVolume+=Math.max(0,Math.round(+s.totalVolume||0));
-    g.durationMs=Math.max(g.durationMs,Math.max(0,+s.durationMs||0));
   }
 
   const workouts=[...groups.values()].sort((a,b)=>b.date-a.date || String(b.sessions[0]?.dateISO||'').localeCompare(String(a.sessions[0]?.dateISO||'')));
@@ -2637,7 +2636,7 @@ function calculateDashboardData(now=new Date()){
 
   const weekStart=dashboardWeekStart(now), nextWeek=dashboardAddDays(weekStart,7);
   const thisWeek=workouts.filter(g=>g.date>=weekStart&&g.date<nextWeek);
-  const weekly={target,workouts:thisWeek.length,sets:thisWeek.reduce((a,g)=>a+g.totalSets,0),durationMs:thisWeek.reduce((a,g)=>a+g.durationMs,0),volume:thisWeek.reduce((a,g)=>a+g.totalVolume,0)};
+  const weekly={target,workouts:thisWeek.length,sets:thisWeek.reduce((a,g)=>a+g.totalSets,0),volume:thisWeek.reduce((a,g)=>a+g.totalVolume,0)};
   const counts=new Map();
   for(const g of workouts){const key=dashboardISO(dashboardWeekStart(g.date));counts.set(key,(counts.get(key)||0)+1);}
   let earliest=workouts.length?dashboardWeekStart(workouts[workouts.length-1].date):weekStart;
@@ -2662,8 +2661,7 @@ function calculateDashboardData(now=new Date()){
   const choice=choices.find(x=>x.value===state.uiDashboardChoice)||choices.find(x=>x.routine.id===routine?.id&&x.day.id===suggestedDay?.id)||choices[0]||null;
   if(choice){routine=choice.routine;suggestedDay=choice.day;}
   const matchingWorkouts=suggestedDay?workouts.filter(g=>g.dayId===suggestedDay.id):[];
-  const durations=matchingWorkouts.map(g=>g.durationMs).filter(Boolean);
-  const next={routine,day:suggestedDay,choices,lastCompleted:matchingWorkouts[0]?.iso||'',estimatedDurationMs:durations.length?durations.reduce((a,v)=>a+v,0)/durations.length:0,preview:(suggestedDay?.exercises||[]).slice(0,4),active:hasActiveWorkoutDraft()};
+  const next={routine,day:suggestedDay,choices,lastCompleted:matchingWorkouts[0]?.iso||'',preview:(suggestedDay?.exercises||[]).slice(0,4),active:hasActiveWorkoutDraft()};
 
   const pinned=[];
   const cutoff30=dashboardAddDays(new Date(now.getFullYear(),now.getMonth(),now.getDate()),-30);
@@ -2707,7 +2705,7 @@ function renderDashboard(){
     const preview=next.preview.length?`<ol class="dashboard-preview">${next.preview.map(ex=>`<li>${dashboardEscape(ex.name)}</li>`).join('')}</ol>`:'<div class="dashboard-empty">No exercises in this workout yet.</div>';
     nextHtml=`
       <div class="dashboard-primary-head"><div><div class="dashboard-kicker">${next.active?'Workout in progress':'Next workout'}</div><h2 class="dashboard-primary-title">${dashboardEscape(next.day.name)}</h2><div class="small muted">${dashboardEscape(next.routine.name)}</div></div></div>
-      <div class="dashboard-meta"><span>Last: ${next.lastCompleted?dashboardFormatDate(next.lastCompleted):'Not completed yet'}</span><span>Est. duration: ${next.estimatedDurationMs?dashboardFormatDuration(next.estimatedDurationMs):'Not enough data'}</span></div>
+      <div class="dashboard-meta"><span>Last: ${next.lastCompleted?dashboardFormatDate(next.lastCompleted):'Not completed yet'}</span></div>
       ${preview}
       ${next.active?'':`<label class="small" style="display:block;margin-top:12px">Choose another routine<select id="dashboardWorkoutChoice" class="dashboard-chooser">${options}</select></label>`}
       <div class="dashboard-actions"><button type="button" data-action="${next.active?'resumeDashboardWorkout':'startDashboardWorkout'}">${next.active?'Resume Workout':'Start Workout'}</button>${next.active?'<button class="ghost" type="button" data-action="navHistory">History</button>':'<button class="ghost" type="button" data-action="navRoutines">Routines</button>'}</div>`;
@@ -2719,10 +2717,10 @@ function renderDashboard(){
   }).join('')}</div>`:'<div class="dashboard-empty">Pin exercises in Settings to track estimated 1RM progress here.</div><button class="ghost" type="button" data-action="navSettings">Manage pins</button>';
   const muscleTotal=Object.values(data.muscleGroups).reduce((a,v)=>a+v,0), muscleMax=Math.max(1,...Object.values(data.muscleGroups));
   const muscleHtml=muscleTotal?`<div class="dashboard-bars">${Object.entries(data.muscleGroups).map(([name,value])=>`<div class="dashboard-bar-row"><span>${name}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${Math.round(value/muscleMax*100)}%"></div></div><strong>${value}</strong></div>`).join('')}</div>`:'<div class="dashboard-empty">Complete workouts across several weeks to see your working-set distribution.</div>';
-  const recentHtml=data.recent.length?data.recent.map(g=>`<button type="button" class="recent-workout" data-action="dashboardOpenWorkout" data-iso="${g.iso}" aria-label="Open workout from ${dashboardFormatDate(g.iso)}"><div class="recent-head"><strong>${dashboardEscape(g.dayName)}</strong><span class="small">${dashboardFormatDate(g.iso)}</span></div><div class="small muted">${dashboardEscape(g.routineName)}${g.hasPR?' · Personal best':''}</div><div class="recent-meta">${g.exerciseIds.size} exercise${g.exerciseIds.size===1?'':'s'} · ${g.totalSets} set${g.totalSets===1?'':'s'} · ${g.totalVolume.toLocaleString()} ${unit} · ${g.durationMs?dashboardFormatDuration(g.durationMs):'Duration unavailable'}</div></button>`).join(''):'<div class="dashboard-empty">Completed workouts will appear here.</div>';
+  const recentHtml=data.recent.length?data.recent.map(g=>`<button type="button" class="recent-workout" data-action="dashboardOpenWorkout" data-iso="${g.iso}" aria-label="Open workout from ${dashboardFormatDate(g.iso)}"><div class="recent-head"><strong>${dashboardEscape(g.dayName)}</strong><span class="small">${dashboardFormatDate(g.iso)}</span></div><div class="small muted">${dashboardEscape(g.routineName)}${g.hasPR?' · Personal best':''}</div><div class="recent-meta">${g.exerciseIds.size} exercise${g.exerciseIds.size===1?'':'s'} · ${g.totalSets} set${g.totalSets===1?'':'s'} · ${g.totalVolume.toLocaleString()} ${unit}</div></button>`).join(''):'<div class="dashboard-empty">Completed workouts will appear here.</div>';
   root.innerHTML=`<div class="dashboard-stack">
     <article class="card dashboard-card dashboard-primary">${nextHtml}</article>
-    <article class="card dashboard-card"><div class="dashboard-kicker">This week</div><h2>${data.weekly.workouts} of ${data.weekly.target} workouts</h2><div class="dashboard-progress" aria-label="${progress}% of weekly target"><span style="width:${progress}%"></span></div><div class="dashboard-summary-grid"><div class="dashboard-stat"><strong>${data.weekly.workouts}</strong><span>Workouts</span></div><div class="dashboard-stat"><strong>${data.weekly.sets}</strong><span>Working sets</span></div><div class="dashboard-stat"><strong>${data.weekly.durationMs?dashboardFormatDuration(data.weekly.durationMs):'—'}</strong><span>Total duration</span></div><div class="dashboard-stat"><strong>${data.weekly.volume.toLocaleString()}</strong><span>Volume (${unit})</span></div></div></article>
+    <article class="card dashboard-card"><div class="dashboard-kicker">This week</div><h2>${data.weekly.workouts} of ${data.weekly.target} workouts</h2><div class="dashboard-progress" aria-label="${progress}% of weekly target"><span style="width:${progress}%"></span></div><div class="dashboard-summary-grid"><div class="dashboard-stat"><strong>${data.weekly.workouts}</strong><span>Workouts</span></div><div class="dashboard-stat"><strong>${data.weekly.sets}</strong><span>Working sets</span></div><div class="dashboard-stat"><strong>${data.weekly.volume.toLocaleString()}</strong><span>Volume (${unit})</span></div></div></article>
     <article class="card dashboard-card"><div class="dashboard-kicker">Active streak</div>${data.streak.hasHistory?`<h2>${data.streak.current} week${data.streak.current===1?'':'s'}</h2><div class="dashboard-meta"><span>Longest: ${data.streak.longest} week${data.streak.longest===1?'':'s'}</span><span>${data.streak.needed?`${data.streak.needed} workout${data.streak.needed===1?'':'s'} needed this week`:'Weekly target reached'}</span></div>`:'<div class="dashboard-empty">Meet your weekly target to begin a consistency streak.</div>'}</article>
     <article class="card dashboard-card dashboard-strength"><div class="dashboard-kicker">Pinned strength progress</div><h2>Estimated 1RM</h2>${pinnedHtml}</article>
     <article class="card dashboard-card"><div class="dashboard-kicker">Last four completed weeks</div><h2>Muscle-group distribution</h2>${muscleHtml}</article>
@@ -2733,7 +2731,7 @@ function startDashboardWorkout(){
   const data=calculateDashboardData(), choice=data.next.choices.find(x=>x.value===(state.uiDashboardChoice||`${data.next.routine?.id||''}|${data.next.day?.id||''}`))||data.next.choices[0];
   if(!choice){showPage('routinesPage');return;}
   state.activeRoutineId=choice.routine.id; state.log.dayId=choice.day.id;
-  state.log.workoutDate=todayISO(); state.log.startedAt=Date.now();
+  state.log.workoutDate=todayISO(); state.log.isActive=true;
   save(); showPage('logPage');
 }
 
@@ -3591,7 +3589,6 @@ const statsLine = `
 
   // ---- Persist sessions (same schema you already use) ----
   const dateISO = nowISO; // keep your source timestamp
-  const durationMs = +state.log.startedAt > 0 ? Math.max(0, Date.now() - +state.log.startedAt) : 0;
   previewFiltered.forEach(p=>{
     state.sessions.push({
       id: uid(),
@@ -3602,7 +3599,6 @@ const statsLine = `
       exerciseId: p.ex.id,
       sets: p.performed,           // only performed sets
       totalVolume: p.totalVolume,
-      ...(durationMs ? { durationMs } : {}),
       note: p.note || ''
     });
   });
@@ -3640,7 +3636,7 @@ const statsLine = `
 
   // Advance the log date to today (your existing behavior)
   state.log.workoutDate = todayISO();
-  state.log.startedAt = null;
+  state.log.isActive = false;
   $('workoutDate').value = state.log.workoutDate;
 
   modal.alert('Day saved for ' + workoutDate + '.');

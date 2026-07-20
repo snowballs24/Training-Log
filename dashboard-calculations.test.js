@@ -22,7 +22,7 @@ function makeContext() {
   const context = {
     state: {
       routines: [], sessions: [], activeRoutineId: null, exerciseNames: {},
-      log: { prepared: {}, notes: {}, startedAt: null }, uiDashboardChoice: null
+      log: { prepared: {}, notes: {}, isActive: false }, uiDashboardChoice: null
     },
     prefs: { weeklyWorkoutTarget: 4, pinnedExerciseIds: [], units: 'kg' },
     activeRoutine() { return context.state.routines.find(r => r.id === context.state.activeRoutineId) || null; },
@@ -36,11 +36,11 @@ function makeContext() {
   return context;
 }
 
-function session(date, dayId, routineId, exerciseId, weight = 100, reps = 5, durationMs = 0) {
+function session(date, dayId, routineId, exerciseId, weight = 100, reps = 5) {
   return {
     id: `${date}-${dayId}-${exerciseId}`, workoutDate: date, dateISO: `${date}T10:00:00.000Z`,
     dayId, routineId, exerciseId, sets: [{ set: 1, weight, reps }],
-    totalVolume: Math.round(weight * reps), ...(durationMs ? { durationMs } : {})
+    totalVolume: Math.round(weight * reps)
   };
 }
 
@@ -70,11 +70,11 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   ] }];
   c.state.activeRoutineId = 'r1';
   c.state.sessions = [
-    session('2026-07-07', 'a', 'r1', 'bench', 90, 5, 3600000),
-    session('2026-07-10', 'b', 'r1', 'row', 70, 8, 3300000),
-    session('2026-07-14', 'a', 'r1', 'bench', 95, 5, 3700000),
-    session('2026-07-17', 'b', 'r1', 'row', 72.5, 8, 3400000),
-    session('2026-07-20', 'a', 'r1', 'bench', 100, 5, 3800000)
+    session('2026-07-07', 'a', 'r1', 'bench', 90, 5),
+    session('2026-07-10', 'b', 'r1', 'row', 70, 8),
+    session('2026-07-14', 'a', 'r1', 'bench', 95, 5),
+    session('2026-07-17', 'b', 'r1', 'row', 72.5, 8),
+    session('2026-07-20', 'a', 'r1', 'bench', 100, 5)
   ];
   c.prefs.pinnedExerciseIds = ['bench', 'row'];
   const data = c.calculateDashboardData(now);
@@ -92,7 +92,7 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   c.state.activeRoutineId = 'r';
   c.state.sessions = [session('2026-07-19', 'd', 'r', 'bench', '', '')];
   c.prefs.pinnedExerciseIds = ['bench'];
-  c.state.log.startedAt = Date.now();
+  c.state.log.isActive = true;
   const data = c.calculateDashboardData(now);
   assert(data.next.active, 'Active workout resume state failed');
   assert(data.pinned[0].current === 0 && !data.pinned[0].hasHistory, 'Missing weight/reps handling failed');
