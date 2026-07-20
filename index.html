@@ -2158,12 +2158,64 @@ function rememberCurrentExerciseContext(exId){
   };
 }
 
+function normalizedExerciseName(name){
+  return String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
+function matchingExerciseIds(exId){
+  const wantedName = normalizedExerciseName(getExerciseNameById(exId));
+  if (!wantedName || wantedName === 'exercise') return [exId];
+  const ids = new Set([exId]);
+
+  for (const r of (state.routines || [])) {
+    for (const d of (r.days || [])) {
+      for (const ex of (d.exercises || [])) {
+        if (normalizedExerciseName(ex.name) === wantedName) ids.add(ex.id);
+      }
+    }
+  }
+  for (const exercises of Object.values(state.tempExercises || {})) {
+    for (const ex of (exercises || [])) {
+      if (normalizedExerciseName(ex.name) === wantedName) ids.add(ex.id);
+    }
+  }
+  for (const [id, name] of Object.entries(state.exerciseNames || {})) {
+    if (normalizedExerciseName(name) === wantedName) ids.add(id);
+  }
+  return [...ids];
+}
+
+function draftHasData(exId){
+  const sets = state.log.prepared?.[exId] || [];
+  return sets.some(s => String(s?.weight ?? '').trim() || String(s?.reps ?? '').trim())
+    || !!String(state.log.notes?.[exId] || '').trim();
+}
+
+function hydrateSharedExerciseDraft(exId){
+  if (draftHasData(exId)) return;
+  const sourceId = matchingExerciseIds(exId).find(id => id !== exId && draftHasData(id));
+  if (!sourceId) return;
+  state.log.prepared[exId] = ensureFourSets(state.log.prepared[sourceId]);
+  state.log.notes[exId] = state.log.notes[sourceId] || '';
+}
+
+function syncExerciseDraftAcrossRoutines(exId){
+  const context = state.log.exerciseContexts?.[exId];
+  for (const matchingId of matchingExerciseIds(exId)) {
+    if (matchingId === exId) continue;
+    state.log.prepared[matchingId] = ensureFourSets(state.log.prepared[exId]);
+    state.log.notes[matchingId] = state.log.notes[exId] || '';
+    if (context) state.log.exerciseContexts[matchingId] = { ...context };
+  }
+}
+
 function draftExercisesForDate(workoutDate){
   const candidates = new Map();
   const add = (ex, routineId, dayId, tempKey=null) => {
     if (!ex?.id) return;
-    if (!candidates.has(ex.id)) candidates.set(ex.id, []);
-    candidates.get(ex.id).push({ ex, routineId, dayId, tempKey });
+    const key = normalizedExerciseName(ex.name) || ex.id;
+    if (!candidates.has(key)) candidates.set(key, []);
+    candidates.get(key).push({ ex, routineId, dayId, tempKey });
   };
 
   for (const r of (state.routines || [])) {
@@ -2175,18 +2227,22 @@ function draftExercisesForDate(workoutDate){
   }
 
   const result = [];
-  for (const [exId, choices] of candidates) {
-    const sets = ensureFourSets(state.log.prepared?.[exId] || []);
-    const hasReps = sets.some(s => (+s.reps || 0) > 0);
-    const hasNote = !!String(state.log.notes?.[exId] || '').trim();
-    if (!hasReps && !hasNote) continue;
+  for (const choices of candidates.values()) {
+    const populated = choices.filter(c => {
+      const sets = ensureFourSets(state.log.prepared?.[c.ex.id] || []);
+      return sets.some(s => (+s.reps || 0) > 0)
+        || !!String(state.log.notes?.[c.ex.id] || '').trim();
+    });
+    if (!populated.length) continue;
 
-    const remembered = state.log.exerciseContexts?.[exId];
+    const remembered = populated
+      .map(c => state.log.exerciseContexts?.[c.ex.id])
+      .find(Boolean);
     const chosen = choices.find(c =>
       c.routineId === remembered?.routineId && c.dayId === remembered?.dayId
-    ) || choices.find(c =>
+    ) || populated.find(c =>
       c.routineId === state.activeRoutineId && c.dayId === state.log.dayId
-    ) || choices[0];
+    ) || populated[0];
 
     if (remembered?.name) {
       chosen.ex = { ...chosen.ex, name: remembered.name, category: remembered.category };
@@ -3033,6 +3089,7 @@ function buildLog(){
 
   // --- Prepare state for all exercises (permanent + temp) ---
   allExercises.forEach(ex=>{
+    hydrateSharedExerciseDraft(ex.id);
     state.log.prepared[ex.id] = ensureFourSets(state.log.prepared[ex.id] || []);
     if(state.uiPrevWeeks[ex.id] === undefined) state.uiPrevWeeks[ex.id] = 1;
     if(!state.log.notes[ex.id]) state.log.notes[ex.id] = '';
@@ -3247,22 +3304,24 @@ const statsLine = `
   // Persist immediately before UI resets
   save();
 
-  // Reset every saved permanent exercise, carrying its weight when requested.
-  previewFiltered.filter(p => !p.tempKey).forEach(({ ex })=>{
-    const prev = ensureFourSets(state.log.prepared[ex.id] || []);
-    state.log.prepared[ex.id] = prev.map(s => {
-      const performed = (s.reps !== '' && +s.reps > 0);
-      return {
-        set: s.set,
-        weight: (prefs.carryOverWeights && performed) ? String(s.weight ?? '') : '',
-        reps: ''
-      };
+  // Reset every synchronized copy of each saved exercise so another routine
+  // cannot resurrect the just-saved reps on the next render.
+  previewFiltered.forEach(({ ex })=>{
+    matchingExerciseIds(ex.id).forEach(id => {
+      const prev = ensureFourSets(state.log.prepared[id] || state.log.prepared[ex.id] || []);
+      state.log.prepared[id] = prev.map(s => {
+        const performed = (s.reps !== '' && +s.reps > 0);
+        return {
+          set: s.set,
+          weight: (prefs.carryOverWeights && performed) ? String(s.weight ?? '') : '',
+          reps: ''
+        };
+      });
+      delete state.log.exerciseContexts?.[id];
+      const wrap = qs(`.exercise[data-exid="${id}"]`);
+      if (wrap) wrap.classList.remove('completed');
     });
-    const wrap = qs(`.exercise[data-exid="${ex.id}"]`);
-    if (wrap) wrap.classList.remove('completed');
   });
-
-  previewFiltered.forEach(p => delete state.log.exerciseContexts?.[p.ex.id]);
 
   // ✅ keep notes as-is (do NOT wipe state.log.notes)
 
@@ -3909,6 +3968,7 @@ document.addEventListener('input',(e)=>{
   if(note){
     state.log.notes[note.dataset.exid]=note.value;
     rememberCurrentExerciseContext(note.dataset.exid);
+    syncExerciseDraftAcrossRoutines(note.dataset.exid);
     save();
     return;
   }
@@ -3924,6 +3984,7 @@ document.addEventListener('input',(e)=>{
   const val = inp.value;
   state.log.prepared[exId][idx][key]=val;
   rememberCurrentExerciseContext(exId);
+  syncExerciseDraftAcrossRoutines(exId);
 
   recalcVolume(exId);
   const wrap = qs(`.exercise[data-exid="${exId}"]`);
@@ -3963,6 +4024,8 @@ document.addEventListener('blur',(e)=>{
 
   inp.value = finalVal;
   state.log.prepared[exId][idx][key] = finalVal;
+  rememberCurrentExerciseContext(exId);
+  syncExerciseDraftAcrossRoutines(exId);
   recalcVolume(exId);
   save();
 }, true); // use capture so it catches blur reliably
