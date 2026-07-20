@@ -124,7 +124,12 @@
     radial-gradient(1000px 600px at -30% 0%,  color-mix(in oklab, var(--primary-2) 18%, transparent), transparent),
     linear-gradient(180deg, var(--bg), var(--bg-2));
 }
-.settings-wrap { position:absolute; right:16px; top:14px; }
+.settings-wrap {
+  position:fixed;
+  right:max(16px, env(safe-area-inset-right));
+  top:calc(var(--safe-top) + 14px);
+  z-index:100;
+}
 .gear-btn { border-radius:50%; padding:.5rem .6rem; line-height:1; }
 
 /* ========= Base ======== */
