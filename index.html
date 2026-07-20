@@ -225,27 +225,23 @@ body {
   transform: rotateY(180deg) translateZ(20px);
 }
 
-/* slower multi-flip spin */
+/* Two half-turn flips with brief pauses */
 .splash-logo.is-spinning {
-  animation: splash-spin 4.2s ease-in-out forwards;
+  animation: splash-spin 2.1s ease-in-out forwards;
 }
 
 /*
   splash-spin timeline:
   - Start front (pause)
   - Flip to back (pause)
-  - Flip to front (pause)
-  - Flip to back (pause)
   - End front again
-  => 2 full 360° spins with pauses between each face
+  => 2 half-turn flips with pauses between each face
 */
 @keyframes splash-spin {
-  0%, 8%   { transform: rotateY(0deg); }     /* front, pause */
-  18%, 26% { transform: rotateY(180deg); }   /* back, pause */
-  36%, 44% { transform: rotateY(360deg); }   /* front, pause */
-  54%, 62% { transform: rotateY(540deg); }   /* back, pause */
-  72%, 80% { transform: rotateY(720deg); }   /* front again, pause */
-  100%     { transform: rotateY(720deg); }   /* hold final */
+  0%, 16%  { transform: rotateY(0deg); }     /* front, pause */
+  36%, 52% { transform: rotateY(180deg); }   /* back, pause */
+  72%, 88% { transform: rotateY(360deg); }   /* front again, pause */
+  100%     { transform: rotateY(360deg); }   /* hold final */
 }
 
 /* Title + subtitle under the big logo */
@@ -4473,7 +4469,7 @@ function hideSplash() {
   if (!splash) return;
 
   const elapsed = performance.now() - splashStart;
-  const minVisible = 4500; // keep splash visible ~4.5 sec
+  const minVisible = 2250; // keep splash visible ~2.25 sec
   const remain = Math.max(0, minVisible - elapsed);
 
   setTimeout(() => {
