@@ -1518,6 +1518,7 @@ button.cal-cell:focus-visible {
     <h3 id="modalTitle">Notice</h3>
     <div id="modalMsg" class="msg"></div>
     <input id="modalInput" class="hidden" />
+    <datalist id="modalSuggestions"></datalist>
     <div class="app-actions">
       <button id="modalCancel" class="secondary" type="button">Cancel</button>
       <button id="modalOK" type="button">OK</button>
@@ -2196,6 +2197,40 @@ function getExerciseNameById(exId){
   // fallback for temporary or historical sessions
   if (state.exerciseNames && state.exerciseNames[exId]) return state.exerciseNames[exId];
   return 'Exercise';
+}
+
+function savedExerciseSuggestions(){
+  const byName = new Map();
+
+  // Prefer exercises that still belong to a routine, preserving their identity
+  // so selecting one can immediately reuse its existing workout history.
+  for (const r of (state.routines || [])) {
+    for (const d of (r.days || [])) {
+      for (const ex of (d.exercises || [])) {
+        const name = (ex?.name || '').trim();
+        const key = name.toLocaleLowerCase();
+        if (name && !byName.has(key)) byName.set(key, { id: ex.id, name });
+      }
+    }
+  }
+
+  // Include preserved names for temporary, removed, or history-only exercises.
+  for (const [id, rawName] of Object.entries(state.exerciseNames || {})) {
+    const name = String(rawName || '').trim();
+    const key = name.toLocaleLowerCase();
+    if (name && !byName.has(key)) byName.set(key, { id, name });
+  }
+
+  return [...byName.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  );
+}
+
+function resolveSavedExerciseName(rawName, suggestions){
+  const typed = String(rawName || '').trim();
+  const key = typed.toLocaleLowerCase();
+  return (suggestions || []).find(ex => ex.name.toLocaleLowerCase() === key)
+    || { id: uid(), name: typed };
 }
    
 // Round to 1 decimal place, remove trailing .0
@@ -3310,7 +3345,8 @@ function convertAllWeights(factor){
 /* Simple promise-based modal API */
 const modal = (() => {
   const root=$('modalRoot'), title=$('modalTitle'), msg=$('modalMsg');
-  const inp=$('modalInput'), ok=$('modalOK'), cancel=$('modalCancel');
+  const inp=$('modalInput'), suggestionList=$('modalSuggestions');
+  const ok=$('modalOK'), cancel=$('modalCancel');
   let resolver=null, mode='alert';
 
   // unified open() that also sets per-call button labels
@@ -3322,7 +3358,8 @@ const modal = (() => {
       withInput=false,
       def='',
       okText='OK',
-      cancelText='Cancel'
+      cancelText='Cancel',
+      suggestions=[]
     } = opts;
 
     mode = kind;
@@ -3332,9 +3369,19 @@ const modal = (() => {
     if (withInput) {
       inp.classList.remove('hidden');
       inp.value = def ?? '';
+      suggestionList.replaceChildren();
+      for (const suggestion of suggestions) {
+        const option = document.createElement('option');
+        option.value = suggestion.name || String(suggestion);
+        suggestionList.appendChild(option);
+      }
+      if (suggestionList.children.length) inp.setAttribute('list', 'modalSuggestions');
+      else inp.removeAttribute('list');
       setTimeout(()=> inp.focus(), 0);
     } else {
       inp.classList.add('hidden');
+      inp.removeAttribute('list');
+      suggestionList.replaceChildren();
     }
 
     // per-call button labels
@@ -3392,8 +3439,11 @@ const modal = (() => {
     return open({ kind:'alert', heading, text }).then(()=>{});
   }
 
-  function prompt(text, def='', heading='Input'){
-    return open({ kind:'prompt', heading, text, withInput:true, def });
+  function prompt(text, def='', heading='Input', options={}){
+    return open({
+      kind:'prompt', heading, text, withInput:true, def,
+      suggestions: Array.isArray(options.suggestions) ? options.suggestions : []
+    });
   }
 
   return { alert, confirm, prompt };
@@ -3546,9 +3596,23 @@ if (act === 'editRoutine') {
     const d = dayById(r, state.log.dayId);
     if (!r || !d) { await modal.alert('Select a routine and day first.'); return; }
 
-    const name = await modal.prompt('New exercise name:', '', 'Add exercise');
+    const suggestions = savedExerciseSuggestions();
+    const name = await modal.prompt(
+      'Start typing to select a saved exercise, or enter a new one:',
+      '',
+      'Add exercise',
+      { suggestions }
+    );
     if (!name || !name.trim()) return;
-    const clean = name.trim();
+    const selected = resolveSavedExerciseName(name, suggestions);
+    const clean = selected.name;
+
+    const alreadyAdded = [...(d.exercises || []), ...(state.tempExercises?.[dayDateKey()] || [])]
+      .some(ex => ex.id === selected.id);
+    if (alreadyAdded) {
+      await modal.alert(`"${clean}" is already in this workout.`);
+      return;
+    }
 
 const perm = await modal.confirm({
   title: 'Add this exercise permanently to the routine?',
@@ -3557,7 +3621,7 @@ const perm = await modal.confirm({
   cancelText: 'Today Only'
 });
 
-    const ex = { id: uid(), name: clean, category: guessCategory(clean) };
+    const ex = { id: selected.id, name: clean, category: guessCategory(clean) };
 
     if (perm) {
       d.exercises.push(ex);
