@@ -3178,10 +3178,7 @@ async function saveDay(){
     .filter(p => p.performed.length || p.note)
     .map(p => `
       <div class="sum-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);">
-        <div class="sum-name" style="font-weight:600;line-height:1.2">
-          ${p.ex.name}
-          <div class="small muted" style="font-weight:400">${p.routine?.name || 'Routine'} &bull; ${p.day?.name || 'Workout'}</div>
-        </div>
+        <div class="sum-name" style="font-weight:600;line-height:1.2">${p.ex.name}</div>
         <div class="sum-sets muted" style="white-space:nowrap">${p.performed.length} ${p.performed.length===1?'set':'sets'}</div>
       </div>
     `).join('');
