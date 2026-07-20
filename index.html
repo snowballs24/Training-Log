@@ -2113,8 +2113,8 @@ if (raw.uiPrevWeeksAll === undefined) {
   if (first !== undefined) state.uiPrevWeeksAll = Math.max(0, Math.min(4, parseInt(first,10) || 1));
 }
 
-// --- NEW: normalize legacy data to 1 decimal ---
-normalizeHistoryOneDp();
+// Normalize legacy reps and calculated totals while preserving decimal weights.
+normalizeHistoryWholeNumbers();
 save();
 
   }catch{}
@@ -2409,9 +2409,13 @@ function ensureActiveSelection(){
 }
 
   
-// ===== Normalize all saved numbers to max 1 decimal (supports both session shapes) =====
-function normalizeHistoryOneDp(){
-  const to1 = v => (v==='' || v==null) ? '' : +round1Final(v);
+// Keep weights at one decimal, but normalize reps and calculated values to integers.
+function normalizeHistoryWholeNumbers(){
+  const weightValue = v => (v==='' || v==null) ? '' : +round1Final(v);
+  const wholeValue = v => (v==='' || v==null) ? '' : Math.round(Number(v) || 0);
+  const wholeVolume = sets => Math.round((sets || []).reduce(
+    (a,s)=> a + ((+s.weight||0) * (+s.reps||0)), 0
+  ));
 
   (state.sessions || []).forEach(sess=>{
     if (Array.isArray(sess.entries)) {
@@ -2419,20 +2423,20 @@ function normalizeHistoryOneDp(){
       sess.entries.forEach(e=>{
         if (Array.isArray(e.sets)) {
           e.sets.forEach(s=>{
-            s.weight = to1(s.weight);
-            s.reps   = to1(s.reps);
+            s.weight = weightValue(s.weight);
+            s.reps   = wholeValue(s.reps);
           });
           // recompute volume
-          e.totalVolume = e.sets.reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0);
+          e.totalVolume = wholeVolume(e.sets);
         }
       });
     } else if (Array.isArray(sess.sets)) {
       // Older shape: one record per exercise with sets[]
       sess.sets.forEach(s=>{
-        s.weight = to1(s.weight);
-        s.reps   = to1(s.reps);
+        s.weight = weightValue(s.weight);
+        s.reps   = wholeValue(s.reps);
       });
-      sess.totalVolume = sess.sets.reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0);
+      sess.totalVolume = wholeVolume(sess.sets);
     }
   });
 
@@ -2442,7 +2446,7 @@ function normalizeHistoryOneDp(){
       state.log.prepared[exId] = ensureFourSets(state.log.prepared[exId]||[]).map(s=>({
         set: s.set,
         weight: round1Final(s.weight),
-        reps:   round1Final(s.reps),
+        reps:   (s.reps === '' || s.reps == null) ? '' : String(Math.round(Number(s.reps) || 0)),
       }));
     }
   }
@@ -2965,7 +2969,7 @@ function buildPrevTables(exId, count){
 
    }
     // Vol occupies only the kg row
-    body += `<td class="vol-cell vol-neutral">${s.totalVolume ?? 0}</td></tr>`;
+    body += `<td class="vol-cell vol-neutral">${Math.round(+s.totalVolume || 0)}</td></tr>`;
    
     // Reps row + empty spacer under Vol
     body += `<tr><td class="sticky-left">Reps</td>`;
@@ -3123,7 +3127,7 @@ function buildLog(){
   // --- Render all exercises (merged list) ---
   allExercises.forEach(ex=>{
     const prepared = state.log.prepared[ex.id] || [];
-    const vol = prepared.reduce((a,s)=>a+((+s.weight||0)*(+s.reps||0)),0);
+    const vol = Math.round(prepared.reduce((a,s)=>a+((+s.weight||0)*(+s.reps||0)),0));
     const last = sessionsForExercise(ex.id)[0] || null;
     const cls = last ? (vol>=last.totalVolume ? 'vol-good' : 'vol-bad') : 'vol-neutral';
     const prevCount = Math.max(0, Math.min(4, parseInt(state.uiPrevWeeksAll ?? 1, 10)));
@@ -3229,10 +3233,10 @@ async function saveDay(){
     const raw = ensureFourSets(state.log.prepared[ex.id]).map(s => ({
       set: s.set,
       weight: (s.weight === '' ? '' : +round1Final(s.weight)),
-      reps:   (s.reps   === '' ? '' : +round1Final(s.reps)),
+      reps:   (s.reps   === '' ? '' : Math.round(Number(s.reps) || 0)),
     }));
     const performed = raw.filter(s => typeof s.reps === 'number' && s.reps > 0);
-    const totalVolume = performed.reduce((a, s) => a + ((+s.weight || 0) * (+s.reps || 0)), 0);
+    const totalVolume = Math.round(performed.reduce((a, s) => a + ((+s.weight || 0) * (+s.reps || 0)), 0));
     const note = (state.log.notes[ex.id] || '').trim();
     const routine = state.routines.find(x => x.id === item.routineId);
     const day = dayById(routine, item.dayId);
@@ -3247,8 +3251,8 @@ async function saveDay(){
 
   // Compute totals like the calendar card
   const totalSets = preview.reduce((a,p)=> a + p.performed.length, 0);
-  const totalReps = preview.reduce((a,p)=> a + p.performed.reduce((x,s)=>x + (+s.reps||0), 0), 0);
-  const totalVol  = preview.reduce((a,p)=> a + p.totalVolume, 0);
+  const totalReps = Math.round(preview.reduce((a,p)=> a + p.performed.reduce((x,s)=>x + (+s.reps||0), 0), 0));
+  const totalVol  = Math.round(preview.reduce((a,p)=> a + p.totalVolume, 0));
 
   // Build the list (exercise name on left, "n sets" on right), only if it has data/note
   const items = preview
@@ -3404,7 +3408,7 @@ if (!day){ area.textContent='No days in routine.'; return; }
       html += `<div class="card chart-card" style="margin:8px 0"><div class="hdr"><div style="font-weight:800">${ex.name}</div><div class="small muted">No data yet</div></div></div>`;
       return;
     }
-    const vols = s.map(x=> x.totalVolume||0);
+    const vols = s.map(x=> Math.round(+x.totalVolume || 0));
     const lbls = s.map(lbl);
     const chart = renderLineChart(vols, lbls);
     const maxV = Math.max(...vols);
@@ -3473,7 +3477,7 @@ function convertAllWeights(factor){
   for(const exId in state.log.prepared){ (state.log.prepared[exId]||[]).forEach(s=>{ if(s.weight!=='' && !isNaN(+s.weight)) s.weight = convertNumber(s.weight, factor); }); }
   state.sessions.forEach(sess=>{
     (sess.sets||[]).forEach(s=>{ if(!isNaN(+s.weight)) s.weight = convertNumber(s.weight, factor); });
-    sess.totalVolume = (sess.sets||[]).reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0);
+    sess.totalVolume = Math.round((sess.sets||[]).reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0));
   });
   save();
 }
@@ -3886,7 +3890,7 @@ const perm = await modal.confirm({
   
 function recalcVolume(exId){
   const prepared = ensureFourSets(state.log.prepared[exId]||[]);
-  const vol = prepared.reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0);
+  const vol = Math.round(prepared.reduce((a,s)=> a + ((+s.weight||0)*(+s.reps||0)), 0));
 
   // update Vol pill
   const volEl = $('vol_'+exId);
@@ -4231,7 +4235,7 @@ const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerc
       const before = s.sets.length;
       s.sets = s.sets.filter(x => (+x.reps || 0) > 0);
       if (s.sets.length !== before) {
-        s.totalVolume = s.sets.reduce((a,t)=> a + ((+t.weight||0) * (+t.reps||0)), 0);
+        s.totalVolume = Math.round(s.sets.reduce((a,t)=> a + ((+t.weight||0) * (+t.reps||0)), 0));
         changed = true;
       }
     });
@@ -4393,8 +4397,8 @@ function rr() {
     // aggregate stats
     const setsArr = Array.isArray(s.sets) ? s.sets : [];
     e.totalSets   += setsArr.length;
-    e.totalReps   += setsArr.reduce((a,x)=>a+(+x.reps||0),0);
-    e.totalVolume += +s.totalVolume || 0;
+    e.totalReps   += setsArr.reduce((a,x)=>a+Math.round(+x.reps||0),0);
+    e.totalVolume += Math.round(+s.totalVolume || 0);
     if (s.note && s.note.trim()) e.notes.push(s.note.trim());
 
     // record this type key once
@@ -4612,8 +4616,8 @@ function groupSessionsByWorkout(iso) {
     const g = map.get(s.dayId);
     const setsArr = Array.isArray(s.sets) ? s.sets : [];
     g.totalSets   += setsArr.length;
-    g.totalReps   += setsArr.reduce((a,x)=> a + (+x.reps || 0), 0);
-    g.totalVolume += (+s.totalVolume || 0);
+    g.totalReps   += setsArr.reduce((a,x)=> a + Math.round(+x.reps || 0), 0);
+    g.totalVolume += Math.round(+s.totalVolume || 0);
 
     const ex = g.exMap.get(s.exerciseId) || { name: getExerciseNameById(s.exerciseId), sets: 0 };
     ex.sets += setsArr.length;
