@@ -1548,7 +1548,7 @@ const prefs = {
 const state = {
   routines: [],
   sessions: [],
-  log: { dayId:null, prepared:{}, notes:{}, workoutDate:null },
+  log: { dayId:null, prepared:{}, notes:{}, workoutDate:null, exerciseContexts:{} },
   wiz: { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} },
   uiPrevWeeks: {},
   uiPrevWeeksAll: 1,
@@ -2142,6 +2142,58 @@ function getExerciseFromToday(exId){
   const temps = state.tempExercises?.[key] || [];    // today-only exercises
   const perm  = d?.exercises || [];                  // permanent day exercises
   return [...perm, ...temps].find(e => e.id === exId) || null;
+}
+
+function rememberCurrentExerciseContext(exId){
+  const r = activeRoutine();
+  const d = dayById(r, state.log.dayId);
+  const ex = getExerciseFromToday(exId);
+  if (!r || !d || !ex) return;
+  if (!state.log.exerciseContexts) state.log.exerciseContexts = {};
+  state.log.exerciseContexts[exId] = {
+    routineId: r.id,
+    dayId: d.id,
+    name: ex.name,
+    category: ex.category || guessCategory(ex.name)
+  };
+}
+
+function draftExercisesForDate(workoutDate){
+  const candidates = new Map();
+  const add = (ex, routineId, dayId, tempKey=null) => {
+    if (!ex?.id) return;
+    if (!candidates.has(ex.id)) candidates.set(ex.id, []);
+    candidates.get(ex.id).push({ ex, routineId, dayId, tempKey });
+  };
+
+  for (const r of (state.routines || [])) {
+    for (const d of (r.days || [])) {
+      for (const ex of (d.exercises || [])) add(ex, r.id, d.id);
+      const tempKey = `${workoutDate}|${d.id}`;
+      for (const ex of (state.tempExercises?.[tempKey] || [])) add(ex, r.id, d.id, tempKey);
+    }
+  }
+
+  const result = [];
+  for (const [exId, choices] of candidates) {
+    const sets = ensureFourSets(state.log.prepared?.[exId] || []);
+    const hasReps = sets.some(s => (+s.reps || 0) > 0);
+    const hasNote = !!String(state.log.notes?.[exId] || '').trim();
+    if (!hasReps && !hasNote) continue;
+
+    const remembered = state.log.exerciseContexts?.[exId];
+    const chosen = choices.find(c =>
+      c.routineId === remembered?.routineId && c.dayId === remembered?.dayId
+    ) || choices.find(c =>
+      c.routineId === state.activeRoutineId && c.dayId === state.log.dayId
+    ) || choices[0];
+
+    if (remembered?.name) {
+      chosen.ex = { ...chosen.ex, name: remembered.name, category: remembered.category };
+    }
+    result.push(chosen);
+  }
+  return result;
 }
 
    
@@ -3091,13 +3143,12 @@ async function saveDay(){
   const nowISO = new Date().toISOString();
   const workoutDate = state.log.workoutDate || $('workoutDate').value || nowISO.slice(0,10);
 
-  // ---- Merge permanent + "today only" exercises for THIS date|day ----
-  const tempKey = `${workoutDate}|${d.id}`;
-  const temp = state.tempExercises?.[tempKey] || [];
-  const exList = [...(d.exercises || []), ...temp];
+  // Include populated draft exercises from every routine/day visited for this date.
+  const exList = draftExercisesForDate(workoutDate);
 
   // ---- Build a preview of what will be saved (sets with reps>0, note if any) ----
-  const preview = exList.map(ex=>{
+  const preview = exList.map(item=>{
+    const { ex } = item;
     const raw = ensureFourSets(state.log.prepared[ex.id]).map(s => ({
       set: s.set,
       weight: (s.weight === '' ? '' : +round1Final(s.weight)),
@@ -3106,7 +3157,9 @@ async function saveDay(){
     const performed = raw.filter(s => typeof s.reps === 'number' && s.reps > 0);
     const totalVolume = performed.reduce((a, s) => a + ((+s.weight || 0) * (+s.reps || 0)), 0);
     const note = (state.log.notes[ex.id] || '').trim();
-    return { ex, performed, totalVolume, note };
+    const routine = state.routines.find(x => x.id === item.routineId);
+    const day = dayById(routine, item.dayId);
+    return { ...item, ex, performed, totalVolume, note, routine, day };
   });
 
   // Only show exercises that have data or a note
@@ -3125,7 +3178,10 @@ async function saveDay(){
     .filter(p => p.performed.length || p.note)
     .map(p => `
       <div class="sum-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);">
-        <div class="sum-name" style="font-weight:600;line-height:1.2">${p.ex.name}</div>
+        <div class="sum-name" style="font-weight:600;line-height:1.2">
+          ${p.ex.name}
+          <div class="small muted" style="font-weight:400">${p.routine?.name || 'Routine'} &bull; ${p.day?.name || 'Workout'}</div>
+        </div>
         <div class="sum-sets muted" style="white-space:nowrap">${p.performed.length} ${p.performed.length===1?'set':'sets'}</div>
       </div>
     `).join('');
@@ -3145,7 +3201,7 @@ const statsLine = `
 
   const headerLine = `
     <div style="font-weight:700; font-size:1.05rem; margin-bottom:2px;">${prettyDay(workoutDate)}</div>
-    <div style="font-weight:600; margin-bottom:6px;">${d.name}</div>
+    <div style="font-weight:600; margin-bottom:6px;">All completed exercises</div>
   `;
 
   const listOrEmpty = items || `<div class="muted">No sets or notes to save.</div>`;
@@ -3175,8 +3231,8 @@ const statsLine = `
       id: uid(),
       dateISO,
       workoutDate,     // yyyy-mm-dd (selected day)
-      routineId: r.id,
-      dayId: d.id,
+      routineId: p.routineId,
+      dayId: p.dayId,
       exerciseId: p.ex.id,
       sets: p.performed,           // only performed sets
       totalVolume: p.totalVolume,
@@ -3184,16 +3240,18 @@ const statsLine = `
     });
   });
 
-  // ---- IMPORTANT: remove ONLY the temp exercises for this saved day ----
-  if (state.tempExercises && state.tempExercises[tempKey]) {
-    delete state.tempExercises[tempKey];
-  }
+  // Remove only temporary exercises that were actually included in this save.
+  previewFiltered.filter(p => p.tempKey).forEach(p => {
+    const remaining = (state.tempExercises?.[p.tempKey] || []).filter(ex => ex.id !== p.ex.id);
+    if (remaining.length) state.tempExercises[p.tempKey] = remaining;
+    else delete state.tempExercises[p.tempKey];
+  });
 
   // Persist immediately before UI resets
   save();
 
-  // ---- Carry-over ONLY for permanent routine exercises (not temp) ----
-  d.exercises.forEach(ex=>{
+  // Reset every saved permanent exercise, carrying its weight when requested.
+  previewFiltered.filter(p => !p.tempKey).forEach(({ ex })=>{
     const prev = ensureFourSets(state.log.prepared[ex.id] || []);
     state.log.prepared[ex.id] = prev.map(s => {
       const performed = (s.reps !== '' && +s.reps > 0);
@@ -3206,6 +3264,8 @@ const statsLine = `
     const wrap = qs(`.exercise[data-exid="${ex.id}"]`);
     if (wrap) wrap.classList.remove('completed');
   });
+
+  previewFiltered.forEach(p => delete state.log.exerciseContexts?.[p.ex.id]);
 
   // ✅ keep notes as-is (do NOT wipe state.log.notes)
 
@@ -3849,7 +3909,12 @@ if(id==='activeRoutine'){
 
 document.addEventListener('input',(e)=>{
   const note=e.target.closest('textarea[data-action="noteInput"]');
-  if(note){ state.log.notes[note.dataset.exid]=note.value; save(); return; }
+  if(note){
+    state.log.notes[note.dataset.exid]=note.value;
+    rememberCurrentExerciseContext(note.dataset.exid);
+    save();
+    return;
+  }
 
   const inp=e.target.closest('input[data-action="upd"]'); if(!inp) return;
   const exId=inp.dataset.exid, idx=+inp.dataset.idx, key=inp.dataset.key;
@@ -3861,6 +3926,7 @@ document.addEventListener('input',(e)=>{
   // No rounding here — let the user type anything
   const val = inp.value;
   state.log.prepared[exId][idx][key]=val;
+  rememberCurrentExerciseContext(exId);
 
   recalcVolume(exId);
   const wrap = qs(`.exercise[data-exid="${exId}"]`);
