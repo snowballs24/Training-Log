@@ -1551,12 +1551,7 @@ button.cal-cell:focus-visible {
 .dashboard-card{ margin:0; overflow:hidden; }
 .dashboard-card h2,.dashboard-card h3{ margin:0; }
 .dashboard-kicker{ color:var(--muted); font-size:.82rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
-.dashboard-primary{ background:linear-gradient(145deg, color-mix(in oklab,var(--primary) 12%,var(--surface)), var(--surface)); }
-.dashboard-primary-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
-.dashboard-primary-title{ font-size:1.32rem; margin-top:3px!important; }
 .dashboard-meta{ display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; color:var(--muted); font-size:.9rem; }
-.dashboard-preview{ margin:12px 0 0; padding-left:20px; }
-.dashboard-preview li{ margin:4px 0; }
 .dashboard-actions{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; margin-top:14px; }
 .dashboard-actions button{ min-height:var(--tap); }
 .dashboard-chooser{ margin-top:10px; width:100%; }
@@ -1584,7 +1579,7 @@ button.cal-cell:focus-visible {
 .pin-settings-list span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media (min-width:700px){
   .dashboard-stack{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .dashboard-primary,.dashboard-strength,.dashboard-recent{ grid-column:1/-1; }
+  .dashboard-strength,.dashboard-recent{ grid-column:1/-1; }
   .dashboard-summary-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
 @media (max-width:380px){
@@ -1646,8 +1641,7 @@ const state = {
   trendsDayId: null,         // ⬅️ NEW: day used by History→Trends
   uiTrendsCollapsed: true,   // ⬅️ NEW: collapse state
   tempExercises: {},          // key: "<date>|<dayId>" → [{id,name,category}]
-  exerciseNames: {},          // key: exerciseId → name (helps name lookups in History)
-  uiDashboardChoice: null
+  exerciseNames: {}           // key: exerciseId → name (helps name lookups in History)
 };
 
 
@@ -2650,19 +2644,6 @@ function calculateDashboardData(now=new Date()){
   while(cursor>=earliest&&(counts.get(dashboardISO(cursor))||0)>=target){streak++;cursor=dashboardAddDays(cursor,-7);}
   const streakData={current:streak,longest,needed:Math.max(0,target-weekly.workouts),hasHistory:workouts.length>0};
 
-  let routine=activeRoutine()||(state.routines||[])[0]||null, suggestedDay=null;
-  if(routine?.days?.length){
-    const recent=workouts.find(g=>g.routineId===routine.id&&routine.days.some(d=>d.id===g.dayId));
-    const idx=recent?routine.days.findIndex(d=>d.id===recent.dayId):-1;
-    suggestedDay=routine.days[(idx+1+routine.days.length)%routine.days.length]||routine.days[0];
-  }
-  const choices=[];
-  for(const r of (state.routines||[])) for(const d of (r.days||[])) choices.push({routine:r,day:d,value:`${r.id}|${d.id}`});
-  const choice=choices.find(x=>x.value===state.uiDashboardChoice)||choices.find(x=>x.routine.id===routine?.id&&x.day.id===suggestedDay?.id)||choices[0]||null;
-  if(choice){routine=choice.routine;suggestedDay=choice.day;}
-  const matchingWorkouts=suggestedDay?workouts.filter(g=>g.dayId===suggestedDay.id):[];
-  const next={routine,day:suggestedDay,choices,lastCompleted:matchingWorkouts[0]?.iso||'',preview:(suggestedDay?.exercises||[]).slice(0,4),active:hasActiveWorkoutDraft()};
-
   const pinned=[];
   const cutoff30=dashboardAddDays(new Date(now.getFullYear(),now.getMonth(),now.getDate()),-30);
   for(const id of prefs.pinnedExerciseIds||[]){
@@ -2681,7 +2662,7 @@ function calculateDashboardData(now=new Date()){
     const ex=exerciseIndex.byId.get(s.exerciseId), group=dashboardMuscleGroup(ex);
     if(group) muscleGroups[group]+=(Array.isArray(s.sets)?s.sets:[]).filter(x=>(+x?.reps||0)>0).length;
   }
-  return {weekly,streak:streakData,next,pinned,muscleGroups,recent:workouts.slice(0,3),exerciseIndex};
+  return {weekly,streak:streakData,pinned,muscleGroups,recent:workouts.slice(0,3),exerciseIndex};
 }
 function renderPinnedExerciseSettings(){
   const root=$('pinnedExerciseSettings'); if(!root) return;
@@ -2696,20 +2677,6 @@ function renderPinnedExerciseSettings(){
 function renderDashboard(){
   const root=$('dashboardArea'); if(!root) return;
   const data=calculateDashboardData(), unit=dashboardEscape((prefs.units||'kg').toLowerCase());
-  const next=data.next;
-  let nextHtml='';
-  if(!next.day){
-    nextHtml=`<div class="dashboard-empty">Create a routine to get a suggested workout.</div><div class="dashboard-actions"><button type="button" data-action="navRoutines">Create routine</button></div>`;
-  }else{
-    const options=next.choices.map(x=>`<option value="${dashboardEscape(x.value)}"${x.routine.id===next.routine.id&&x.day.id===next.day.id?' selected':''}>${dashboardEscape(x.routine.name)} — ${dashboardEscape(x.day.name)}</option>`).join('');
-    const preview=next.preview.length?`<ol class="dashboard-preview">${next.preview.map(ex=>`<li>${dashboardEscape(ex.name)}</li>`).join('')}</ol>`:'<div class="dashboard-empty">No exercises in this workout yet.</div>';
-    nextHtml=`
-      <div class="dashboard-primary-head"><div><div class="dashboard-kicker">${next.active?'Workout in progress':'Next workout'}</div><h2 class="dashboard-primary-title">${dashboardEscape(next.day.name)}</h2><div class="small muted">${dashboardEscape(next.routine.name)}</div></div></div>
-      <div class="dashboard-meta"><span>Last: ${next.lastCompleted?dashboardFormatDate(next.lastCompleted):'Not completed yet'}</span></div>
-      ${preview}
-      ${next.active?'':`<label class="small" style="display:block;margin-top:12px">Choose another routine<select id="dashboardWorkoutChoice" class="dashboard-chooser">${options}</select></label>`}
-      <div class="dashboard-actions"><button type="button" data-action="${next.active?'resumeDashboardWorkout':'startDashboardWorkout'}">${next.active?'Resume Workout':'Start Workout'}</button>${next.active?'<button class="ghost" type="button" data-action="navHistory">History</button>':'<button class="ghost" type="button" data-action="navRoutines">Routines</button>'}</div>`;
-  }
   const progress=Math.min(100,Math.round((data.weekly.workouts/data.weekly.target)*100));
   const pinnedHtml=data.pinned.length?`<div class="dashboard-scroll">${data.pinned.map(p=>{
     const trend=p.change==null?'Not enough 30-day data':`${p.change>0?'▲ +':p.change<0?'▼ ':'— '}${p.change||0}`;
@@ -2719,20 +2686,12 @@ function renderDashboard(){
   const muscleHtml=muscleTotal?`<div class="dashboard-bars">${Object.entries(data.muscleGroups).map(([name,value])=>`<div class="dashboard-bar-row"><span>${name}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${Math.round(value/muscleMax*100)}%"></div></div><strong>${value}</strong></div>`).join('')}</div>`:'<div class="dashboard-empty">Complete workouts across several weeks to see your working-set distribution.</div>';
   const recentHtml=data.recent.length?data.recent.map(g=>`<button type="button" class="recent-workout" data-action="dashboardOpenWorkout" data-iso="${g.iso}" aria-label="Open workout from ${dashboardFormatDate(g.iso)}"><div class="recent-head"><strong>${dashboardEscape(g.dayName)}</strong><span class="small">${dashboardFormatDate(g.iso)}</span></div><div class="small muted">${dashboardEscape(g.routineName)}${g.hasPR?' · Personal best':''}</div><div class="recent-meta">${g.exerciseIds.size} exercise${g.exerciseIds.size===1?'':'s'} · ${g.totalSets} set${g.totalSets===1?'':'s'} · ${g.totalVolume.toLocaleString()} ${unit}</div></button>`).join(''):'<div class="dashboard-empty">Completed workouts will appear here.</div>';
   root.innerHTML=`<div class="dashboard-stack">
-    <article class="card dashboard-card dashboard-primary">${nextHtml}</article>
     <article class="card dashboard-card"><div class="dashboard-kicker">This week</div><h2>${data.weekly.workouts} of ${data.weekly.target} workouts</h2><div class="dashboard-progress" aria-label="${progress}% of weekly target"><span style="width:${progress}%"></span></div><div class="dashboard-summary-grid"><div class="dashboard-stat"><strong>${data.weekly.workouts}</strong><span>Workouts</span></div><div class="dashboard-stat"><strong>${data.weekly.sets}</strong><span>Working sets</span></div><div class="dashboard-stat"><strong>${data.weekly.volume.toLocaleString()}</strong><span>Volume (${unit})</span></div></div></article>
     <article class="card dashboard-card"><div class="dashboard-kicker">Active streak</div>${data.streak.hasHistory?`<h2>${data.streak.current} week${data.streak.current===1?'':'s'}</h2><div class="dashboard-meta"><span>Longest: ${data.streak.longest} week${data.streak.longest===1?'':'s'}</span><span>${data.streak.needed?`${data.streak.needed} workout${data.streak.needed===1?'':'s'} needed this week`:'Weekly target reached'}</span></div>`:'<div class="dashboard-empty">Meet your weekly target to begin a consistency streak.</div>'}</article>
     <article class="card dashboard-card dashboard-strength"><div class="dashboard-kicker">Pinned strength progress</div><h2>Estimated 1RM</h2>${pinnedHtml}</article>
     <article class="card dashboard-card"><div class="dashboard-kicker">Last four completed weeks</div><h2>Muscle-group distribution</h2>${muscleHtml}</article>
     <article class="card dashboard-card dashboard-recent"><div class="dashboard-kicker">Recent workouts</div><h2>Latest sessions</h2>${recentHtml}</article>
   </div>`;
-}
-function startDashboardWorkout(){
-  const data=calculateDashboardData(), choice=data.next.choices.find(x=>x.value===(state.uiDashboardChoice||`${data.next.routine?.id||''}|${data.next.day?.id||''}`))||data.next.choices[0];
-  if(!choice){showPage('routinesPage');return;}
-  state.activeRoutineId=choice.routine.id; state.log.dayId=choice.day.id;
-  state.log.workoutDate=todayISO(); state.log.isActive=true;
-  save(); showPage('logPage');
 }
 
 
@@ -4019,8 +3978,6 @@ document.addEventListener('click', async (e)=>{
   }
   return;
 }
-  if(act==='startDashboardWorkout'){ startDashboardWorkout(); return; }
-  if(act==='resumeDashboardWorkout'){ showPage('logPage'); return; }
   if(act==='dashboardOpenExercise'){
     const exId=btn.dataset.exid;
     let found=null;
@@ -4245,11 +4202,6 @@ $('routinesListBody')?.addEventListener('keydown', (e) => {
 
 document.addEventListener('change',(e)=>{
 const id = (e.target && e.target.id) || '';
-  if(id==='dashboardWorkoutChoice'){
-    state.uiDashboardChoice=e.target.value||null;
-    renderDashboard();
-    return;
-  }
   const pin=e.target.closest('input[data-pin-exercise]');
   if(pin){
     const ids=new Set(prefs.pinnedExerciseIds||[]);

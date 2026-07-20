@@ -22,7 +22,7 @@ function makeContext() {
   const context = {
     state: {
       routines: [], sessions: [], activeRoutineId: null, exerciseNames: {},
-      log: { prepared: {}, notes: {}, isActive: false }, uiDashboardChoice: null
+      log: { prepared: {}, notes: {}, isActive: false }
     },
     prefs: { weeklyWorkoutTarget: 4, pinnedExerciseIds: [], units: 'kg' },
     activeRoutine() { return context.state.routines.find(r => r.id === context.state.activeRoutineId) || null; },
@@ -50,7 +50,7 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   const c = makeContext();
   const data = c.calculateDashboardData(now);
   assert(data.weekly.workouts === 0 && data.recent.length === 0, 'New-user empty state failed');
-  assert(!data.next.day && !data.streak.hasHistory, 'New-user guidance state failed');
+  assert(!data.streak.hasHistory, 'New-user guidance state failed');
 }
 
 {
@@ -58,7 +58,7 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   c.state.routines = [{ id: 'r1', name: 'PPL', days: [{ id: 'push', name: 'Push', exercises: [{ id: 'bench', name: 'Bench Press', category: 'Chest – Press' }] }] }];
   c.state.activeRoutineId = 'r1';
   const data = c.calculateDashboardData(now);
-  assert(data.next.day.id === 'push' && !data.next.lastCompleted, 'Routine-without-history suggestion failed');
+  assert(data.weekly.workouts === 0, 'Routine-without-history state failed');
 }
 
 {
@@ -83,7 +83,6 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   assert(data.pinned[0].current === 117 && data.pinned[0].change > 0, 'Estimated 1RM calculation failed');
   assert(data.recent.length === 3, 'Recent workout limit failed');
   assert(data.muscleGroups.Chest > 0 && data.muscleGroups.Back > 0, 'Muscle distribution failed');
-  assert(data.next.day.id === 'b', 'Routine rotation failed');
 }
 
 {
@@ -92,9 +91,7 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   c.state.activeRoutineId = 'r';
   c.state.sessions = [session('2026-07-19', 'd', 'r', 'bench', '', '')];
   c.prefs.pinnedExerciseIds = ['bench'];
-  c.state.log.isActive = true;
   const data = c.calculateDashboardData(now);
-  assert(data.next.active, 'Active workout resume state failed');
   assert(data.pinned[0].current === 0 && !data.pinned[0].hasHistory, 'Missing weight/reps handling failed');
 }
 
