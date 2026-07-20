@@ -427,6 +427,11 @@ input:focus, select:focus, textarea:focus{
   border:1px solid var(--line);
   padding:6px 10px; border-radius:12px;
 }
+.timer.overdue{
+  background: rgba(248,113,113,.22);
+  border-color: rgba(248,113,113,.72);
+  box-shadow: 0 0 0 1px rgba(248,113,113,.12) inset;
+}
 .oneRM .val{
   font-weight:800; padding:.2rem .5rem; border-radius:10px;
   background: linear-gradient(135deg, var(--primary), var(--primary-2)); color:#fff;
@@ -3002,9 +3007,21 @@ function readTimerText(){
   return fmtTime(nowElapsed);
 }
 
+function timerElapsedMs(){
+  const t = ensureTimer();
+  return t.running ? (t.elapsed + (Date.now() - t.start)) : t.elapsed;
+}
+
+function isTimerOverdue(){
+  const t = ensureTimer();
+  return t.alarmAtMs > 0 && timerElapsedMs() >= t.alarmAtMs;
+}
+
 function updateTimerDisplays(){
   const txt = readTimerText();
   qsa('.timer .time').forEach(el => { el.textContent = txt; });
+  const overdue = isTimerOverdue();
+  qsa('.timer').forEach(el => el.classList.toggle('overdue', overdue));
 }
 function updateTimerButtons(){
   const running = ensureTimer().running;
