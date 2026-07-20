@@ -1223,9 +1223,14 @@ thead th.setnum{
       </label>
    </div>
  
-   <label class="small" style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+<label class="small" style="display:flex; align-items:center; gap:6px; margin-top:6px;">
   <input type="checkbox" id="shareExerciseHistory">
   Share history for identical exercise names across all workouts
+</label>
+
+<label class="small" style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+  <input type="checkbox" id="syncExerciseDrafts">
+  Share in-progress exercise entries across routines
 </label>
        
 </div>
@@ -1542,6 +1547,7 @@ const prefs = {
   surface: 'glass',
   carryOverWeights: true,
   shareExerciseHistory: false,
+  syncExerciseDrafts: true,
 
 };
 
@@ -2192,6 +2198,7 @@ function draftHasData(exId){
 }
 
 function hydrateSharedExerciseDraft(exId){
+  if (!prefs.syncExerciseDrafts) return;
   if (draftHasData(exId)) return;
   const sourceId = matchingExerciseIds(exId).find(id => id !== exId && draftHasData(id));
   if (!sourceId) return;
@@ -2200,6 +2207,7 @@ function hydrateSharedExerciseDraft(exId){
 }
 
 function syncExerciseDraftAcrossRoutines(exId){
+  if (!prefs.syncExerciseDrafts) return;
   const context = state.log.exerciseContexts?.[exId];
   for (const matchingId of matchingExerciseIds(exId)) {
     if (matchingId === exId) continue;
@@ -2213,7 +2221,9 @@ function draftExercisesForDate(workoutDate){
   const candidates = new Map();
   const add = (ex, routineId, dayId, tempKey=null) => {
     if (!ex?.id) return;
-    const key = normalizedExerciseName(ex.name) || ex.id;
+    const key = prefs.syncExerciseDrafts
+      ? (normalizedExerciseName(ex.name) || ex.id)
+      : ex.id;
     if (!candidates.has(key)) candidates.set(key, []);
     candidates.get(key).push({ ex, routineId, dayId, tempKey });
   };
@@ -3307,7 +3317,8 @@ const statsLine = `
   // Reset every synchronized copy of each saved exercise so another routine
   // cannot resurrect the just-saved reps on the next render.
   previewFiltered.forEach(({ ex })=>{
-    matchingExerciseIds(ex.id).forEach(id => {
+    const resetIds = prefs.syncExerciseDrafts ? matchingExerciseIds(ex.id) : [ex.id];
+    resetIds.forEach(id => {
       const prev = ensureFourSets(state.log.prepared[id] || state.log.prepared[ex.id] || []);
       state.log.prepared[id] = prev.map(s => {
         const performed = (s.reps !== '' && +s.reps > 0);
@@ -3444,6 +3455,7 @@ function hydrateSettingsUI(){
   // Preferences checkboxes
   $('carryOverWeights').checked      = !!prefs.carryOverWeights;
   $('shareExerciseHistory').checked  = !!prefs.shareExerciseHistory;
+  $('syncExerciseDrafts').checked    = prefs.syncExerciseDrafts !== false;
 }
    
 
@@ -4083,6 +4095,11 @@ $('shareExerciseHistory')?.addEventListener('change', (e) => {
   buildLog();
   buildTrends();
 });
+$('syncExerciseDrafts')?.addEventListener('change', (e) => {
+  prefs.syncExerciseDrafts = !!e.target.checked;
+  savePrefs();
+  buildLog();
+});
 
 
 $('autoTimerEnabled')?.addEventListener('change', ()=> {
@@ -4203,6 +4220,7 @@ function hideSplash() {
   // Keep settings UI in sync even before opening the Settings page
 const cow = $('carryOverWeights'); if (cow) cow.checked = !!prefs.carryOverWeights;
 const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerciseHistory;
+const sed = $('syncExerciseDrafts'); if (sed) sed.checked = prefs.syncExerciseDrafts !== false;
 
   (function migrateZeroPlaceholders(){
     let changed = false;
