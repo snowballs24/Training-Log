@@ -427,7 +427,13 @@ input:focus, select:focus, textarea:focus{
   border:1px solid var(--line);
   padding:6px 10px; border-radius:12px;
 }
-.timer.overdue{
+.timer .time{
+  display:inline-block;
+  padding:3px 6px;
+  border:1px solid transparent;
+  border-radius:8px;
+}
+.timer .time.overdue{
   background: rgba(248,113,113,.22);
   border-color: rgba(248,113,113,.72);
   box-shadow: 0 0 0 1px rgba(248,113,113,.12) inset;
@@ -3021,7 +3027,7 @@ function updateTimerDisplays(){
   const txt = readTimerText();
   qsa('.timer .time').forEach(el => { el.textContent = txt; });
   const overdue = isTimerOverdue();
-  qsa('.timer').forEach(el => el.classList.toggle('overdue', overdue));
+  qsa('.timer .time').forEach(el => el.classList.toggle('overdue', overdue));
 }
 function updateTimerButtons(){
   const running = ensureTimer().running;
