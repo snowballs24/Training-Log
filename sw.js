@@ -1,10 +1,14 @@
-const CACHE = 'workout-cache-v2'; // bump this when you change core assets
+const CACHE = 'workout-cache-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/front.png',
+  './icons/back.png',
+  './sounds/ding.mp3',
+  './sounds/beep.mp3',
+  './sounds/chime.mp3'
 ];
 
 self.addEventListener('install', e => {

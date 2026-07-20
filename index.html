@@ -304,7 +304,15 @@ h2{ margin:6px 0; font-weight:800; }
   padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
-.title-wrap { position:relative; }
+.title-wrap { position:relative; display:flex; align-items:center; gap:8px; padding-right:70px; }
+.title-wrap h1{ flex:0 1 auto; }
+.dashboard-nav-btn{
+  min-width:var(--tap); min-height:var(--tap); padding:7px 9px;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+}
+.dashboard-nav-btn[aria-current="page"]{ opacity:.55; pointer-events:none; }
+.dashboard-nav-btn svg{ width:20px; height:20px; }
+@media (max-width:420px){ .dashboard-nav-label{ display:none; } }
 .menu-wrap { position:absolute; right:16px; top:14px; }
 .menu-btn {
   background: linear-gradient(135deg, var(--primary), var(--primary-2));
@@ -957,6 +965,10 @@ thead th.setnum{
 
   <div class="title-wrap">
     <h1>Training Log</h1>
+    <button class="ghost dashboard-nav-btn" id="dashboardBtn" type="button" data-action="navDashboard" aria-label="Dashboard" title="Dashboard">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 3.2 3 10.4V21h6v-6h6v6h6V10.4l-9-7.2Zm7 15.8h-2v-6H7v6H5v-7.6l7-5.6 7 5.6V19Z"/></svg>
+      <span class="dashboard-nav-label">Dashboard</span>
+    </button>
     <span class="settings-wrap">
       <button class="icon gear-btn" id="settingsBtn" data-action="navSettings" aria-label="Settings">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
@@ -967,6 +979,12 @@ thead th.setnum{
   </div>
 
   <div class="wrap">
+    <!-- Dashboard -->
+    <section id="dashboardPage" class="hidden" aria-labelledby="dashboardHeading">
+      <h2 id="dashboardHeading" class="sr-only">Dashboard</h2>
+      <div id="dashboardArea" aria-live="polite"></div>
+    </section>
+
     <!-- Routines -->
     <section id="routinesPage" class="card hidden">
       <div class="dl-head" style="margin:0;padding-bottom:0;border:0">
@@ -1236,6 +1254,15 @@ thead th.setnum{
   Share history for identical exercise names across all workouts
 </label>
 
+<label style="display:block; margin-top:10px">Weekly workout target
+  <input id="weeklyWorkoutTarget" type="number" min="1" max="14" step="1" inputmode="numeric" style="width:76px; margin-left:6px">
+</label>
+
+</div>
+
+<div class="card">
+  <div style="font-weight:800; margin-bottom:6px">Dashboard strength exercises</div>
+  <div id="pinnedExerciseSettings" class="small muted">Create a routine to pin exercises.</div>
 </div>
 
 
@@ -1518,6 +1545,54 @@ button.cal-cell:focus-visible {
   outline-offset: 2px;
 }
 
+/* ===== Dashboard ===== */
+.sr-only{ position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
+.dashboard-stack{ display:grid; gap:12px; }
+.dashboard-card{ margin:0; overflow:hidden; }
+.dashboard-card h2,.dashboard-card h3{ margin:0; }
+.dashboard-kicker{ color:var(--muted); font-size:.82rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.dashboard-primary{ background:linear-gradient(145deg, color-mix(in oklab,var(--primary) 12%,var(--surface)), var(--surface)); }
+.dashboard-primary-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.dashboard-primary-title{ font-size:1.32rem; margin-top:3px!important; }
+.dashboard-meta{ display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; color:var(--muted); font-size:.9rem; }
+.dashboard-preview{ margin:12px 0 0; padding-left:20px; }
+.dashboard-preview li{ margin:4px 0; }
+.dashboard-actions{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; margin-top:14px; }
+.dashboard-actions button{ min-height:var(--tap); }
+.dashboard-chooser{ margin-top:10px; width:100%; }
+.dashboard-summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
+.dashboard-stat{ padding:10px; border:1px solid var(--line); border-radius:12px; background:color-mix(in oklab,var(--surface) 92%,transparent); min-width:0; }
+.dashboard-stat strong{ display:block; font-size:1.2rem; overflow-wrap:anywhere; }
+.dashboard-stat span{ color:var(--muted); font-size:.78rem; }
+.dashboard-progress{ height:8px; border-radius:999px; background:color-mix(in oklab,var(--line) 70%,transparent); overflow:hidden; margin-top:10px; }
+.dashboard-progress span{ display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--primary),var(--primary-2)); }
+.dashboard-scroll{ display:flex; gap:10px; overflow-x:auto; overscroll-behavior-inline:contain; scroll-snap-type:x proximity; padding:2px 2px 8px; margin-top:10px; max-width:100%; }
+.strength-card{ flex:0 0 min(78vw,280px); scroll-snap-align:start; text-align:left; color:var(--text); background:color-mix(in oklab,var(--surface) 92%,var(--primary) 8%); border:1px solid var(--line); border-radius:14px; padding:12px; min-height:132px; }
+.strength-card .strength-value{ font-size:1.45rem; font-weight:800; margin-top:8px; }
+.strength-trend{ font-weight:700; color:var(--primary); }
+.dashboard-bars{ display:grid; gap:9px; margin-top:10px; }
+.dashboard-bar-row{ display:grid; grid-template-columns:82px minmax(0,1fr) 34px; gap:8px; align-items:center; font-size:.88rem; }
+.dashboard-bar-track{ height:9px; border-radius:999px; background:color-mix(in oklab,var(--line) 70%,transparent); overflow:hidden; }
+.dashboard-bar-fill{ height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--primary),var(--accent)); }
+.recent-workout{ width:100%; display:block; text-align:left; color:var(--text); background:transparent; border:0; border-top:1px solid var(--line); border-radius:0; padding:12px 0; }
+.recent-workout:first-of-type{ border-top:0; }
+.recent-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.recent-meta{ color:var(--muted); font-size:.84rem; margin-top:5px; }
+.dashboard-empty{ color:var(--muted); padding:12px 0 4px; }
+.pin-settings-list{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 10px; max-height:220px; overflow:auto; }
+.pin-settings-list label{ display:flex; align-items:center; gap:6px; min-width:0; }
+.pin-settings-list span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (min-width:700px){
+  .dashboard-stack{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .dashboard-primary,.dashboard-strength,.dashboard-recent{ grid-column:1/-1; }
+  .dashboard-summary-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+}
+@media (max-width:380px){
+  .dashboard-actions{ grid-template-columns:1fr; }
+  .dashboard-summary-grid,.pin-settings-list{ grid-template-columns:1fr 1fr; }
+  .dashboard-bar-row{ grid-template-columns:70px minmax(0,1fr) 30px; }
+}
+
 
 </style>
 
@@ -1550,13 +1625,15 @@ const prefs = {
   surface: 'glass',
   carryOverWeights: true,
   shareExerciseHistory: false,
+  weeklyWorkoutTarget: 4,
+  pinnedExerciseIds: [],
 
 };
 
 const state = {
   routines: [],
   sessions: [],
-  log: { dayId:null, prepared:{}, notes:{}, workoutDate:null, exerciseContexts:{} },
+  log: { dayId:null, prepared:{}, notes:{}, workoutDate:null, exerciseContexts:{}, startedAt:null },
   wiz: { editingId:null, name:'', daysCount:0, dayNames:[], dayExercises:{} },
   uiPrevWeeks: {},
   uiPrevWeeksAll: 1,
@@ -1569,7 +1646,8 @@ const state = {
   trendsDayId: null,         // ⬅️ NEW: day used by History→Trends
   uiTrendsCollapsed: true,   // ⬅️ NEW: collapse state
   tempExercises: {},          // key: "<date>|<dayId>" → [{id,name,category}]
-  exerciseNames: {}           // key: exerciseId → name (helps name lookups in History)
+  exerciseNames: {},          // key: exerciseId → name (helps name lookups in History)
+  uiDashboardChoice: null
 };
 
 
@@ -1619,8 +1697,8 @@ const Sound = (() => {
 
    
 // Track the current page and the last non-settings page
-let currentPage = 'logPage';
-let lastNonSettingsPage = 'logPage';
+let currentPage = 'dashboardPage';
+let lastNonSettingsPage = 'dashboardPage';
 
 /* ====== Templates & Exercise Library ====== */
 
@@ -2064,8 +2142,14 @@ const qsa = (sel,root=document)=> Array.from(root.querySelectorAll(sel));
 const uid = () => Math.random().toString(36).slice(2);
 
 /* ===== Theme / Accent ===== */
+function normalizeDashboardPrefs(){
+  prefs.weeklyWorkoutTarget = Math.max(1, Math.min(14, Math.round(+prefs.weeklyWorkoutTarget || 4)));
+  if (!Array.isArray(prefs.pinnedExerciseIds)) prefs.pinnedExerciseIds = [];
+  prefs.pinnedExerciseIds = [...new Set(prefs.pinnedExerciseIds.filter(id => typeof id === 'string' && id))];
+}
 function loadPrefs(){
   try{ Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')); }catch{}
+  normalizeDashboardPrefs();
   document.body.setAttribute('data-accent', prefs.accent || 'aurora');
   document.body.setAttribute('data-surface', prefs.surface || 'glass'); // ← add this
 }
@@ -2157,6 +2241,7 @@ function rememberCurrentExerciseContext(exId){
   const d = dayById(r, state.log.dayId);
   const ex = getExerciseFromToday(exId);
   if (!r || !d || !ex) return;
+  if (!(+state.log.startedAt > 0)) state.log.startedAt = Date.now();
   if (!state.log.exerciseContexts) state.log.exerciseContexts = {};
   state.log.exerciseContexts[exId] = {
     routineId: r.id,
@@ -2452,6 +2537,206 @@ function normalizeHistoryWholeNumbers(){
   }
 }
 
+/* ===== Dashboard data ===== */
+function dashboardDate(iso){
+  const key = String(iso || '').slice(0,10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+  const [y,m,d] = key.split('-').map(Number);
+  const out = new Date(y,m-1,d);
+  return isNaN(out) ? null : out;
+}
+function dashboardISO(date){
+  if (!(date instanceof Date) || isNaN(date)) return '';
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function dashboardWeekStart(date){
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay()+6)%7));
+  return d;
+}
+function dashboardAddDays(date, days){
+  const out = new Date(date); out.setDate(out.getDate()+days); return out;
+}
+function dashboardFormatDate(iso){
+  const d = dashboardDate(iso);
+  return d ? d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:d.getFullYear()===new Date().getFullYear()?undefined:'numeric'}) : 'Date unavailable';
+}
+function dashboardFormatDuration(ms){
+  const mins = Math.max(0, Math.round((+ms||0)/60000));
+  if (!mins) return '—';
+  if (mins < 60) return `${mins} min`;
+  const h=Math.floor(mins/60), m=mins%60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+function dashboardEscape(value){
+  return String(value ?? '').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+function hasActiveWorkoutDraft(){
+  if (+state.log?.startedAt > 0) return true;
+  return Object.values(state.log?.prepared || {}).some(sets=>(Array.isArray(sets)?sets:[]).some(s=>(+s?.reps||0)>0));
+}
+function dashboardMuscleGroup(ex){
+  const category = String(ex?.category || guessCategory(ex?.name || '')).toLowerCase();
+  if (category.startsWith('chest')) return 'Chest';
+  if (category.startsWith('back')) return 'Back';
+  if (category.startsWith('shoulder')) return 'Shoulders';
+  if (category.startsWith('biceps') || category.startsWith('triceps') || category.startsWith('forearm')) return 'Arms';
+  if (category.startsWith('legs')) return 'Legs';
+  if (category.startsWith('core')) return 'Core';
+  return null;
+}
+function dashboardExerciseIndex(){
+  const byId=new Map(), all=[];
+  for(const r of (state.routines||[])) for(const d of (r.days||[])) for(const ex of (d.exercises||[])){
+    const item={...ex,routineId:r.id,routineName:r.name,dayId:d.id,dayName:d.name};
+    if(!byId.has(ex.id)) byId.set(ex.id,item);
+    all.push(item);
+  }
+  for(const [id,name] of Object.entries(state.exerciseNames||{})) if(!byId.has(id)) byId.set(id,{id,name,category:guessCategory(name)});
+  return {byId,all};
+}
+function calculateDashboardData(now=new Date()){
+  const target=Math.max(1,Math.min(14,Math.round(+prefs.weeklyWorkoutTarget||4)));
+  const exerciseIndex=dashboardExerciseIndex();
+  const sessions=(Array.isArray(state.sessions)?state.sessions:[]).filter(s=>s&&typeof s==='object');
+  const groups=new Map();
+
+  for(const s of sessions){
+    const iso=String(s.workoutDate||s.dateISO||'').slice(0,10), date=dashboardDate(iso);
+    if(!date) continue;
+    const dayId=String(s.dayId||''), routineId=String(s.routineId||'');
+    const key=`${iso}|${dayId||routineId||'workout'}`;
+    if(!groups.has(key)) groups.set(key,{key,iso,date,dayId,routineId,sessions:[],exerciseIds:new Set(),totalSets:0,totalReps:0,totalVolume:0,durationMs:0,hasPR:false});
+    const g=groups.get(key), sets=Array.isArray(s.sets)?s.sets:[];
+    g.sessions.push(s); g.exerciseIds.add(s.exerciseId);
+    g.totalSets+=sets.filter(x=>(+x?.reps||0)>0).length;
+    g.totalReps+=sets.reduce((a,x)=>a+Math.max(0,Math.round(+x?.reps||0)),0);
+    g.totalVolume+=Math.max(0,Math.round(+s.totalVolume||0));
+    g.durationMs=Math.max(g.durationMs,Math.max(0,+s.durationMs||0));
+  }
+
+  const workouts=[...groups.values()].sort((a,b)=>b.date-a.date || String(b.sessions[0]?.dateISO||'').localeCompare(String(a.sessions[0]?.dateISO||'')));
+  const bestBefore=new Map();
+  for(const g of [...workouts].sort((a,b)=>a.date-b.date)){
+    for(const s of g.sessions){
+      let best=0;
+      for(const set of (Array.isArray(s.sets)?s.sets:[])) best=Math.max(best,epley1RM(set.weight,set.reps));
+      const old=bestBefore.get(s.exerciseId)||0;
+      if(best>old&&old>0) g.hasPR=true;
+      if(best>old) bestBefore.set(s.exerciseId,best);
+    }
+  }
+
+  const routineById=new Map((state.routines||[]).map(r=>[r.id,r]));
+  const dayMeta=new Map();
+  for(const r of (state.routines||[])) for(const d of (r.days||[])) dayMeta.set(d.id,{routine:r,day:d});
+  for(const g of workouts){
+    const meta=dayMeta.get(g.dayId), routine=meta?.routine||routineById.get(g.routineId);
+    g.routineName=routine?.name||'Workout'; g.dayName=meta?.day?.name||'Workout';
+  }
+
+  const weekStart=dashboardWeekStart(now), nextWeek=dashboardAddDays(weekStart,7);
+  const thisWeek=workouts.filter(g=>g.date>=weekStart&&g.date<nextWeek);
+  const weekly={target,workouts:thisWeek.length,sets:thisWeek.reduce((a,g)=>a+g.totalSets,0),durationMs:thisWeek.reduce((a,g)=>a+g.durationMs,0),volume:thisWeek.reduce((a,g)=>a+g.totalVolume,0)};
+  const counts=new Map();
+  for(const g of workouts){const key=dashboardISO(dashboardWeekStart(g.date));counts.set(key,(counts.get(key)||0)+1);}
+  let earliest=workouts.length?dashboardWeekStart(workouts[workouts.length-1].date):weekStart;
+  let longest=0,run=0;
+  for(let cursor=new Date(earliest);cursor<=weekStart;cursor=dashboardAddDays(cursor,7)){
+    const met=(counts.get(dashboardISO(cursor))||0)>=target;
+    if(met){run++;longest=Math.max(longest,run);}else if(cursor<weekStart){run=0;}
+  }
+  let streak=0,cursor=new Date(weekStart);
+  if((counts.get(dashboardISO(cursor))||0)<target) cursor=dashboardAddDays(cursor,-7);
+  while(cursor>=earliest&&(counts.get(dashboardISO(cursor))||0)>=target){streak++;cursor=dashboardAddDays(cursor,-7);}
+  const streakData={current:streak,longest,needed:Math.max(0,target-weekly.workouts),hasHistory:workouts.length>0};
+
+  let routine=activeRoutine()||(state.routines||[])[0]||null, suggestedDay=null;
+  if(routine?.days?.length){
+    const recent=workouts.find(g=>g.routineId===routine.id&&routine.days.some(d=>d.id===g.dayId));
+    const idx=recent?routine.days.findIndex(d=>d.id===recent.dayId):-1;
+    suggestedDay=routine.days[(idx+1+routine.days.length)%routine.days.length]||routine.days[0];
+  }
+  const choices=[];
+  for(const r of (state.routines||[])) for(const d of (r.days||[])) choices.push({routine:r,day:d,value:`${r.id}|${d.id}`});
+  const choice=choices.find(x=>x.value===state.uiDashboardChoice)||choices.find(x=>x.routine.id===routine?.id&&x.day.id===suggestedDay?.id)||choices[0]||null;
+  if(choice){routine=choice.routine;suggestedDay=choice.day;}
+  const matchingWorkouts=suggestedDay?workouts.filter(g=>g.dayId===suggestedDay.id):[];
+  const durations=matchingWorkouts.map(g=>g.durationMs).filter(Boolean);
+  const next={routine,day:suggestedDay,choices,lastCompleted:matchingWorkouts[0]?.iso||'',estimatedDurationMs:durations.length?durations.reduce((a,v)=>a+v,0)/durations.length:0,preview:(suggestedDay?.exercises||[]).slice(0,4),active:hasActiveWorkoutDraft()};
+
+  const pinned=[];
+  const cutoff30=dashboardAddDays(new Date(now.getFullYear(),now.getMonth(),now.getDate()),-30);
+  for(const id of prefs.pinnedExerciseIds||[]){
+    const ex=exerciseIndex.byId.get(id); if(!ex) continue;
+    const exSessions=sessions.filter(s=>s.exerciseId===id&&dashboardDate(s.workoutDate||s.dateISO)).sort((a,b)=>dashboardDate(a.workoutDate||a.dateISO)-dashboardDate(b.workoutDate||b.dateISO));
+    const points=exSessions.map(s=>({date:dashboardDate(s.workoutDate||s.dateISO),value:Math.max(0,...(Array.isArray(s.sets)?s.sets:[]).map(set=>epley1RM(set.weight,set.reps)))})).filter(p=>p.value>0);
+    const current=points[points.length-1]?.value||0, recent=points.filter(p=>p.date>=cutoff30);
+    const change=recent.length>1?current-recent[0].value:null;
+    const priorBest=points.slice(0,-1).reduce((m,p)=>Math.max(m,p.value),0);
+    pinned.push({id,name:ex.name,current,change,recentPB:!!current&&current>priorBest&&points[points.length-1].date>=cutoff30,hasHistory:points.length>0});
+  }
+
+  const muscleGroups={Chest:0,Back:0,Shoulders:0,Arms:0,Legs:0,Core:0};
+  const fourWeekStart=dashboardAddDays(weekStart,-28);
+  for(const g of workouts.filter(x=>x.date>=fourWeekStart&&x.date<weekStart)) for(const s of g.sessions){
+    const ex=exerciseIndex.byId.get(s.exerciseId), group=dashboardMuscleGroup(ex);
+    if(group) muscleGroups[group]+=(Array.isArray(s.sets)?s.sets:[]).filter(x=>(+x?.reps||0)>0).length;
+  }
+  return {weekly,streak:streakData,next,pinned,muscleGroups,recent:workouts.slice(0,3),exerciseIndex};
+}
+function renderPinnedExerciseSettings(){
+  const root=$('pinnedExerciseSettings'); if(!root) return;
+  const {all}=dashboardExerciseIndex(), unique=new Map();
+  for(const ex of all){const key=normalizedExerciseName(ex.name);if(key&&!unique.has(key))unique.set(key,ex);}
+  const exercises=[...unique.values()].sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+  if(!exercises.length){root.className='small muted';root.textContent='Create a routine to pin exercises.';return;}
+  const pinned=new Set(prefs.pinnedExerciseIds||[]);
+  root.className='pin-settings-list';
+  root.innerHTML=exercises.map(ex=>`<label title="${dashboardEscape(ex.name)}"><input type="checkbox" data-pin-exercise="${dashboardEscape(ex.id)}"${pinned.has(ex.id)?' checked':''}><span>${dashboardEscape(ex.name)}</span></label>`).join('');
+}
+function renderDashboard(){
+  const root=$('dashboardArea'); if(!root) return;
+  const data=calculateDashboardData(), unit=dashboardEscape((prefs.units||'kg').toLowerCase());
+  const next=data.next;
+  let nextHtml='';
+  if(!next.day){
+    nextHtml=`<div class="dashboard-empty">Create a routine to get a suggested workout.</div><div class="dashboard-actions"><button type="button" data-action="navRoutines">Create routine</button></div>`;
+  }else{
+    const options=next.choices.map(x=>`<option value="${dashboardEscape(x.value)}"${x.routine.id===next.routine.id&&x.day.id===next.day.id?' selected':''}>${dashboardEscape(x.routine.name)} — ${dashboardEscape(x.day.name)}</option>`).join('');
+    const preview=next.preview.length?`<ol class="dashboard-preview">${next.preview.map(ex=>`<li>${dashboardEscape(ex.name)}</li>`).join('')}</ol>`:'<div class="dashboard-empty">No exercises in this workout yet.</div>';
+    nextHtml=`
+      <div class="dashboard-primary-head"><div><div class="dashboard-kicker">${next.active?'Workout in progress':'Next workout'}</div><h2 class="dashboard-primary-title">${dashboardEscape(next.day.name)}</h2><div class="small muted">${dashboardEscape(next.routine.name)}</div></div></div>
+      <div class="dashboard-meta"><span>Last: ${next.lastCompleted?dashboardFormatDate(next.lastCompleted):'Not completed yet'}</span><span>Est. duration: ${next.estimatedDurationMs?dashboardFormatDuration(next.estimatedDurationMs):'Not enough data'}</span></div>
+      ${preview}
+      ${next.active?'':`<label class="small" style="display:block;margin-top:12px">Choose another routine<select id="dashboardWorkoutChoice" class="dashboard-chooser">${options}</select></label>`}
+      <div class="dashboard-actions"><button type="button" data-action="${next.active?'resumeDashboardWorkout':'startDashboardWorkout'}">${next.active?'Resume Workout':'Start Workout'}</button>${next.active?'<button class="ghost" type="button" data-action="navHistory">History</button>':'<button class="ghost" type="button" data-action="navRoutines">Routines</button>'}</div>`;
+  }
+  const progress=Math.min(100,Math.round((data.weekly.workouts/data.weekly.target)*100));
+  const pinnedHtml=data.pinned.length?`<div class="dashboard-scroll">${data.pinned.map(p=>{
+    const trend=p.change==null?'Not enough 30-day data':`${p.change>0?'▲ +':p.change<0?'▼ ':'— '}${p.change||0}`;
+    return `<button class="strength-card" type="button" data-action="dashboardOpenExercise" data-exid="${dashboardEscape(p.id)}" aria-label="Open history for ${dashboardEscape(p.name)}"><strong>${dashboardEscape(p.name)}</strong><div class="strength-value">${p.current?p.current:'—'} <span class="small muted">${unit}</span></div><div class="strength-trend">${trend}</div><div class="small muted">${p.recentPB?'Recent personal best':'Estimated 1RM'}</div></button>`;
+  }).join('')}</div>`:'<div class="dashboard-empty">Pin exercises in Settings to track estimated 1RM progress here.</div><button class="ghost" type="button" data-action="navSettings">Manage pins</button>';
+  const muscleTotal=Object.values(data.muscleGroups).reduce((a,v)=>a+v,0), muscleMax=Math.max(1,...Object.values(data.muscleGroups));
+  const muscleHtml=muscleTotal?`<div class="dashboard-bars">${Object.entries(data.muscleGroups).map(([name,value])=>`<div class="dashboard-bar-row"><span>${name}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${Math.round(value/muscleMax*100)}%"></div></div><strong>${value}</strong></div>`).join('')}</div>`:'<div class="dashboard-empty">Complete workouts across several weeks to see your working-set distribution.</div>';
+  const recentHtml=data.recent.length?data.recent.map(g=>`<button type="button" class="recent-workout" data-action="dashboardOpenWorkout" data-iso="${g.iso}" aria-label="Open workout from ${dashboardFormatDate(g.iso)}"><div class="recent-head"><strong>${dashboardEscape(g.dayName)}</strong><span class="small">${dashboardFormatDate(g.iso)}</span></div><div class="small muted">${dashboardEscape(g.routineName)}${g.hasPR?' · Personal best':''}</div><div class="recent-meta">${g.exerciseIds.size} exercise${g.exerciseIds.size===1?'':'s'} · ${g.totalSets} set${g.totalSets===1?'':'s'} · ${g.totalVolume.toLocaleString()} ${unit} · ${g.durationMs?dashboardFormatDuration(g.durationMs):'Duration unavailable'}</div></button>`).join(''):'<div class="dashboard-empty">Completed workouts will appear here.</div>';
+  root.innerHTML=`<div class="dashboard-stack">
+    <article class="card dashboard-card dashboard-primary">${nextHtml}</article>
+    <article class="card dashboard-card"><div class="dashboard-kicker">This week</div><h2>${data.weekly.workouts} of ${data.weekly.target} workouts</h2><div class="dashboard-progress" aria-label="${progress}% of weekly target"><span style="width:${progress}%"></span></div><div class="dashboard-summary-grid"><div class="dashboard-stat"><strong>${data.weekly.workouts}</strong><span>Workouts</span></div><div class="dashboard-stat"><strong>${data.weekly.sets}</strong><span>Working sets</span></div><div class="dashboard-stat"><strong>${data.weekly.durationMs?dashboardFormatDuration(data.weekly.durationMs):'—'}</strong><span>Total duration</span></div><div class="dashboard-stat"><strong>${data.weekly.volume.toLocaleString()}</strong><span>Volume (${unit})</span></div></div></article>
+    <article class="card dashboard-card"><div class="dashboard-kicker">Active streak</div>${data.streak.hasHistory?`<h2>${data.streak.current} week${data.streak.current===1?'':'s'}</h2><div class="dashboard-meta"><span>Longest: ${data.streak.longest} week${data.streak.longest===1?'':'s'}</span><span>${data.streak.needed?`${data.streak.needed} workout${data.streak.needed===1?'':'s'} needed this week`:'Weekly target reached'}</span></div>`:'<div class="dashboard-empty">Meet your weekly target to begin a consistency streak.</div>'}</article>
+    <article class="card dashboard-card dashboard-strength"><div class="dashboard-kicker">Pinned strength progress</div><h2>Estimated 1RM</h2>${pinnedHtml}</article>
+    <article class="card dashboard-card"><div class="dashboard-kicker">Last four completed weeks</div><h2>Muscle-group distribution</h2>${muscleHtml}</article>
+    <article class="card dashboard-card dashboard-recent"><div class="dashboard-kicker">Recent workouts</div><h2>Latest sessions</h2>${recentHtml}</article>
+  </div>`;
+}
+function startDashboardWorkout(){
+  const data=calculateDashboardData(), choice=data.next.choices.find(x=>x.value===(state.uiDashboardChoice||`${data.next.routine?.id||''}|${data.next.day?.id||''}`))||data.next.choices[0];
+  if(!choice){showPage('routinesPage');return;}
+  state.activeRoutineId=choice.routine.id; state.log.dayId=choice.day.id;
+  state.log.workoutDate=todayISO(); state.log.startedAt=Date.now();
+  save(); showPage('logPage');
+}
+
 
   
 function isExerciseCompleted(exId){
@@ -2500,11 +2785,13 @@ function showPage(which){
   if (which !== 'settingsPage') lastNonSettingsPage = which;
   currentPage = which;
 
-  ['logPage','routinesPage','historyPage','settingsPage'].forEach(id=> $(id).classList.toggle('hidden', id!==which));
-  if(which==='logPage'){ resetLogDateToToday(); renderSelectors(); buildLog(); }
+  ['dashboardPage','logPage','routinesPage','historyPage','settingsPage'].forEach(id=> $(id).classList.toggle('hidden', id!==which));
+  $('dashboardBtn')?.setAttribute('aria-current', which==='dashboardPage'?'page':'false');
+  if(which==='dashboardPage'){ renderDashboard(); }
+  if(which==='logPage'){ if(!hasActiveWorkoutDraft()) resetLogDateToToday(); renderSelectors(); buildLog(); }
   if(which==='historyPage'){ renderSelectors(); rr(); buildTrends(); }
   if(which==='routinesPage'){ renderRoutinesList(); }
-  if(which==='settingsPage'){ hydrateSettingsUI(); }
+  if(which==='settingsPage'){ hydrateSettingsUI(); renderPinnedExerciseSettings(); }
 }
 /* Select a routine from anywhere and sync UI */
 function selectRoutine(id){
@@ -3304,6 +3591,7 @@ const statsLine = `
 
   // ---- Persist sessions (same schema you already use) ----
   const dateISO = nowISO; // keep your source timestamp
+  const durationMs = +state.log.startedAt > 0 ? Math.max(0, Date.now() - +state.log.startedAt) : 0;
   previewFiltered.forEach(p=>{
     state.sessions.push({
       id: uid(),
@@ -3314,6 +3602,7 @@ const statsLine = `
       exerciseId: p.ex.id,
       sets: p.performed,           // only performed sets
       totalVolume: p.totalVolume,
+      ...(durationMs ? { durationMs } : {}),
       note: p.note || ''
     });
   });
@@ -3351,6 +3640,7 @@ const statsLine = `
 
   // Advance the log date to today (your existing behavior)
   state.log.workoutDate = todayISO();
+  state.log.startedAt = null;
   $('workoutDate').value = state.log.workoutDate;
 
   modal.alert('Day saved for ' + workoutDate + '.');
@@ -3468,6 +3758,7 @@ function hydrateSettingsUI(){
   // Preferences checkboxes
   $('carryOverWeights').checked      = !!prefs.carryOverWeights;
   $('shareExerciseHistory').checked  = !!prefs.shareExerciseHistory;
+  $('weeklyWorkoutTarget').value     = Math.max(1, Math.min(14, Math.round(+prefs.weeklyWorkoutTarget || 4)));
 }
    
 
@@ -3710,6 +4001,7 @@ document.addEventListener('click', async (e)=>{
   return;
 }
 
+  if(act==='navDashboard'){ showPage('dashboardPage'); return; }
   if(act==='navLog'){ showPage('logPage'); return; }
   if(act==='navRoutines'){ showPage('routinesPage'); return; }
   if(act==='navHistory'){ showPage('historyPage'); return; }
@@ -3723,6 +4015,21 @@ document.addEventListener('click', async (e)=>{
   }
   return;
 }
+  if(act==='startDashboardWorkout'){ startDashboardWorkout(); return; }
+  if(act==='resumeDashboardWorkout'){ showPage('logPage'); return; }
+  if(act==='dashboardOpenExercise'){
+    const exId=btn.dataset.exid;
+    let found=null;
+    for(const r of (state.routines||[])) for(const d of (r.days||[])) if((d.exercises||[]).some(ex=>ex.id===exId)) found=found||{r,d};
+    if(found){state.activeRoutineId=found.r.id;state.trendsDayId=found.d.id;save();showPage('historyPage');renderTrendsDaySelector();buildTrends();}
+    else showPage('historyPage');
+    return;
+  }
+  if(act==='dashboardOpenWorkout'){
+    showPage('historyPage');
+    document.dispatchEvent(new CustomEvent('calendar:openDate',{detail:{iso:btn.dataset.iso}}));
+    return;
+  }
 
 if (act === 'editRoutine') {
   const id = btn.dataset.id;
@@ -3934,6 +4241,19 @@ $('routinesListBody')?.addEventListener('keydown', (e) => {
 
 document.addEventListener('change',(e)=>{
 const id = (e.target && e.target.id) || '';
+  if(id==='dashboardWorkoutChoice'){
+    state.uiDashboardChoice=e.target.value||null;
+    renderDashboard();
+    return;
+  }
+  const pin=e.target.closest('input[data-pin-exercise]');
+  if(pin){
+    const ids=new Set(prefs.pinnedExerciseIds||[]);
+    if(pin.checked) ids.add(pin.dataset.pinExercise); else ids.delete(pin.dataset.pinExercise);
+    prefs.pinnedExerciseIds=[...ids]; savePrefs();
+    if(currentPage==='dashboardPage') renderDashboard();
+    return;
+  }
   if(e.target && e.target.id && e.target.id.startsWith('exCat_day_')){
     const dayKey=e.target.id.split('exCat_')[1]; populateExercisePicker(dayKey, e.target.value); return;
   }
@@ -4107,6 +4427,12 @@ $('shareExerciseHistory')?.addEventListener('change', (e) => {
   buildLog();
   buildTrends();
 });
+$('weeklyWorkoutTarget')?.addEventListener('input', (e)=>{
+  if(e.target.value==='') return;
+  const value=Math.max(1,Math.min(14,Math.round(+e.target.value||4)));
+  prefs.weeklyWorkoutTarget=value; savePrefs();
+  if(currentPage==='dashboardPage') renderDashboard();
+});
 
 
 $('autoTimerEnabled')?.addEventListener('change', ()=> {
@@ -4161,9 +4487,9 @@ $('importJsonInput').addEventListener('change', async (e)=>{
   try{
     const txt = await f.text(); const obj = JSON.parse(txt);
     if(obj.state){ Object.assign(state, obj.state); save(); }
-    if(obj.prefs){ Object.assign(prefs, obj.prefs); savePrefs(); }
+    if(obj.prefs){ Object.assign(prefs, obj.prefs); normalizeDashboardPrefs(); savePrefs(); }
     if(obj.theme){ localStorage.setItem(THEME_KEY, obj.theme); }
-    applyTheme(); applyAccent(); renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); modal.alert('Import complete.');
+    applyTheme(); applyAccent(); applySurface(); renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); renderDashboard(); renderPinnedExerciseSettings(); modal.alert('Import complete.');
   }catch(err){ modal.alert('Import failed: '+err.message); }
 });
 
@@ -4244,17 +4570,18 @@ const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerc
 
 // --- one clean init pass ---
 ensureActiveSelection();     // ⬅️ ensure routine/day/date exist first
-resetLogDateToToday();
+if(!hasActiveWorkoutDraft()) resetLogDateToToday();
 renderSelectors();
 renderTrendsDaySelector();
 
 buildLog();
 buildTrends();
 renderRoutinesList();
+renderPinnedExerciseSettings();
 updateTimerDisplays();
 updateTimerButtons();
 
-const startPage = (state.routines && state.routines.length) ? 'logPage' : 'routinesPage';
+const startPage = hasActiveWorkoutDraft() ? 'logPage' : 'dashboardPage';
 showPage(startPage);
 
 
@@ -4711,6 +5038,13 @@ nextBtn?.addEventListener('click', ()=>{
 
 // Allow outside code to force a refresh (used after deletes)
 document.addEventListener('calendar:refresh', render);
+document.addEventListener('calendar:openDate', (event)=>{
+  const iso=String(event.detail?.iso||'').slice(0,10);
+  const d=dashboardDate(iso); if(!d) return;
+  view={y:d.getFullYear(),m:d.getMonth()+1}; render();
+  const dayMap=buildDayColorMap(), {byDate}=getWorkoutsByDate(view.y,view.m,dayMap);
+  const meta=byDate[iso]; if(meta) openPopupForDay(iso,{...meta,title:(meta.types||[]).map(t=>t.name).join(' • ')||'Workout'});
+});
 
 render();
 
