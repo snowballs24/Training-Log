@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Training Log</title>
+<title>SnowLog</title>
 
 <!-- PWA hooks (leave as-is; your manifest/sw can remain the same) -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -953,7 +953,7 @@ thead th.setnum{
         <div class="splash-logo-face splash-logo-back"></div>
       </div>
     </div>
-    <div class="splash-title">Training Log</div>
+    <div class="splash-title">SnowLog</div>
     <div class="splash-subtitle">Stronger every week</div>
     <div class="splash-dots">
       <span></span><span></span><span></span>
@@ -1312,7 +1312,7 @@ thead th.setnum{
   <div style="font-weight:800; margin-bottom:6px">Data</div>
   <div style="display:flex; flex-direction:column; gap:8px">
     <!-- Top row: Check for updates -->
-    <div style="display:flex; gap:8px; flex-wrap:wrap">
+    <div id="pwaUpdateControls" style="display:flex; gap:8px; flex-wrap:wrap">
       <button class="ghost" id="checkUpdatesBtn" type="button">Check for updates</button>
     </div>
 
@@ -2130,6 +2130,10 @@ const $ = id => document.getElementById(id);
 const qs = (sel,root=document)=> root.querySelector(sel);
 const qsa = (sel,root=document)=> Array.from(root.querySelectorAll(sel));
 const uid = () => Math.random().toString(36).slice(2);
+const isNativeCapacitor = () => Boolean(
+  window.Capacitor?.isNativePlatform?.() ||
+  ['ios', 'android'].includes(window.Capacitor?.getPlatform?.())
+);
 
 /* ===== Theme / Accent ===== */
 function normalizeDashboardPrefs(){
@@ -2746,7 +2750,7 @@ function showPage(which){
     historyPage: 'History',
     settingsPage: 'Settings'
   };
-  $('pageTitle').textContent = pageTitles[which] || 'Training Log';
+  $('pageTitle').textContent = pageTitles[which] || 'SnowLog';
   $('dashboardBtn')?.setAttribute('aria-current', which==='dashboardPage'?'page':'false');
   if(which==='dashboardPage'){ renderDashboard(); }
   if(which==='logPage'){ if(!hasActiveWorkoutDraft()) resetLogDateToToday(); renderSelectors(); buildLog(); }
@@ -3842,6 +3846,7 @@ const modal = (() => {
 
 /* ===== Manual refresh / update (robust) ===== */
 async function checkForUpdatesAndRefresh() {
+  if (isNativeCapacitor()) return;
   try {
     await modal.alert('Checking for updates…');
 
@@ -4338,7 +4343,11 @@ document.addEventListener('keydown',(e)=>{
   }
 });
 
-$('checkUpdatesBtn')?.addEventListener('click', checkForUpdatesAndRefresh);
+if (isNativeCapacitor()) {
+  $('pwaUpdateControls')?.classList.add('hidden');
+} else {
+  $('checkUpdatesBtn')?.addEventListener('click', checkForUpdatesAndRefresh);
+}
 /* Settings */
 $('themeToggle').addEventListener('click', toggleTheme);
 $('accentSelect').addEventListener('change', (e)=>{ prefs.accent=e.target.value; savePrefs(); applyAccent(); });
@@ -4469,10 +4478,16 @@ function hideSplash() {
   if (!splash) return;
 
   const elapsed = performance.now() - splashStart;
-  const minVisible = 2250; // keep splash visible ~2.25 sec
+  // Capacitor continues directly from the matching native launch screen into
+  // one complete logo rotation. The PWA keeps its existing timing unchanged.
+  const minVisible = isNativeCapacitor() ? 2100 : 2250;
   const remain = Math.max(0, minVisible - elapsed);
 
   setTimeout(() => {
+    if (isNativeCapacitor()) {
+      splash.remove();
+      return;
+    }
     splash.classList.add('splash-hidden');
     setTimeout(() => splash.remove(), 600);
   }, remain);
@@ -4489,7 +4504,8 @@ function hideSplash() {
   applyAccent();
   applySurface();
 
-  // Kick off splash animation (spin logo + reset timer)
+  // The native launch screen matches the first frame, then the shared HTML
+  // splash supplies the rotating portion of the startup sequence.
   const splash = document.getElementById('splash');
   if (splash) {
     const logo = splash.querySelector('.splash-logo');
@@ -4552,7 +4568,7 @@ hideSplash();
 
 <!-- Service worker registration & update prompt -->
 <script>
-if ('serviceWorker' in navigator) {
+if (!isNativeCapacitor() && 'serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>{});
     if (!reg) return;

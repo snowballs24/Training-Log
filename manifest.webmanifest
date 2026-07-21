@@ -1,6 +1,6 @@
 {
-  "name": "Workout Logger",
-  "short_name": "Training Log",
+  "name": "SnowLog",
+  "short_name": "SnowLog",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#eef3ff",

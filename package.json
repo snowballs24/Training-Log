@@ -1,0 +1,19 @@
+{
+  "name": "snowlog",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SnowLog web and Capacitor iOS application",
+  "scripts": {
+    "build": "npm run build:web",
+    "build:web": "mkdir -p dist/icons dist/sounds && cp index.html manifest.webmanifest sw.js dist/ && cp icons/* dist/icons/ && cp sounds/* dist/sounds/",
+    "cap:sync": "npm run build:web && cap sync ios",
+    "ios:open": "npm run cap:sync && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "6.2.1",
+    "@capacitor/ios": "6.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "6.2.1"
+  }
+}

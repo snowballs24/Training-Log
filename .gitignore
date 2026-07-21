@@ -1,0 +1,25 @@
+node_modules/
+dist/
+
+# macOS
+.DS_Store
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+
+# Xcode user state and build products
+DerivedData/
+**/DerivedData/
+**/xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+build/
+*.ipa
+*.dSYM
+*.dSYM.zip
