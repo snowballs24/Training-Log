@@ -3,11 +3,16 @@ set -eu
 
 REPOSITORY_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
 cd "$REPOSITORY_ROOT"
-printf 'SnowLog post-clone working directory: %s\n' "$(pwd)"
+printf 'SnowLog pre-Xcode working directory: %s\n' "$(pwd)"
 
-npm ci
-npm run build:web
-npx cap sync ios
+if [ ! -d ios/App/App/public ]; then
+  printf 'Generated Capacitor public directory is absent; preparing iOS web resources.\n'
+  npm ci
+  npm run build:web
+  npx cap sync ios
+else
+  printf 'Generated Capacitor public directory already exists; skipping duplicate npm and Capacitor preparation.\n'
+fi
 
 for REQUIRED_PATH in \
   ios/App/App/public \
