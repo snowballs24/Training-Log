@@ -1,7 +1,8 @@
-const CACHE = 'workout-cache-v6';
+const CACHE = 'workout-cache-v7';
 const ASSETS = [
   './',
   './index.html',
+  './backup.js',
   './manifest.webmanifest',
   './icons/icon-512.png',
   './icons/front.png',

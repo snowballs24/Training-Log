@@ -134,6 +134,23 @@
   gap:8px;
 }
 .gear-btn { border-radius:50%; padding:.5rem .6rem; line-height:1; }
+.workout-heart-rate {
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  min-width:0;
+  color:var(--text);
+  font-size:.95rem;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.workout-heart-rate .heart { color:#ff3b30; font-size:1rem; line-height:1; }
+@media (max-width:380px) {
+  .settings-wrap { gap:5px; }
+  .workout-heart-rate { font-size:.82rem; gap:2px; }
+  .workout-heart-rate .heart { font-size:.9rem; }
+}
 
 /* ========= Base ======== */
 html,body {
@@ -967,6 +984,9 @@ thead th.setnum{
       <button class="ghost dashboard-nav-btn" id="dashboardBtn" type="button" data-action="navDashboard" aria-label="Dashboard" title="Dashboard">
         <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 3.2 3 10.4V21h6v-6h6v6h6V10.4l-9-7.2Zm7 15.8h-2v-6H7v6H5v-7.6l7-5.6 7 5.6V19Z"/></svg>
       </button>
+      <span class="workout-heart-rate hidden" id="workoutHeartRate" aria-live="polite">
+        <span class="heart" aria-hidden="true">♥</span><span id="workoutHeartRateValue"></span>
+      </span>
       <button class="icon gear-btn" id="settingsBtn" data-action="navSettings" aria-label="Settings">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
           <path d="M19.14,12.94a7.07,7.07,0,0,0,.05-1,7.07,7.07,0,0,0-.05-1l2.11-1.65a.5.5,0,0,0,.12-.65l-2-3.46a.5.5,0,0,0-.61-.22l-2.49,1a6.79,6.79,0,0,0-1.73-1L14,2.81a.5.5,0,0,0-.5-.31H10.5a.5.5,0,0,0-.5.31L9.45,5.91a6.79,6.79,0,0,0-1.73,1l-2.49-1a.5.5,0,0,0-.61.22l-2,3.46a.5.5,0,0,0,.12.65L4.86,10a7.07,7.07,0,0,0-.05,1,7.07,7.07,0,0,0,.05,1L2.75,13.65a.5.5,0,0,0-.12.65l2,3.46a.5.5,0,0,0,.61.22l2.49-1a6.79,6.79,0,0,0,1.73,1l.55,3.1a.5.5,0,0,0,.5.31h3a.5.5,0,0,0,.5-.31l.55-3.1a6.79,6.79,0,0,0,1.73-1l2.49,1a.5.5,0,0,0,.61-.22l2-3.46a.5.5,0,0,0-.12-.65ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/>
@@ -1248,6 +1268,11 @@ thead th.setnum{
 <label class="small" style="display:flex; align-items:center; gap:6px; margin-top:6px;">
   <input type="checkbox" id="shareExerciseHistory">
   Share history for identical exercise names across all workouts
+</label>
+
+<label class="small hidden" id="heartRateSettingRow" style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+  <input type="checkbox" id="showHeartRateDuringWorkouts">
+  Show heart rate during workouts
 </label>
 
 <label style="display:block; margin-top:10px">Weekly workout target
@@ -1602,14 +1627,17 @@ button.cal-cell:focus-visible {
 
 <!-- (Optional) Firebase scripts only if you already wired cloud backup; safe if missing) -->
 
+<script src="backup.js"></script>
 <script>
 /* =========================================================
    App Logic — same structure as before (no orientation changes)
    Only the 3 requested updates added.
    ========================================================= */
-const LS_KEY = 'workout_logger_mobile_v13_themeOnly';
-const THEME_KEY = 'workout_theme';
-const PREFS_KEY = 'workout_prefs_v13';
+const LS_KEY = SnowLogBackup.STORAGE_KEYS.state;
+const THEME_KEY = SnowLogBackup.STORAGE_KEYS.theme;
+const PREFS_KEY = SnowLogBackup.STORAGE_KEYS.prefs;
+const HEART_RATE_SETTING_KEY = 'snowlog_show_heart_rate_during_workouts';
+const HEART_RATE_STALE_MS = 10 * 60 * 1000;
 const prefs = {
   units: 'kg',
   accent: 'aurora',
@@ -1639,6 +1667,11 @@ const state = {
   tempExercises: {},          // key: "<date>|<dayId>" → [{id,name,category}]
   exerciseNames: {}           // key: exerciseId → name (helps name lookups in History)
 };
+
+// Immutable clean baselines ensure backup import replaces SnowLog data rather
+// than retaining fields from the currently loaded workout.
+const DEFAULT_PREFS = JSON.parse(JSON.stringify(prefs));
+const DEFAULT_STATE = JSON.parse(JSON.stringify(state));
 
 
 
@@ -2135,11 +2168,144 @@ const isNativeCapacitor = () => Boolean(
   ['ios', 'android'].includes(window.Capacitor?.getPlatform?.())
 );
 
+function nativeRestTimerPlugin(){
+  return isNativeCapacitor() ? window.Capacitor?.Plugins?.SnowLogTimer : null;
+}
+
+function nativeRestTimerPayload(){
+  const t = ensureTimer();
+  return {
+    startedAtMs: t.start,
+    setpointMs: t.alarmAtMs,
+    alarmEnabled: !!t.alarmEnabled,
+    soundFile: t.soundFile || 'chime.mp3'
+  };
+}
+
+function nativeRestTimerStart(){
+  const plugin = nativeRestTimerPlugin();
+  if (!plugin) return;
+  plugin.start(nativeRestTimerPayload()).catch(()=>{});
+}
+
+function nativeRestTimerUpdate(){
+  const t = ensureTimer();
+  const plugin = nativeRestTimerPlugin();
+  if (!plugin || !t.running) return;
+  plugin.update(nativeRestTimerPayload()).catch(()=>{});
+}
+
+function nativeRestTimerStop(){
+  const plugin = nativeRestTimerPlugin();
+  if (!plugin) return;
+  plugin.stop().catch(()=>{});
+}
+
+function isNativeIOS(){
+  return isNativeCapacitor() && window.Capacitor?.getPlatform?.() === 'ios';
+}
+
+function nativeHeartRatePlugin(){
+  return isNativeIOS() ? window.Capacitor?.Plugins?.SnowLogHeartRate : null;
+}
+
+function nativeBackupPlugin(){
+  return isNativeIOS() ? window.Capacitor?.Plugins?.SnowLogBackup : null;
+}
+
+let latestNativeHeartRate = null;
+let heartRateStaleTimeout = null;
+let nativeHeartRateMonitoring = false;
+
+function heartRateSettingEnabled(){
+  return isNativeIOS() && localStorage.getItem(HEART_RATE_SETTING_KEY) === 'true';
+}
+
+function clearHeartRateDisplay(){
+  latestNativeHeartRate = null;
+  clearTimeout(heartRateStaleTimeout);
+  heartRateStaleTimeout = null;
+  const root = $('workoutHeartRate');
+  const value = $('workoutHeartRateValue');
+  if (root) {
+    root.classList.add('hidden');
+    root.removeAttribute('aria-label');
+  }
+  if (value) value.textContent = '';
+}
+
+function refreshHeartRateDisplay(){
+  const root = $('workoutHeartRate');
+  const value = $('workoutHeartRateValue');
+  const reading = latestNativeHeartRate;
+  const visible = !!(
+    root && value && reading &&
+    currentPage === 'logPage' &&
+    hasActiveWorkoutDraft() &&
+    heartRateSettingEnabled() &&
+    Date.now() - reading.measuredAtMs < HEART_RATE_STALE_MS
+  );
+  if (!visible) {
+    root?.classList.add('hidden');
+    root?.removeAttribute('aria-label');
+    if (value) value.textContent = '';
+    return;
+  }
+  value.textContent = String(reading.value);
+  root.setAttribute('aria-label', `Heart rate ${reading.value}`);
+  root.classList.remove('hidden');
+}
+
+function receiveNativeHeartRate(data){
+  const value = Number(data?.value);
+  const measuredAtMs = Number(data?.measuredAtMs);
+  const age = Date.now() - measuredAtMs;
+  if (!data?.available || !Number.isFinite(value) || value < 20 || value > 250 ||
+      !Number.isFinite(measuredAtMs) || age < 0 || age >= HEART_RATE_STALE_MS) {
+    clearHeartRateDisplay();
+    return;
+  }
+  latestNativeHeartRate = { value: Math.round(value), measuredAtMs };
+  clearTimeout(heartRateStaleTimeout);
+  heartRateStaleTimeout = setTimeout(clearHeartRateDisplay, HEART_RATE_STALE_MS - age + 50);
+  refreshHeartRateDisplay();
+}
+
+function syncNativeHeartRateMonitoring(){
+  const plugin = nativeHeartRatePlugin();
+  const shouldMonitor = !!(plugin && heartRateSettingEnabled() && hasActiveWorkoutDraft());
+  refreshHeartRateDisplay();
+  if (shouldMonitor === nativeHeartRateMonitoring) return;
+  nativeHeartRateMonitoring = shouldMonitor;
+  if (shouldMonitor) plugin.startMonitoring().catch(()=> clearHeartRateDisplay());
+  else {
+    clearHeartRateDisplay();
+    plugin?.stopMonitoring().catch(()=>{});
+  }
+}
+
+function initializeNativeHeartRate(){
+  const settingRow = $('heartRateSettingRow');
+  const checkbox = $('showHeartRateDuringWorkouts');
+  const plugin = nativeHeartRatePlugin();
+  if (!plugin || !settingRow || !checkbox) {
+    clearHeartRateDisplay();
+    return;
+  }
+  settingRow.classList.remove('hidden');
+  checkbox.checked = heartRateSettingEnabled();
+  try {
+    const listener = plugin.addListener('heartRateChanged', receiveNativeHeartRate);
+    if (listener && typeof listener.catch === 'function') listener.catch(()=>{});
+  } catch {}
+  syncNativeHeartRateMonitoring();
+}
+
 /* ===== Theme / Accent ===== */
-function normalizeDashboardPrefs(){
-  prefs.weeklyWorkoutTarget = Math.max(1, Math.min(14, Math.round(+prefs.weeklyWorkoutTarget || 4)));
-  if (!Array.isArray(prefs.pinnedExerciseIds)) prefs.pinnedExerciseIds = [];
-  prefs.pinnedExerciseIds = [...new Set(prefs.pinnedExerciseIds.filter(id => typeof id === 'string' && id))];
+function normalizeDashboardPrefs(target=prefs){
+  target.weeklyWorkoutTarget = Math.max(1, Math.min(14, Math.round(+target.weeklyWorkoutTarget || 4)));
+  if (!Array.isArray(target.pinnedExerciseIds)) target.pinnedExerciseIds = [];
+  target.pinnedExerciseIds = [...new Set(target.pinnedExerciseIds.filter(id => typeof id === 'string' && id))];
 }
 function loadPrefs(){
   try{ Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')); }catch{}
@@ -2206,20 +2372,7 @@ save();
 }
 
 function save(){
-localStorage.setItem(LS_KEY, JSON.stringify({
-  routines: state.routines,
-  activeRoutineId: state.activeRoutineId,
-  sessions: state.sessions,
-  uiPrevWeeks: state.uiPrevWeeks,
-  uiPrevWeeksAll: state.uiPrevWeeksAll,
-  uiOpen: state.uiOpen,
-  log: state.log,
-  trendsDayId: state.trendsDayId,                // ⬅️
-  uiTrendsCollapsed: state.uiTrendsCollapsed,     // ⬅️
-  tempExercises: state.tempExercises,
-  exerciseNames: state.exerciseNames,
-
-}));
+localStorage.setItem(LS_KEY, JSON.stringify(SnowLogBackup.persistedState(state)));
 
 }
 
@@ -2250,6 +2403,7 @@ function rememberCurrentExerciseContext(exId){
     name: ex.name,
     category: ex.category || guessCategory(ex.name)
   };
+  syncNativeHeartRateMonitoring();
 }
 
 function normalizedExerciseName(name){
@@ -2757,7 +2911,13 @@ function showPage(which){
   if(which==='historyPage'){ renderSelectors(); rr(); buildTrends(); }
   if(which==='routinesPage'){ renderRoutinesList(); }
   if(which==='settingsPage'){ hydrateSettingsUI(); renderPinnedExerciseSettings(); }
+  refreshHeartRateDisplay();
+  syncNativeHeartRateMonitoring();
 }
+
+// Called only by the native iOS deep link used by the Live Activity.
+window.snowLogOpenActiveWorkout = () => showPage('logPage');
+
 /* Select a routine from anywhere and sync UI */
 function selectRoutine(id){
   if (!id) return;
@@ -3308,6 +3468,7 @@ function timerToggle(exId){
 
     t.running = true;
     t.start   = Date.now();
+    nativeRestTimerStart();
     clearInterval(t.interval);
     t.interval = setInterval(()=>{
       updateTimerDisplays();
@@ -3317,7 +3478,7 @@ function timerToggle(exId){
         if (elapsed >= t.alarmAtMs) {
           t.alarmFired = true;
           Sound.play(t.soundFile).catch(()=>{});
-          try { if (navigator.vibrate) navigator.vibrate([60,40,60]); } catch {}
+          try { if (!isNativeCapacitor() && navigator.vibrate) navigator.vibrate([60,40,60]); } catch {}
         }
       }
     }, 500);
@@ -3326,6 +3487,7 @@ function timerToggle(exId){
     t.elapsed += Date.now() - t.start;
     clearInterval(t.interval);
     t.interval = null;
+    nativeRestTimerStop();
   }
 
   updateTimerDisplays();
@@ -3337,6 +3499,7 @@ function timerReset(exId){
   const t = ensureTimer();
   t.running=false; t.elapsed=0; t.start=0; t.alarmFired=false;
   clearInterval(t.interval); t.interval=null;
+  nativeRestTimerStop();
   updateTimerDisplays();
   updateTimerButtons();
 }
@@ -3604,6 +3767,8 @@ const statsLine = `
   // Advance the log date to today (your existing behavior)
   state.log.workoutDate = todayISO();
   state.log.isActive = false;
+  nativeRestTimerStop();
+  syncNativeHeartRateMonitoring();
   $('workoutDate').value = state.log.workoutDate;
 
   modal.alert('Day saved for ' + workoutDate + '.');
@@ -3722,6 +3887,8 @@ function hydrateSettingsUI(){
   $('carryOverWeights').checked      = !!prefs.carryOverWeights;
   $('shareExerciseHistory').checked  = !!prefs.shareExerciseHistory;
   $('weeklyWorkoutTarget').value     = Math.max(1, Math.min(14, Math.round(+prefs.weeklyWorkoutTarget || 4)));
+  const heartRateCheckbox = $('showHeartRateDuringWorkouts');
+  if (heartRateCheckbox && isNativeIOS()) heartRateCheckbox.checked = heartRateSettingEnabled();
 }
    
 
@@ -4395,6 +4562,35 @@ $('weeklyWorkoutTarget')?.addEventListener('input', (e)=>{
   if(currentPage==='dashboardPage') renderDashboard();
 });
 
+$('showHeartRateDuringWorkouts')?.addEventListener('change', async (e)=>{
+  const checkbox = e.target;
+  const plugin = nativeHeartRatePlugin();
+  if (!plugin) {
+    checkbox.checked = false;
+    clearHeartRateDisplay();
+    return;
+  }
+
+  if (!checkbox.checked) {
+    localStorage.setItem(HEART_RATE_SETTING_KEY, 'false');
+    syncNativeHeartRateMonitoring();
+    return;
+  }
+
+  checkbox.disabled = true;
+  let enabled = false;
+  try {
+    const result = await plugin.requestAuthorization();
+    enabled = result?.enabled === true;
+  } catch {}
+
+  checkbox.disabled = false;
+  checkbox.checked = enabled;
+  localStorage.setItem(HEART_RATE_SETTING_KEY, String(enabled));
+  if (!enabled) clearHeartRateDisplay();
+  syncNativeHeartRateMonitoring();
+});
+
 
 $('autoTimerEnabled')?.addEventListener('change', ()=> {
   localStorage.setItem('autoTimerEnabled', String($('autoTimerEnabled').checked));
@@ -4402,6 +4598,11 @@ $('autoTimerEnabled')?.addEventListener('change', ()=> {
 
 $('restAlarmEnabled')?.addEventListener('change', ()=> {
   localStorage.setItem('restAlarmEnabled', String($('restAlarmEnabled').checked));
+  const t = ensureTimer();
+  if (isNativeCapacitor() && t.running) {
+    t.alarmEnabled = $('restAlarmEnabled').checked;
+    nativeRestTimerUpdate();
+  }
 });
 $('restDurationMin')?.addEventListener('change', ()=> {
   let v = parseFloat($('restDurationMin').value);
@@ -4416,6 +4617,10 @@ $('restDurationMin')?.addEventListener('change', ()=> {
   const t = ensureTimer?.();
   if (t) {
     t.alarmAtMs = (v * 60) * 1000;
+    if (isNativeCapacitor() && t.running) {
+      t.alarmFired = false;
+      nativeRestTimerUpdate();
+    }
   }
 });
 
@@ -4425,7 +4630,10 @@ $('restSound')?.addEventListener('change', async () => {
 
   // optional: keep the currently running timer in sync
   const t = ensureTimer?.();
-  if (t) t.soundFile = file;
+  if (t) {
+    t.soundFile = file;
+    if (isNativeCapacitor() && t.running) nativeRestTimerUpdate();
+  }
 
   // optional: preview the sound so the user hears it immediately
   try {
@@ -4436,22 +4644,56 @@ $('restSound')?.addEventListener('change', async () => {
 
 
    
-$('exportJsonBtn').addEventListener('click', ()=>{
-  const blob = new Blob([ JSON.stringify({state,prefs,theme:document.body.getAttribute('data-theme')}, null, 2) ], {type:'application/json'});
+$('exportJsonBtn').addEventListener('click', async ()=>{
+  let json;
+  try {
+    const backup = SnowLogBackup.createBackup(state, prefs, document.body.getAttribute('data-theme'));
+    json = JSON.stringify(backup, null, 2);
+  } catch {
+    await modal.alert('Export failed. SnowLog could not prepare a valid backup.');
+    return;
+  }
+
+  const nativePlugin = nativeBackupPlugin();
+  if (nativePlugin) {
+    try {
+      await nativePlugin.exportBackup({ json, fileName: 'workout_logger_backup.json' });
+    } catch (error) {
+      const message = error?.message ? String(error.message) : 'The iOS share sheet could not be opened.';
+      await modal.alert('Export failed: ' + message);
+    }
+    return;
+  }
+
+  const blob = new Blob([json], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download='workout_logger_backup.json'; a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(()=> URL.revokeObjectURL(url), 0);
 });
 $('importJsonBtn')?.addEventListener('click', ()=> $('importJsonInput').click());
 $('importJsonInput').addEventListener('change', async (e)=>{
   const f=e.target.files?.[0]; if(!f) return;
   try{
-    const txt = await f.text(); const obj = JSON.parse(txt);
-    if(obj.state){ Object.assign(state, obj.state); save(); }
-    if(obj.prefs){ Object.assign(prefs, obj.prefs); normalizeDashboardPrefs(); savePrefs(); }
-    if(obj.theme){ localStorage.setItem(THEME_KEY, obj.theme); }
-    applyTheme(); applyAccent(); applySurface(); renderSelectors(); buildLog(); buildTrends(); renderRoutinesList(); renderDashboard(); renderPinnedExerciseSettings(); modal.alert('Import complete.');
-  }catch(err){ modal.alert('Import failed: '+err.message); }
+    const txt = await f.text();
+    const backup = SnowLogBackup.parseBackup(txt);
+    const confirmed = await modal.confirm({
+      title: 'Restore backup?',
+      body: 'This will replace the current SnowLog workouts, routines, history and saved settings.',
+      okText: 'Import',
+      cancelText: 'Cancel'
+    });
+    if (!confirmed) return;
+
+    const replacement = SnowLogBackup.prepareReplacement(backup, DEFAULT_STATE, DEFAULT_PREFS, normalizeDashboardPrefs);
+    SnowLogBackup.replaceStorage(localStorage, replacement.storageValues);
+    await modal.alert('Backup imported successfully. SnowLog will now reload.', 'Import complete');
+    location.reload();
+  }catch(err){
+    const message = err?.message ? String(err.message) : 'The selected backup could not be restored.';
+    await modal.alert('Import failed: ' + message);
+  }finally{
+    e.target.value = '';
+  }
 });
 
 // --- Splash handling ---
@@ -4550,6 +4792,7 @@ updateTimerDisplays();
 updateTimerButtons();
 
 const startPage = hasActiveWorkoutDraft() ? 'logPage' : 'dashboardPage';
+initializeNativeHeartRate();
 showPage(startPage);
 
 

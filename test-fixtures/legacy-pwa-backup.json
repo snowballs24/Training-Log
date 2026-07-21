@@ -1,0 +1,60 @@
+{
+  "state": {
+    "routines": [
+      {
+        "id": "routine-1",
+        "name": "Migration Strength",
+        "days": [
+          {
+            "id": "day-1",
+            "name": "Push",
+            "exercises": [
+              { "id": "bench", "name": "Bench Press", "category": "Chest", "sets": 3 }
+            ]
+          }
+        ]
+      }
+    ],
+    "activeRoutineId": "routine-1",
+    "sessions": [
+      {
+        "id": "session-1",
+        "date": "2026-07-20",
+        "routineId": "routine-1",
+        "dayId": "day-1",
+        "sets": [
+          { "exerciseId": "bench", "weight": 80, "reps": 5 }
+        ],
+        "totalVolume": 400
+      }
+    ],
+    "log": {
+      "dayId": "day-1",
+      "prepared": { "bench": [{ "weight": "82.5", "reps": "5" }] },
+      "notes": { "bench": "Paused" },
+      "workoutDate": "2026-07-21",
+      "exerciseContexts": {},
+      "isActive": true
+    },
+    "wiz": { "editingId": null, "name": "", "daysCount": 0, "dayNames": [], "dayExercises": {} },
+    "uiPrevWeeks": { "bench": 3 },
+    "uiPrevWeeksAll": 2,
+    "uiTimers": {},
+    "uiTimer": { "running": false, "start": 0, "elapsed": 0, "interval": null, "alarmEnabled": true, "alarmAtMs": 90000, "alarmFired": false, "soundFile": "ding.mp3" },
+    "uiOpen": { "bench": true },
+    "trendsDayId": "day-1",
+    "uiTrendsCollapsed": false,
+    "tempExercises": { "2026-07-21|day-1": [{ "id": "custom-1", "name": "Custom Raise", "category": "Shoulders" }] },
+    "exerciseNames": { "bench": "Bench Press", "custom-1": "Custom Raise" }
+  },
+  "prefs": {
+    "units": "kg",
+    "accent": "sunset",
+    "surface": "solid",
+    "carryOverWeights": true,
+    "shareExerciseHistory": true,
+    "weeklyWorkoutTarget": 5,
+    "pinnedExerciseIds": ["bench", "custom-1"]
+  },
+  "theme": "dark"
+}
