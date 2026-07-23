@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPOSITORY_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
+REPOSITORY_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(git -C "$(dirname "$0")" rev-parse --show-toplevel)}"
 cd "$REPOSITORY_ROOT"
 printf 'SnowLog post-clone working directory: %s\n' "$(pwd)"
 
