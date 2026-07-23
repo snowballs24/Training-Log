@@ -28,10 +28,9 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
     private var run: Run?
     private var thresholdWorkItem: DispatchWorkItem?
     private var hapticPrepareWorkItem: DispatchWorkItem?
-    private var preparedHaptic: UIImpactFeedbackGenerator?
+    private var preparedHaptic: UINotificationFeedbackGenerator?
     private var thresholdDidFire = false
     private var foregroundSoundHandledRunIdentifier: String?
-    private var notificationScheduledRunIdentifier: String?
     private var audioPlayer: AVAudioPlayer?
 
     func start(
@@ -118,8 +117,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
         }
         _ = fireForegroundThreshold(
             runIdentifier: identifier,
-            source: "notification delegate",
-            notificationProvidesSound: true
+            source: "notification delegate"
         )
     }
 
@@ -136,7 +134,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
                 guard let self,
                       self.run?.identifier == runIdentifier,
                       UIApplication.shared.applicationState == .active else { return }
-                let generator = UIImpactFeedbackGenerator(style: .light)
+                let generator = UINotificationFeedbackGenerator()
                 generator.prepare()
                 self.preparedHaptic = generator
                 self.logger.debug("Prepared foreground timer haptic")
@@ -156,11 +154,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
         )
     }
 
-    private func fireForegroundThreshold(
-        runIdentifier: String,
-        source: String,
-        notificationProvidesSound: Bool = false
-    ) -> Bool {
+    private func fireForegroundThreshold(runIdentifier: String, source: String) -> Bool {
         guard let run, run.identifier == runIdentifier else { return false }
         if thresholdDidFire {
             return foregroundSoundHandledRunIdentifier == runIdentifier
@@ -188,19 +182,17 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
             return false
         }
 
-        let haptic = preparedHaptic ?? UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred(intensity: 0.65)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: [SnowLogTimerNotification.identifier]
+        )
+
+        let haptic = preparedHaptic ?? UINotificationFeedbackGenerator()
+        haptic.notificationOccurred(.warning)
         preparedHaptic = nil
-        logger.info("Triggered one foreground timer haptic from \(source, privacy: .public)")
+        logger.info("Triggered one foreground warning haptic from \(source, privacy: .public)")
 
         guard run.alarmEnabled else {
             logger.info("Foreground timer sound is disabled; overdue state and haptic remain active")
-            return true
-        }
-
-        if notificationProvidesSound || notificationScheduledRunIdentifier == runIdentifier {
-            foregroundSoundHandledRunIdentifier = runIdentifier
-            logger.info("Foreground timer sound is owned by the sound-only local notification")
             return true
         }
 
@@ -296,13 +288,11 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
 
         let center = UNUserNotificationCenter.current()
         var settings = await center.notificationSettings()
-        logger.info(
-            "Timer notification authorization=\(settings.authorizationStatus.rawValue, privacy: .public), alertSetting=\(settings.alertSetting.rawValue, privacy: .public), soundSetting=\(settings.soundSetting.rawValue, privacy: .public)"
-        )
+        logNotificationSettings(settings, context: "before scheduling")
 
         if requestPermission && settings.authorizationStatus == .notDetermined {
             do {
-                let granted = try await center.requestAuthorization(options: [.sound])
+                let granted = try await center.requestAuthorization(options: [.alert, .sound])
                 logger.info("Timer notification permission request completed; granted=\(granted, privacy: .public)")
             } catch {
                 logger.error(
@@ -310,6 +300,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
                 )
             }
             settings = await center.notificationSettings()
+            logNotificationSettings(settings, context: "after permission request")
         }
 
         let notificationIsAuthorized =
@@ -330,6 +321,8 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
         }
 
         let content = UNMutableNotificationContent()
+        content.title = "Rest timer"
+        content.body = "Setpoint reached"
         content.userInfo = [
             SnowLogTimerNotification.runIdentifierKey: run.identifier
         ]
@@ -337,7 +330,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
 
         let interval = run.targetDate.timeIntervalSinceNow
         guard interval > 0 else { return }
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, interval), repeats: false)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
         let request = UNNotificationRequest(
             identifier: SnowLogTimerNotification.identifier,
             content: content,
@@ -345,9 +338,8 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
         )
         do {
             try await center.add(request)
-            notificationScheduledRunIdentifier = run.identifier
             logger.info(
-                "Scheduled one sound-only timer notification; sound=\(run.soundFile, privacy: .public), interval=\(interval, privacy: .public)"
+                "Scheduled one timer notification; target=\(run.targetDate.timeIntervalSince1970, privacy: .public), sound=\(run.soundFile, privacy: .public), interval=\(interval, privacy: .public)"
             )
         } catch {
             logger.error(
@@ -358,9 +350,17 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
 
     private func cancelNotification() async {
         let center = UNUserNotificationCenter.current()
-        notificationScheduledRunIdentifier = nil
         center.removePendingNotificationRequests(withIdentifiers: [SnowLogTimerNotification.identifier])
         center.removeDeliveredNotifications(withIdentifiers: [SnowLogTimerNotification.identifier])
+    }
+
+    private func logNotificationSettings(
+        _ settings: UNNotificationSettings,
+        context: String
+    ) {
+        logger.info(
+            "Timer notification settings \(context, privacy: .public); authorizationStatus=\(settings.authorizationStatus.rawValue, privacy: .public), soundSetting=\(settings.soundSetting.rawValue, privacy: .public), alertSetting=\(settings.alertSetting.rawValue, privacy: .public), lockScreenSetting=\(settings.lockScreenSetting.rawValue, privacy: .public), notificationCenterSetting=\(settings.notificationCenterSetting.rawValue, privacy: .public), alertStyle=\(settings.alertStyle.rawValue, privacy: .public)"
+        )
     }
 
     static func notificationSoundFile(for webSoundFile: String?) -> String {
@@ -396,23 +396,51 @@ final class SnowLogTimerPlugin: CAPInstancePlugin, CAPBridgedPlugin {
 
     override func load() {
         activity = Activity<SnowLogTimerAttributes>.activities.first
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reconcileAfterAppBecameActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
         guard let restoredActivity = activity else {
             logger.info("Loaded native timer plugin with no existing Live Activity")
             return
         }
 
         let restoredState = restoredActivity.content.state
-        let restoredContent = activityContent(
+        let targetDuration = restoredState.setpointDate.timeIntervalSince(restoredState.startDate)
+        guard let canonical = canonicalActivityContent(
             startDate: restoredState.startDate,
-            targetDate: restoredState.setpointDate
-        )
+            targetDuration: targetDuration
+        ) else {
+            logger.error("Could not reconcile restored Live Activity because its timer values are invalid")
+            return
+        }
         Task { @MainActor [weak self] in
-            await restoredActivity.update(restoredContent)
-            self?.logActivityContent(
-                operation: "restoration update",
-                startDate: restoredState.startDate,
-                targetDate: restoredState.setpointDate,
-                content: restoredContent,
+            await self?.reconcileLiveActivity(
+                canonical: canonical,
+                initiator: "native launch restoration",
+                chimeEnabled: nil
+            )
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func reconcileAfterAppBecameActive() {
+        guard let currentActivity = currentSnowLogActivity() else { return }
+        let state = currentActivity.content.state
+        let targetDuration = state.setpointDate.timeIntervalSince(state.startDate)
+        guard let canonical = canonicalActivityContent(
+            startDate: state.startDate,
+            targetDuration: targetDuration
+        ) else { return }
+        Task { @MainActor [weak self] in
+            await self?.reconcileLiveActivity(
+                canonical: canonical,
+                initiator: "app-state reconciliation",
                 chimeEnabled: nil
             )
         }
@@ -429,20 +457,26 @@ final class SnowLogTimerPlugin: CAPInstancePlugin, CAPBridgedPlugin {
 
         let alarmEnabled = call.getBool("alarmEnabled") ?? false
         let soundFile = call.getString("soundFile") ?? "ding.mp3"
-        let targetDate = canonicalTargetDate(
-            startDate: startDate,
-            setpointMilliseconds: setpointMilliseconds
+        let initiator = diagnosticInitiator(
+            call.getString("initiator"),
+            fallback: "javascript timer start"
         )
+        guard let canonical = canonicalActivityContent(
+            startDate: startDate,
+            targetDuration: setpointMilliseconds / 1_000
+        ) else {
+            call.reject("The timer target could not be calculated.")
+            return
+        }
 
         Task { @MainActor in
-            await endActivity()
-            await beginActivity(
-                startDate: startDate,
-                targetDate: targetDate,
+            await reconcileLiveActivity(
+                canonical: canonical,
+                initiator: initiator,
                 chimeEnabled: alarmEnabled
             )
             await SnowLogTimerDeliveryCoordinator.shared.start(
-                targetDate: targetDate,
+                targetDate: canonical.targetDate,
                 alarmEnabled: alarmEnabled,
                 webSoundFile: soundFile,
                 requestPermission: alarmEnabled
@@ -462,19 +496,26 @@ final class SnowLogTimerPlugin: CAPInstancePlugin, CAPBridgedPlugin {
 
         let alarmEnabled = call.getBool("alarmEnabled") ?? false
         let soundFile = call.getString("soundFile") ?? "ding.mp3"
-        let targetDate = canonicalTargetDate(
-            startDate: startDate,
-            setpointMilliseconds: setpointMilliseconds
+        let initiator = diagnosticInitiator(
+            call.getString("initiator"),
+            fallback: "javascript timer update"
         )
+        guard let canonical = canonicalActivityContent(
+            startDate: startDate,
+            targetDuration: setpointMilliseconds / 1_000
+        ) else {
+            call.reject("The timer target could not be calculated.")
+            return
+        }
 
         Task { @MainActor in
-            await updateActivity(
-                startDate: startDate,
-                targetDate: targetDate,
+            await reconcileLiveActivity(
+                canonical: canonical,
+                initiator: initiator,
                 chimeEnabled: alarmEnabled
             )
             await SnowLogTimerDeliveryCoordinator.shared.update(
-                targetDate: targetDate,
+                targetDate: canonical.targetDate,
                 alarmEnabled: alarmEnabled,
                 webSoundFile: soundFile
             )
@@ -490,68 +531,113 @@ final class SnowLogTimerPlugin: CAPInstancePlugin, CAPBridgedPlugin {
         }
     }
 
-    @MainActor
-    private func beginActivity(
+    private struct CanonicalActivityContent {
+        let startDate: Date
+        let targetDuration: TimeInterval
+        let targetDate: Date
+        let content: ActivityContent<SnowLogTimerAttributes.ContentState>
+    }
+
+    private func canonicalActivityContent(
         startDate: Date,
-        targetDate: Date,
-        chimeEnabled: Bool
+        targetDuration: TimeInterval
+    ) -> CanonicalActivityContent? {
+        guard startDate.timeIntervalSince1970.isFinite,
+              targetDuration.isFinite,
+              targetDuration > 0 else {
+            return nil
+        }
+        let targetDate = startDate.addingTimeInterval(targetDuration)
+        let state = SnowLogTimerAttributes.ContentState(
+            startDate: startDate,
+            setpointDate: targetDate
+        )
+        let content = ActivityContent(state: state, staleDate: targetDate)
+        return CanonicalActivityContent(
+            startDate: startDate,
+            targetDuration: targetDuration,
+            targetDate: targetDate,
+            content: content
+        )
+    }
+
+    @MainActor
+    private func reconcileLiveActivity(
+        canonical: CanonicalActivityContent,
+        initiator: String,
+        chimeEnabled: Bool?
     ) async {
         guard #available(iOS 16.1, *), ActivityAuthorizationInfo().areActivitiesEnabled else {
             logger.info("Live Activities are unavailable or disabled")
             return
         }
+
+        let activities = Activity<SnowLogTimerAttributes>.activities
+        let currentActivity = currentSnowLogActivity(from: activities)
+        if let currentActivity {
+            activity = currentActivity
+            await applyCanonicalContent(
+                to: currentActivity,
+                initiator: initiator,
+                operation: "update",
+                canonical: canonical,
+                chimeEnabled: chimeEnabled
+            )
+            for extraActivity in activities where extraActivity.id != currentActivity.id {
+                await extraActivity.end(nil, dismissalPolicy: .immediate)
+            }
+            return
+        }
+
         let attributes = SnowLogTimerAttributes(workoutURL: "snowlog://workout")
-        let content = activityContent(
-            startDate: startDate,
-            targetDate: targetDate
-        )
-        logActivityContent(
-            operation: "creation request",
-            startDate: startDate,
-            targetDate: targetDate,
-            content: content,
-            chimeEnabled: chimeEnabled
-        )
         do {
-            activity = try Activity.request(
+            let newActivity = try Activity.request(
                 attributes: attributes,
-                content: content,
+                content: canonical.content,
                 pushType: nil
+            )
+            activity = newActivity
+            logActivityContent(
+                initiator: initiator,
+                operation: "request",
+                canonical: canonical,
+                activityIdentifier: newActivity.id,
+                chimeEnabled: chimeEnabled
+            )
+            // A real-device regression showed that the system did not refresh
+            // isStale for newly requested content until a later settings
+            // update. Apply the same canonical content immediately so initial
+            // start and later updates take the identical ActivityKit path.
+            await applyCanonicalContent(
+                to: newActivity,
+                initiator: initiator,
+                operation: "post-request reconciliation update",
+                canonical: canonical,
+                chimeEnabled: chimeEnabled
             )
         } catch {
             logger.error(
-                "SnowLog Live Activity could not start: \(error.localizedDescription, privacy: .public)"
+                "SnowLog Live Activity request from \(initiator, privacy: .public) failed: \(error.localizedDescription, privacy: .public)"
             )
         }
     }
 
     @MainActor
-    private func updateActivity(
-        startDate: Date,
-        targetDate: Date,
-        chimeEnabled: Bool
+    private func applyCanonicalContent(
+        to targetActivity: Activity<SnowLogTimerAttributes>,
+        initiator: String,
+        operation: String,
+        canonical: CanonicalActivityContent,
+        chimeEnabled: Bool?
     ) async {
-        guard #available(iOS 16.1, *) else { return }
-        let content = activityContent(
-            startDate: startDate,
-            targetDate: targetDate
+        await targetActivity.update(canonical.content)
+        logActivityContent(
+            initiator: initiator,
+            operation: operation,
+            canonical: canonical,
+            activityIdentifier: targetActivity.id,
+            chimeEnabled: chimeEnabled
         )
-        if let activity {
-            await activity.update(content)
-            logActivityContent(
-                operation: "content update",
-                startDate: startDate,
-                targetDate: targetDate,
-                content: content,
-                chimeEnabled: chimeEnabled
-            )
-        } else {
-            await beginActivity(
-                startDate: startDate,
-                targetDate: targetDate,
-                chimeEnabled: chimeEnabled
-            )
-        }
     }
 
     @MainActor
@@ -564,36 +650,41 @@ final class SnowLogTimerPlugin: CAPInstancePlugin, CAPBridgedPlugin {
         logger.info("Ended all SnowLog timer Live Activities")
     }
 
-    private func canonicalTargetDate(
-        startDate: Date,
-        setpointMilliseconds: Double
-    ) -> Date {
-        startDate.addingTimeInterval(setpointMilliseconds / 1_000)
-    }
-
-    private func activityContent(
-        startDate: Date,
-        targetDate: Date
-    ) -> ActivityContent<SnowLogTimerAttributes.ContentState> {
-        let state = SnowLogTimerAttributes.ContentState(
-            startDate: startDate,
-            setpointDate: targetDate
-        )
-        return ActivityContent(state: state, staleDate: targetDate)
+    private func currentSnowLogActivity(
+        from activities: [Activity<SnowLogTimerAttributes>] = Activity<SnowLogTimerAttributes>.activities
+    ) -> Activity<SnowLogTimerAttributes>? {
+        if let activity,
+           let matchingActivity = activities.first(where: { $0.id == activity.id }) {
+            return matchingActivity
+        }
+        return activities.first
     }
 
     private func logActivityContent(
+        initiator: String,
         operation: String,
-        startDate: Date,
-        targetDate: Date,
-        content: ActivityContent<SnowLogTimerAttributes.ContentState>,
+        canonical: CanonicalActivityContent,
+        activityIdentifier: String,
         chimeEnabled: Bool?
     ) {
-        let staleDate = content.staleDate?.timeIntervalSince1970 ?? -1
+        let staleDate = canonical.content.staleDate?.timeIntervalSince1970 ?? -1
         let chimeValue = chimeEnabled.map(String.init) ?? "unknown"
         logger.info(
-            "Live Activity \(operation, privacy: .public); start=\(startDate.timeIntervalSince1970, privacy: .public), target=\(targetDate.timeIntervalSince1970, privacy: .public), content.staleDate=\(staleDate, privacy: .public), chime=\(chimeValue, privacy: .public)"
+            "Live Activity \(operation, privacy: .public); initiator=\(initiator, privacy: .public), start=\(canonical.startDate.timeIntervalSince1970, privacy: .public), targetDuration=\(canonical.targetDuration, privacy: .public), target=\(canonical.targetDate.timeIntervalSince1970, privacy: .public), content.staleDate=\(staleDate, privacy: .public), activityID=\(activityIdentifier, privacy: .public), chime=\(chimeValue, privacy: .public)"
         )
+    }
+
+    private func diagnosticInitiator(_ suppliedValue: String?, fallback: String) -> String {
+        switch suppliedValue {
+        case "javascript timer start",
+             "javascript chime toggle",
+             "javascript target-duration change",
+             "javascript sound change",
+             "javascript timer update":
+            return suppliedValue ?? fallback
+        default:
+            return fallback
+        }
     }
 
     private func date(fromMilliseconds value: Double?) -> Date? {

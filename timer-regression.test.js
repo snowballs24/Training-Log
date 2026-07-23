@@ -99,19 +99,35 @@ for (const sound of sounds) {
 // Settings has never opened and the chime is disabled.
 {
   const startDate = 1_000;
-  const setpointMilliseconds = 30_000;
-  const targetDate = startDate + setpointMilliseconds;
+  const targetDuration = 30;
+  const targetDate = startDate + targetDuration;
   const content = { state: { startDate, setpointDate: targetDate }, staleDate: targetDate };
   assert.equal(content.staleDate, targetDate);
-  assert.equal(content.staleDate <= targetDate, true);
-  assert.match(plugin, /canonicalTargetDate\(/);
-  assert.match(plugin, /return ActivityContent\(state: state, staleDate: targetDate\)/);
+  assert.match(plugin, /canonicalActivityContent\(/);
+  assert.match(plugin, /let content = ActivityContent\(state: state, staleDate: targetDate\)/);
   assert.match(plugin, /restoredActivity\.content\.state/);
-  assert.match(plugin, /await restoredActivity\.update\(restoredContent\)/);
+  assert.match(plugin, /initiator: "native launch restoration"/);
+  assert.match(web, /plugin\.start\(nativeRestTimerPayload\('javascript timer start'\)\)/);
   assert.doesNotMatch(plugin, /staleDate:\s*nil/);
 }
 
-// 5. Foreground threshold is one sound and one haptic only.
+// 5. Chime, selected sound, and notification permission never alter canonical
+// ActivityKit timing.
+{
+  const canonical = ({ startDate, targetDuration }) => ({
+    targetDate: startDate + targetDuration,
+    staleDate: startDate + targetDuration
+  });
+  const disabled = canonical({ startDate: 100, targetDuration: 30, alarm: false });
+  const enabled = canonical({ startDate: 100, targetDuration: 30, alarm: true });
+  const denied = canonical({ startDate: 100, targetDuration: 30, alarm: true, permission: false });
+  assert.deepEqual(disabled, enabled);
+  assert.deepEqual(enabled, denied);
+  assert.match(plugin, /await reconcileLiveActivity\([\s\S]*?await SnowLogTimerDeliveryCoordinator\.shared\.start/);
+  assert.match(plugin, /await reconcileLiveActivity\([\s\S]*?await SnowLogTimerDeliveryCoordinator\.shared\.update/);
+}
+
+// 6. Foreground threshold is one sound and one warning haptic only.
 {
   const timer = new TimerModel();
   timer.start({ target: 10, alarm: true, sound: 'chime' });
@@ -119,9 +135,12 @@ for (const sound of sounds) {
   timer.cross(20, 'foreground');
   assert.deepEqual(timer.events, ['haptic', 'audio:chime']);
   assert.match(plugin, /thresholdDidFire/);
+  assert.match(plugin, /UINotificationFeedbackGenerator/);
+  assert.match(plugin, /notificationOccurred\(\.warning\)/);
+  assert.doesNotMatch(plugin, /UIImpactFeedbackGenerator/);
 }
 
-// 6–7. Background and locked thresholds use one selected-sound notification.
+// 7–8. Background and locked thresholds use one selected-sound notification.
 for (const state of ['background', 'locked']) {
   const timer = new TimerModel();
   timer.start({ target: 10, alarm: true, sound: 'beep' });
@@ -130,12 +149,12 @@ for (const state of ['background', 'locked']) {
   assert.deepEqual(timer.events, ['notification:beep']);
 }
 
-// 8. Foreground playback fallback ducks Spotify/other audio and restores it afterward.
+// 9. Foreground playback ducks Spotify/other audio and restores it afterward.
 assert.match(plugin, /setCategory\(\.playback, mode: \.default, options: \[\.duckOthers\]\)/);
 assert.match(plugin, /\.notifyOthersOnDeactivation/);
 assert.match(plugin, /private var audioPlayer: AVAudioPlayer\?/);
 
-// 9. A target update resets the threshold and ActivityKit stale date.
+// 10. A target update resets the threshold and ActivityKit stale date.
 {
   const timer = new TimerModel();
   timer.start({ target: 10, alarm: true });
@@ -148,7 +167,7 @@ assert.match(plugin, /private var audioPlayer: AVAudioPlayer\?/);
   assert.doesNotMatch(plugin, /staleDate: nil/);
 }
 
-// 10. Stopping before target cancels delivery.
+// 11. Stopping before target cancels delivery.
 {
   const timer = new TimerModel();
   timer.start({ target: 10, alarm: true });
@@ -159,7 +178,7 @@ assert.match(plugin, /private var audioPlayer: AVAudioPlayer\?/);
   assert.match(plugin, /removePendingNotificationRequests/);
 }
 
-// 11. The system timer continues counting up and remains overdue/red.
+// 12. The system timer continues counting up and remains overdue/red.
 {
   const timer = new TimerModel();
   timer.start({ target: 10 });
@@ -168,29 +187,44 @@ assert.match(plugin, /private var audioPlayer: AVAudioPlayer\?/);
   assert.match(liveActivity, /countsDown: false/);
 }
 
-// 12. Denied notification permission leaves foreground timing functional.
+// 13. Denied notification permission leaves Live Activity and foreground timing functional.
 {
   const timer = new TimerModel();
   timer.start({ target: 10, alarm: true, permission: false });
   timer.cross(10, 'foreground');
   assert.deepEqual(timer.events, ['haptic', 'audio:ding']);
   assert.match(plugin, /in-app timing remains active/);
+  assert.match(plugin, /reconcileLiveActivity/);
 }
 
-// 13. Foreground notification delivery requests sound only and no visible presentation.
+// 14. Foreground timer notification delivery is suppressed so direct native
+// audio and haptic remain the only foreground alert.
 assert.match(
   appDelegate,
-  /if notification\.request\.identifier == SnowLogTimerNotification\.identifier \{[\s\S]*?completionHandler\(\[\.sound\]\)\s*\} else/
+  /if notification\.request\.identifier == SnowLogTimerNotification\.identifier \{[\s\S]*?completionHandler\(\[\]\)\s*\} else/
 );
 assert.match(plugin, /handleForegroundNotification/);
 assert.match(web, /if \(!isNativeCapacitor\(\)\) \{\s*Sound\.play/);
 
-// Release contract: the local timer notification contains sound and only
-// internal run identification, with no visible alert/list/badge fields.
+// 15. Chime and sound changes identify their paths but use the same native
+// reconciliation method without changing the timer's canonical dates.
+assert.match(web, /nativeRestTimerUpdate\('javascript chime toggle'\)/);
+assert.match(web, /nativeRestTimerUpdate\('javascript sound change'\)/);
+assert.match(web, /nativeRestTimerUpdate\('javascript target-duration change'\)/);
+assert.equal((plugin.match(/Activity\.request\(/g) || []).length, 1);
+assert.equal((plugin.match(/await targetActivity\.update\(canonical\.content\)/g) || []).length, 1);
+assert.match(plugin, /operation: "post-request reconciliation update"/);
+assert.match(plugin, /initiator=.*targetDuration=.*content\.staleDate=.*activityID=.*chime=/);
+
+// Release contract: background/locked delivery is a normal minimal alert with
+// the selected sound and no badge, attachment, category, or actions.
+assert.match(plugin, /content\.title = "Rest timer"/);
+assert.match(plugin, /content\.body = "Setpoint reached"/);
 assert.match(plugin, /content\.sound = UNNotificationSound/);
 assert.match(plugin, /SnowLogTimerNotification\.runIdentifierKey: run\.identifier/);
-assert.doesNotMatch(plugin, /content\.(?:title|subtitle|body|badge|attachments|categoryIdentifier|interruptionLevel)\s*=/);
-assert.match(plugin, /requestAuthorization\(options: \[\.sound\]\)/);
+assert.doesNotMatch(plugin, /content\.(?:badge|attachments|categoryIdentifier|interruptionLevel)\s*=/);
+assert.match(plugin, /requestAuthorization\(options: \[\.alert, \.sound\]\)/);
+assert.match(plugin, /lockScreenSetting=.*notificationCenterSetting=.*alertStyle=/);
 assert.match(plugin, /removeDeliveredNotifications/);
 assert.match(appInfo, /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/);
 

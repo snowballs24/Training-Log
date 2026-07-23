@@ -23,7 +23,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             center.removeDeliveredNotifications(
                 withIdentifiers: [SnowLogTimerNotification.identifier]
             )
-            completionHandler([.sound])
+            completionHandler([])
         } else {
             completionHandler([.banner, .sound])
         }

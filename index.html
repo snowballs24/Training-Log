@@ -2177,27 +2177,32 @@ function normalizeRestSoundFile(value){
   return REST_SOUND_FILES.has(value) ? value : 'ding.mp3';
 }
 
-function nativeRestTimerPayload(){
+function nativeRestTimerPayload(initiator){
   const t = ensureTimer();
   return {
     startedAtMs: t.start,
     setpointMs: t.alarmAtMs,
     alarmEnabled: !!t.alarmEnabled,
-    soundFile: normalizeRestSoundFile(t.soundFile)
+    soundFile: normalizeRestSoundFile(t.soundFile),
+    initiator
   };
 }
 
 function nativeRestTimerStart(){
   const plugin = nativeRestTimerPlugin();
   if (!plugin) return;
-  plugin.start(nativeRestTimerPayload()).catch(()=>{});
+  plugin.start(nativeRestTimerPayload('javascript timer start')).catch(error => {
+    console.error('SnowLog native rest timer start failed', error);
+  });
 }
 
-function nativeRestTimerUpdate(){
+function nativeRestTimerUpdate(initiator='javascript timer update'){
   const t = ensureTimer();
   const plugin = nativeRestTimerPlugin();
   if (!plugin || !t.running) return;
-  plugin.update(nativeRestTimerPayload()).catch(()=>{});
+  plugin.update(nativeRestTimerPayload(initiator)).catch(error => {
+    console.error('SnowLog native rest timer update failed', error);
+  });
 }
 
 function nativeRestTimerStop(){
@@ -4608,7 +4613,7 @@ $('restAlarmEnabled')?.addEventListener('change', ()=> {
   const t = ensureTimer();
   if (isNativeCapacitor() && t.running) {
     t.alarmEnabled = $('restAlarmEnabled').checked;
-    nativeRestTimerUpdate();
+    nativeRestTimerUpdate('javascript chime toggle');
   }
 });
 $('restDurationMin')?.addEventListener('change', ()=> {
@@ -4626,7 +4631,7 @@ $('restDurationMin')?.addEventListener('change', ()=> {
     t.alarmAtMs = (v * 60) * 1000;
     if (isNativeCapacitor() && t.running) {
       t.alarmFired = false;
-      nativeRestTimerUpdate();
+      nativeRestTimerUpdate('javascript target-duration change');
     }
   }
 });
@@ -4639,7 +4644,9 @@ $('restSound')?.addEventListener('change', async () => {
   const t = ensureTimer?.();
   if (t) {
     t.soundFile = file;
-    if (isNativeCapacitor() && t.running) nativeRestTimerUpdate();
+    if (isNativeCapacitor() && t.running) {
+      nativeRestTimerUpdate('javascript sound change');
+    }
   }
 
   // optional: preview the sound so the user hears it immediately
