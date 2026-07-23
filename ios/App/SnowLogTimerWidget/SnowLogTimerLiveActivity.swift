@@ -76,13 +76,10 @@ struct SnowLogTimerLiveActivity: Widget {
     }
 
     private func elapsedText(context: ActivityViewContext<SnowLogTimerAttributes>) -> some View {
-        // The system-owned timer text keeps counting while SnowLog is suspended.
-        // A periodic view refresh lets its emphasis cross the setpoint locally,
-        // without requiring the app to wake up and update the Live Activity.
-        TimelineView(.periodic(from: .now, by: 1)) { timeline in
-            Text(timerInterval: context.state.startDate...Date.distantFuture, countsDown: false)
-                .foregroundStyle(timeline.date >= context.state.setpointDate ? Color.red : Color.white)
-        }
+        // ActivityKit marks the content stale at the target date supplied by
+        // the app. The system-owned timer continues counting while suspended.
+        Text(timerInterval: context.state.startDate...Date.distantFuture, countsDown: false)
+            .foregroundStyle(context.isStale ? Color.red : Color.white)
     }
 
     private func formattedTarget(_ state: SnowLogTimerAttributes.ContentState) -> String {

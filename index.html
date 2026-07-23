@@ -2172,13 +2172,18 @@ function nativeRestTimerPlugin(){
   return isNativeCapacitor() ? window.Capacitor?.Plugins?.SnowLogTimer : null;
 }
 
+const REST_SOUND_FILES = new Set(['ding.mp3', 'beep.mp3', 'chime.mp3']);
+function normalizeRestSoundFile(value){
+  return REST_SOUND_FILES.has(value) ? value : 'ding.mp3';
+}
+
 function nativeRestTimerPayload(){
   const t = ensureTimer();
   return {
     startedAtMs: t.start,
     setpointMs: t.alarmAtMs,
     alarmEnabled: !!t.alarmEnabled,
-    soundFile: t.soundFile || 'chime.mp3'
+    soundFile: normalizeRestSoundFile(t.soundFile)
   };
 }
 
@@ -3433,7 +3438,7 @@ function timerElapsedMs(){
 
 function isTimerOverdue(){
   const t = ensureTimer();
-  return t.alarmAtMs > 0 && timerElapsedMs() >= t.alarmAtMs;
+  return t.running && t.alarmAtMs > 0 && Date.now() >= (t.start + t.alarmAtMs);
 }
 
 function updateTimerDisplays(){
@@ -3477,8 +3482,10 @@ function timerToggle(exId){
         const elapsed = t.elapsed + (Date.now() - t.start);
         if (elapsed >= t.alarmAtMs) {
           t.alarmFired = true;
-          Sound.play(t.soundFile).catch(()=>{});
-          try { if (!isNativeCapacitor() && navigator.vibrate) navigator.vibrate([60,40,60]); } catch {}
+          if (!isNativeCapacitor()) {
+            Sound.play(t.soundFile).catch(()=>{});
+            try { if (navigator.vibrate) navigator.vibrate([60,40,60]); } catch {}
+          }
         }
       }
     }, 500);
@@ -3850,7 +3857,7 @@ function getRestPrefs(){
     auto:  localStorage.getItem('autoTimerEnabled') === 'true',
     alarm: localStorage.getItem('restAlarmEnabled') === 'true',
     durationMin: isNaN(minutes) ? 5 : minutes,
-    sound: localStorage.getItem('restSound') || 'ding.mp3'
+    sound: normalizeRestSoundFile(localStorage.getItem('restSound'))
   };
 }
 
@@ -3868,7 +3875,7 @@ function hydrateRestTimerSettings(){
   const auto   = localStorage.getItem('autoTimerEnabled') === 'true';
   const alarm  = localStorage.getItem('restAlarmEnabled') === 'true';
   const mins   = parseFloat(localStorage.getItem('restDurationMin') || '5');
-  const sound  = localStorage.getItem('restSound') || 'ding.mp3';
+  const sound  = normalizeRestSoundFile(localStorage.getItem('restSound'));
 
   $('autoTimerEnabled').checked = auto;
   $('restAlarmEnabled').checked = alarm;

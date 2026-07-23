@@ -8,7 +8,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        UNUserNotificationCenter.current().delegate = self
+        let notificationCenter = UNUserNotificationCenter.current()
+        notificationCenter.delegate = self
+        notificationCenter.setNotificationCategories([
+            UNNotificationCategory(
+                identifier: SnowLogTimerNotification.categoryIdentifier,
+                actions: [],
+                intentIdentifiers: [],
+                options: []
+            )
+        ])
         return true
     }
 
@@ -17,9 +26,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // SnowLog already plays its selected web chime while it is foregrounded.
-        if notification.request.identifier == "snowlog-rest-timer-setpoint" {
-            completionHandler([])
+        if notification.request.content.categoryIdentifier == SnowLogTimerNotification.categoryIdentifier {
+            // AVAudioPlayer is the preferred foreground route so SnowLog can
+            // duck other audio and deliver exactly one haptic. The notification
+            // sound remains a fallback if native playback cannot start.
+            let handledNatively = SnowLogTimerDeliveryCoordinator.shared
+                .handleForegroundNotification(notification)
+            completionHandler(handledNatively ? [] : [.sound])
         } else {
             completionHandler([.banner, .sound])
         }
@@ -30,7 +43,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if response.notification.request.content.userInfo["url"] as? String == "snowlog://workout" {
+        if response.notification.request.content.userInfo[SnowLogTimerNotification.workoutURLKey] as? String == "snowlog://workout" {
             openActiveWorkout()
         }
         completionHandler()
@@ -42,8 +55,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
-        // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
-        // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+        Task { @MainActor in
+            await SnowLogTimerDeliveryCoordinator.shared.ensureBackgroundNotification()
+        }
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
