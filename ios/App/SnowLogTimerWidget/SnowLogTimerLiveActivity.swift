@@ -12,7 +12,7 @@ struct SnowLogTimerLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    snowLogMark
+                    snowLogMark(context: context)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     elapsedText(context: context)
@@ -21,6 +21,7 @@ struct SnowLogTimerLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
                         Text("Rest timer")
+                            .foregroundStyle(timerColor(context: context))
                         Spacer()
                         Text("Target \(formattedTarget(context.state))")
                             .foregroundStyle(.secondary)
@@ -29,23 +30,23 @@ struct SnowLogTimerLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: "figure.strengthtraining.traditional")
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(timerColor(context: context))
             } compactTrailing: {
                 elapsedText(context: context)
                     .font(.caption2.monospacedDigit().bold())
                     .frame(width: 44)
             } minimal: {
                 Image(systemName: "timer")
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(timerColor(context: context))
             }
             .widgetURL(URL(string: context.attributes.workoutURL))
-            .keylineTint(.cyan)
+            .keylineTint(timerColor(context: context))
         }
     }
 
     private func lockScreenView(context: ActivityViewContext<SnowLogTimerAttributes>) -> some View {
         HStack(spacing: 14) {
-            snowLogMark
+            snowLogMark(context: context)
             VStack(alignment: .leading, spacing: 3) {
                 Text("SNOWLOG REST")
                     .font(.caption.bold())
@@ -67,10 +68,12 @@ struct SnowLogTimerLiveActivity: Widget {
         .padding()
     }
 
-    private var snowLogMark: some View {
+    private func snowLogMark(
+        context: ActivityViewContext<SnowLogTimerAttributes>
+    ) -> some View {
         Image(systemName: "figure.strengthtraining.traditional")
             .font(.title2.bold())
-            .foregroundStyle(.cyan)
+            .foregroundStyle(timerColor(context: context))
             .frame(width: 38, height: 38)
             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
@@ -79,7 +82,13 @@ struct SnowLogTimerLiveActivity: Widget {
         // ActivityKit marks the content stale at the target date supplied by
         // the app. The system-owned timer continues counting while suspended.
         Text(timerInterval: context.state.startDate...Date.distantFuture, countsDown: false)
-            .foregroundStyle(context.isStale ? Color.red : Color.white)
+            .foregroundStyle(timerColor(context: context))
+    }
+
+    private func timerColor(
+        context: ActivityViewContext<SnowLogTimerAttributes>
+    ) -> Color {
+        context.isStale ? Color.red : Color.white
     }
 
     private func formattedTarget(_ state: SnowLogTimerAttributes.ContentState) -> String {

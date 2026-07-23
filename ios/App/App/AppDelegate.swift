@@ -10,14 +10,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let notificationCenter = UNUserNotificationCenter.current()
         notificationCenter.delegate = self
-        notificationCenter.setNotificationCategories([
-            UNNotificationCategory(
-                identifier: SnowLogTimerNotification.categoryIdentifier,
-                actions: [],
-                intentIdentifiers: [],
-                options: []
-            )
-        ])
         return true
     }
 
@@ -26,27 +18,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        if notification.request.content.categoryIdentifier == SnowLogTimerNotification.categoryIdentifier {
-            // AVAudioPlayer is the preferred foreground route so SnowLog can
-            // duck other audio and deliver exactly one haptic. The notification
-            // sound remains a fallback if native playback cannot start.
-            let handledNatively = SnowLogTimerDeliveryCoordinator.shared
-                .handleForegroundNotification(notification)
-            completionHandler(handledNatively ? [] : [.sound])
+        if notification.request.identifier == SnowLogTimerNotification.identifier {
+            SnowLogTimerDeliveryCoordinator.shared.handleForegroundNotification(notification)
+            center.removeDeliveredNotifications(
+                withIdentifiers: [SnowLogTimerNotification.identifier]
+            )
+            completionHandler([.sound])
         } else {
             completionHandler([.banner, .sound])
         }
-    }
-
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void
-    ) {
-        if response.notification.request.content.userInfo[SnowLogTimerNotification.workoutURLKey] as? String == "snowlog://workout" {
-            openActiveWorkout()
-        }
-        completionHandler()
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
