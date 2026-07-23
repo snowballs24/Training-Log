@@ -39,6 +39,8 @@
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
 	<string>SnowLog reads your latest heart rate so it can appear during an active workout.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>SnowLog does not add, change, or delete Apple Health data. Health access is used only to display your recent heart rate during workouts.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
