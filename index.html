@@ -165,6 +165,8 @@ html,body {
   min-height: 100vh;
   min-height: 100svh; /* mobile dynamic viewport */
   min-height: 100dvh; /* modern */
+  /* Suppress accidental double-tap zoom while retaining pan and pinch zoom. */
+  touch-action: manipulation;
 }
 body {
   /* ✨ update: flex container so content stretches to bottom (no black gap) */
@@ -1628,6 +1630,7 @@ button.cal-cell:focus-visible {
 <!-- (Optional) Firebase scripts only if you already wired cloud backup; safe if missing) -->
 
 <script src="backup.js"></script>
+<script src="workout-utils.js"></script>
 <script>
 /* =========================================================
    App Logic — same structure as before (no orientation changes)
@@ -1722,6 +1725,7 @@ const Sound = (() => {
 // Track the current page and the last non-settings page
 let currentPage = 'dashboardPage';
 let lastNonSettingsPage = 'dashboardPage';
+let saveDayDate = null;
 
 /* ====== Templates & Exercise Library ====== */
 
@@ -2488,15 +2492,14 @@ function draftExercisesForDate(workoutDate){
   for (const choices of candidates.values()) {
     const populated = choices.filter(c => {
       const sets = ensureFourSets(state.log.prepared?.[c.ex.id] || []);
-      return sets.some(s => (+s.reps || 0) > 0)
-        || !!String(state.log.notes?.[c.ex.id] || '').trim();
+      return SnowLogWorkout.completedSets(sets).length > 0;
     });
     if (!populated.length) continue;
 
     const remembered = populated
       .map(c => state.log.exerciseContexts?.[c.ex.id])
       .find(Boolean);
-    const chosen = choices.find(c =>
+    const chosen = populated.find(c =>
       c.routineId === remembered?.routineId && c.dayId === remembered?.dayId
     ) || populated.find(c =>
       c.routineId === state.activeRoutineId && c.dayId === state.log.dayId
@@ -2867,21 +2870,24 @@ function isExerciseCompleted(exId){
 const MMM = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function fmtShortDate(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return `${d.getDate()} ${MMM[d.getMonth()]}`; }
 function todayISO(){
-  // Return YYYY-MM-DD in LOCAL time (not UTC), so Perth gets the correct day
-  const now = new Date();
-  const tzms = now.getTimezoneOffset() * 60000; // minutes -> ms
-  const local = new Date(now - tzms);
-  return local.toISOString().slice(0, 10);
+  return SnowLogWorkout.localDateISO(new Date());
 }
 
 
 // Force the log date to today (state + input)
 function resetLogDateToToday(){
   const t = todayISO();
+  saveDayDate = t;
   state.log = state.log || {};
   state.log.workoutDate = t;
   const inp = $('workoutDate');
   if (inp) inp.value = t;
+}
+
+function currentSaveDayDate(){
+  const visibleValue = $('workoutDate')?.value;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(visibleValue || '')) return visibleValue;
+  return saveDayDate || todayISO();
 }
    
 // Pretty date like "25th October"
@@ -2895,13 +2901,15 @@ function prettyDay(iso){
 
 // --- NEW helper: identify current day/date key for temp exercises ---
 function dayDateKey(){
-  const iso = state.log.workoutDate || $('workoutDate').value || todayISO();
+  const iso = currentSaveDayDate();
   const dId = (state.log && state.log.dayId) ? state.log.dayId : '';
   return `${iso}|${dId}`;
 }
 
 /* ===== Navigation ===== */
 function showPage(which){
+  const enteringLogPage = which === 'logPage' && currentPage !== 'logPage';
+
   // NEW: remember last non-settings page and current page
   if (which !== 'settingsPage') lastNonSettingsPage = which;
   currentPage = which;
@@ -2917,7 +2925,11 @@ function showPage(which){
   $('pageTitle').textContent = pageTitles[which] || 'SnowLog';
   $('dashboardBtn')?.setAttribute('aria-current', which==='dashboardPage'?'page':'false');
   if(which==='dashboardPage'){ renderDashboard(); }
-  if(which==='logPage'){ if(!hasActiveWorkoutDraft()) resetLogDateToToday(); renderSelectors(); buildLog(); }
+  if(which==='logPage'){
+    if (enteringLogPage) resetLogDateToToday();
+    renderSelectors();
+    buildLog();
+  }
   if(which==='historyPage'){ renderSelectors(); rr(); buildTrends(); }
   if(which==='routinesPage'){ renderRoutinesList(); }
   if(which==='settingsPage'){ hydrateSettingsUI(); renderPinnedExerciseSettings(); }
@@ -3323,12 +3335,7 @@ function renderSelectors(){
   else{ state.routines.forEach(r=>{ const o=new Option(r.name,r.id); if(r.id===state.activeRoutineId) o.selected=true; rSel.appendChild(o); }); }
   const a=activeRoutine(), dSel=$('logDaySelect'); dSel.innerHTML='';
   if(a){ a.days.forEach(d=> dSel.appendChild(new Option(d.name,d.id))); if(!state.log.dayId && a.days[0]) state.log.dayId=a.days[0].id; dSel.value=state.log.dayId||''; }
-let cur = state.log.workoutDate || $('workoutDate').value;
-if (!cur) {
-  cur = todayISO();
-  state.log.workoutDate = cur;  // keep state in sync so everyone sees "today"
-  save?.();                     // harmless if save() exists; otherwise ignored
-}
+const cur = currentSaveDayDate();
 $('workoutDate').value = cur;
 
 }
@@ -3647,9 +3654,8 @@ async function saveDay(){
   const r = activeRoutine(), d = dayById(r, state.log.dayId);
   if (!d) return;
 
-  // Use same date handling you already have
   const nowISO = new Date().toISOString();
-  const workoutDate = state.log.workoutDate || $('workoutDate').value || nowISO.slice(0,10);
+  const workoutDate = currentSaveDayDate();
 
   // Include populated draft exercises from every routine/day visited for this date.
   const exList = draftExercisesForDate(workoutDate);
@@ -3662,7 +3668,7 @@ async function saveDay(){
       weight: (s.weight === '' ? '' : +round1Final(s.weight)),
       reps:   (s.reps   === '' ? '' : Math.round(Number(s.reps) || 0)),
     }));
-    const performed = raw.filter(s => typeof s.reps === 'number' && s.reps > 0);
+    const performed = SnowLogWorkout.completedSets(raw);
     const totalVolume = Math.round(performed.reduce((a, s) => a + ((+s.weight || 0) * (+s.reps || 0)), 0));
     const note = (state.log.notes[ex.id] || '').trim();
     const routine = state.routines.find(x => x.id === item.routineId);
@@ -3670,20 +3676,19 @@ async function saveDay(){
     return { ...item, ex, performed, totalVolume, note, routine, day };
   });
 
-  // Only show exercises that have data or a note
-  const previewFiltered = preview.filter(p => p.performed.length || p.note);
+  // A completed workout contains only exercises with at least one performed set.
+  const previewFiltered = SnowLogWorkout.completedExerciseItems(preview);
 
     // ---- Build CALENDAR-STYLE summary (title + stats + compact list) ----
   const unitLabel = (prefs.units || 'kg').toLowerCase();
 
   // Compute totals like the calendar card
-  const totalSets = preview.reduce((a,p)=> a + p.performed.length, 0);
-  const totalReps = Math.round(preview.reduce((a,p)=> a + p.performed.reduce((x,s)=>x + (+s.reps||0), 0), 0));
-  const totalVol  = Math.round(preview.reduce((a,p)=> a + p.totalVolume, 0));
+  const totalSets = previewFiltered.reduce((a,p)=> a + p.performed.length, 0);
+  const totalReps = Math.round(previewFiltered.reduce((a,p)=> a + p.performed.reduce((x,s)=>x + (+s.reps||0), 0), 0));
+  const totalVol  = Math.round(previewFiltered.reduce((a,p)=> a + p.totalVolume, 0));
 
   // Build the list (exercise name on left, "n sets" on right), only if it has data/note
-  const items = preview
-    .filter(p => p.performed.length || p.note)
+  const items = previewFiltered
     .map(p => `
       <div class="sum-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);">
         <div class="sum-name" style="font-weight:600;line-height:1.2">${p.ex.name}</div>
@@ -3727,7 +3732,10 @@ const statsLine = `
     okText: 'Save Day',
     cancelText: 'Go Back'
   });
-  if (!ok) return; // user cancelled
+  if (!ok) {
+    resetLogDateToToday();
+    return;
+  }
 
   // ---- Persist sessions (same schema you already use) ----
   const dateISO = nowISO; // keep your source timestamp
@@ -3777,12 +3785,10 @@ const statsLine = `
   // ✅ keep notes as-is (do NOT wipe state.log.notes)
 
   // Advance the log date to today (your existing behavior)
-  state.log.workoutDate = todayISO();
+  resetLogDateToToday();
   state.log.isActive = false;
   nativeRestTimerStop();
   syncNativeHeartRateMonitoring();
-  $('workoutDate').value = state.log.workoutDate;
-
   modal.alert('Day saved for ' + workoutDate + '.');
   buildLog();
   buildTrends();
@@ -4382,6 +4388,13 @@ $('routinesListBody')?.addEventListener('keydown', (e) => {
 
 document.addEventListener('change',(e)=>{
 const id = (e.target && e.target.id) || '';
+  if (id === 'workoutDate') {
+    saveDayDate = /^\d{4}-\d{2}-\d{2}$/.test(e.target.value)
+      ? e.target.value
+      : todayISO();
+    e.target.value = saveDayDate;
+    return;
+  }
   const pin=e.target.closest('input[data-pin-exercise]');
   if(pin){
     const ids=new Set(prefs.pinnedExerciseIds||[]);
@@ -4444,6 +4457,12 @@ if(id==='activeRoutine'){
 });
 
 document.addEventListener('input',(e)=>{
+  if (e.target?.id === 'workoutDate') {
+    saveDayDate = /^\d{4}-\d{2}-\d{2}$/.test(e.target.value)
+      ? e.target.value
+      : todayISO();
+    return;
+  }
   const note=e.target.closest('textarea[data-action="noteInput"]');
   if(note){
     state.log.notes[note.dataset.exid]=note.value;
@@ -4794,7 +4813,7 @@ const seh = $('shareExerciseHistory'); if (seh) seh.checked = !!prefs.shareExerc
 
 // --- one clean init pass ---
 ensureActiveSelection();     // ⬅️ ensure routine/day/date exist first
-if(!hasActiveWorkoutDraft()) resetLogDateToToday();
+resetLogDateToToday();
 renderSelectors();
 renderTrendsDaySelector();
 
