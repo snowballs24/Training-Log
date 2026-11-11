@@ -1,0 +1,6 @@
+// Overrides for the isolated "claude dashboard redesign" experimental build.
+// Used only via:  xcodebuild -xcconfig ios/experiment.xcconfig ...
+// Without this file the project builds the original SnowLog identity unchanged.
+SNOWLOG_BUNDLE_ID = com.bensnow.snowlog.claude
+SNOWLOG_DISPLAY_NAME = SnowLog Lab
+SNOWLOG_URL_SCHEME = snowlog-claude

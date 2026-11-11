@@ -600,7 +600,8 @@ final class SnowLogTimerPlugin: CAPInstancePlugin, CAPBridgedPlugin {
             return
         }
 
-        let attributes = SnowLogTimerAttributes(workoutURL: "snowlog://workout")
+        let workoutScheme = Bundle.main.object(forInfoDictionaryKey: "SnowLogURLScheme") as? String ?? "snowlog"
+        let attributes = SnowLogTimerAttributes(workoutURL: "\(workoutScheme)://workout")
         do {
             let newActivity = try Activity.request(
                 attributes: attributes,

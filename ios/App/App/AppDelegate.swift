@@ -54,7 +54,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        if url.scheme == "snowlog", url.host == "workout" {
+        let workoutScheme = Bundle.main.object(forInfoDictionaryKey: "SnowLogURLScheme") as? String ?? "snowlog"
+        if url.scheme == workoutScheme, url.host == "workout" {
             openActiveWorkout()
             return true
         }

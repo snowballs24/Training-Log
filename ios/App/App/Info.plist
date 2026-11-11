@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>SnowLog</string>
+        <string>$(SNOWLOG_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -21,10 +21,12 @@
 			<string>com.bensnow.snowlog.workout</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>snowlog</string>
+				<string>$(SNOWLOG_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
+	<key>SnowLogURLScheme</key>
+	<string>$(SNOWLOG_URL_SCHEME)</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
