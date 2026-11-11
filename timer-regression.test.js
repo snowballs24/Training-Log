@@ -123,8 +123,8 @@ for (const sound of sounds) {
   const denied = canonical({ startDate: 100, targetDuration: 30, alarm: true, permission: false });
   assert.deepEqual(disabled, enabled);
   assert.deepEqual(enabled, denied);
-  assert.match(plugin, /await reconcileLiveActivity\([\s\S]*?await SnowLogTimerDeliveryCoordinator\.shared\.start/);
-  assert.match(plugin, /await reconcileLiveActivity\([\s\S]*?await SnowLogTimerDeliveryCoordinator\.shared\.update/);
+  assert.match(plugin, /await SnowLogTimerDeliveryCoordinator\.shared\.start\([\s\S]*?await reconcileLiveActivity/);
+  assert.match(plugin, /await SnowLogTimerDeliveryCoordinator\.shared\.update\([\s\S]*?await reconcileLiveActivity/);
 }
 
 // 6. Foreground threshold is one sound and one warning haptic only.
@@ -229,3 +229,19 @@ assert.match(plugin, /removeDeliveredNotifications/);
 assert.match(appInfo, /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/);
 
 console.log('SnowLog native timer regression tests passed.');
+// Execute the production auto-start block with each set position and transition.
+const autoStart = web.slice(web.indexOf("  // Start rest on the transition"), web.indexOf("// Finalize formatting on blur"));
+const body = autoStart.slice(0, autoStart.indexOf('\n});'));
+for (const idx of [0, 1, 2, 3, 4, 9]) {
+  for (const [wasCompleted, val, expected] of [[false, '5', 1], [true, '6', 0], [false, '', 0], [false, '0', 0]]) {
+    let starts = 0;
+    require('node:vm').runInNewContext(body, {
+      key: 'reps', idx, wasCompleted, val, exId: 'test',
+      getRestPrefs: () => ({ auto: true }), ensureTimer() {}, timerReset() {},
+      timerToggle() { starts++; }, qs: () => null
+    });
+    assert.equal(starts, expected);
+  }
+}
+assert.doesNotMatch(plugin, /guard deliveryLateness < 2/);
+assert.match(plugin, /scheduleForegroundThreshold\(\)[\s\S]*await replaceNotification/);

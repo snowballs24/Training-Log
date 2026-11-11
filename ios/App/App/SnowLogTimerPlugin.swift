@@ -32,6 +32,17 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
     private var thresholdDidFire = false
     private var foregroundSoundHandledRunIdentifier: String?
     private var audioPlayer: AVAudioPlayer?
+    private var backgroundEnteredAt: Date?
+
+    func becameActive() {
+        if let run, let backgroundEnteredAt,
+           backgroundEnteredAt <= run.targetDate, run.targetDate <= Date() {
+            thresholdDidFire = true // The system notification owns this crossing.
+        }
+        backgroundEnteredAt = nil
+        logger.info("App active; reconciling native threshold")
+        scheduleForegroundThreshold()
+    }
 
     func start(
         targetDate: Date,
@@ -74,7 +85,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
         let targetChanged = abs(existingRun.targetDate.timeIntervalSince(targetDate)) > 0.001
         let selectedSound = Self.notificationSoundFile(for: webSoundFile)
         run = Run(
-            identifier: existingRun.identifier,
+            identifier: targetChanged ? UUID().uuidString : existingRun.identifier,
             targetDate: targetDate,
             alarmEnabled: alarmEnabled,
             soundFile: selectedSound
@@ -105,6 +116,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
     }
 
     func ensureBackgroundNotification() async {
+        backgroundEnteredAt = Date()
         guard let run, run.targetDate > Date(), run.alarmEnabled else { return }
         logger.info("App entered background; ensuring one timer notification remains scheduled")
         await replaceNotification(requestPermission: false)
@@ -157,9 +169,17 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
     private func fireForegroundThreshold(runIdentifier: String, source: String) -> Bool {
         guard let run, run.identifier == runIdentifier else { return false }
         if thresholdDidFire {
+            logger.debug("Duplicate threshold suppressed")
             return foregroundSoundHandledRunIdentifier == runIdentifier
         }
-        guard Date() >= run.targetDate else { return false }
+        guard Date() >= run.targetDate else {
+            scheduleForegroundThreshold()
+            return false
+        }
+        guard UIApplication.shared.applicationState != .inactive else {
+            // Temporary interruptions are reconciled by didBecomeActive.
+            return false
+        }
 
         thresholdDidFire = true
         thresholdWorkItem?.cancel()
@@ -168,13 +188,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
         hapticPrepareWorkItem = nil
 
         let deliveryLateness = Date().timeIntervalSince(run.targetDate)
-        guard deliveryLateness < 2 else {
-            preparedHaptic = nil
-            logger.info(
-                "Skipped delayed foreground delivery \(deliveryLateness, privacy: .public) seconds after target; background notification owns that crossing"
-            )
-            return false
-        }
+        logger.info("Native threshold fired; run=\(runIdentifier, privacy: .public), source=\(source, privacy: .public), lateness=\(deliveryLateness, privacy: .public)")
 
         guard UIApplication.shared.applicationState == .active else {
             preparedHaptic = nil
@@ -204,6 +218,7 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
     }
 
     private func playForegroundSound(named soundFile: String) -> Bool {
+        logger.info("Foreground audio requested: \(soundFile, privacy: .public)")
         let fileURL = URL(fileURLWithPath: soundFile)
         let resourceName = fileURL.deletingPathExtension().lastPathComponent
         let fileExtension = fileURL.pathExtension
@@ -321,6 +336,10 @@ final class SnowLogTimerDeliveryCoordinator: NSObject, AVAudioPlayerDelegate {
         }
 
         let content = UNMutableNotificationContent()
+        guard self.run?.identifier == run.identifier,
+              self.run?.soundFile == run.soundFile,
+              self.run?.alarmEnabled == run.alarmEnabled,
+              !thresholdDidFire else { return }
         content.title = "Rest timer"
         content.body = "Setpoint reached"
         content.userInfo = [
@@ -470,17 +489,13 @@ final class SnowLogTimerPlugin: CAPInstancePlugin, CAPBridgedPlugin {
         }
 
         Task { @MainActor in
-            await reconcileLiveActivity(
-                canonical: canonical,
-                initiator: initiator,
-                chimeEnabled: alarmEnabled
-            )
             await SnowLogTimerDeliveryCoordinator.shared.start(
                 targetDate: canonical.targetDate,
                 alarmEnabled: alarmEnabled,
                 webSoundFile: soundFile,
                 requestPermission: alarmEnabled
             )
+            await reconcileLiveActivity(canonical: canonical, initiator: initiator, chimeEnabled: alarmEnabled)
             call.resolve()
         }
     }
@@ -509,16 +524,12 @@ final class SnowLogTimerPlugin: CAPInstancePlugin, CAPBridgedPlugin {
         }
 
         Task { @MainActor in
-            await reconcileLiveActivity(
-                canonical: canonical,
-                initiator: initiator,
-                chimeEnabled: alarmEnabled
-            )
             await SnowLogTimerDeliveryCoordinator.shared.update(
                 targetDate: canonical.targetDate,
                 alarmEnabled: alarmEnabled,
                 webSoundFile: soundFile
             )
+            await reconcileLiveActivity(canonical: canonical, initiator: initiator, chimeEnabled: alarmEnabled)
             call.resolve()
         }
     }
