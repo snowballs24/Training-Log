@@ -110,4 +110,67 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   assert(data.streak.longest === 2, 'Longest recorded streak failed');
 }
 
+// ---- Redesigned dashboard: next session, load, heatmap, records, balance ----
+{
+  const c = makeContext();
+  c.state.routines = [{ id: 'r', name: 'PPL', days: [
+    { id: 'push', name: 'Push', exercises: [{ id: 'bench', name: 'Bench Press', category: 'Chest' }] },
+    { id: 'pull', name: 'Pull', exercises: [{ id: 'row', name: 'Barbell Row', category: 'Back' }] },
+    { id: 'legs', name: 'Legs', exercises: [{ id: 'squat', name: 'Back Squat', category: 'Legs – Squat' }, { id: 'calf', name: 'Calf Raise', category: 'Calves' }] }
+  ] }];
+  c.state.activeRoutineId = 'r';
+  let data = c.calculateDashboardData(now);
+  assert(data.next.suggestedDayId === 'push' && !data.next.resume, 'First session should be the first routine day');
+  assert(data.strength.length === 0 && data.strengthAuto, 'Empty strength state failed');
+  assert(data.heat.weeks.length === 17 && data.heat.weeks.every(w => w.days.length === 7), 'Heatmap shape failed');
+  assert(data.load.length === 8 && data.load[7].current, 'Training-load window failed');
+
+  c.state.sessions = [
+    session('2026-07-06', 'push', 'r', 'bench', 90, 5),
+    session('2026-07-08', 'pull', 'r', 'row', 70, 8),
+    session('2026-07-13', 'push', 'r', 'bench', 95, 5),
+    session('2026-07-15', 'pull', 'r', 'row', 70, 8),
+    session('2026-07-17', 'legs', 'r', 'squat', 120, 5),
+    session('2026-07-17', 'legs', 'r', 'calf', 60, 12),
+    session('2026-07-20', 'push', 'r', 'bench', 100, 5)
+  ];
+  data = c.calculateDashboardData(now);
+  assert(data.next.suggestedDayId === 'pull', 'Rotation should continue after the last completed day');
+  assert(data.next.trainedToday && data.weekly.trainedToday, 'Trained-today flag failed');
+  assert(data.next.days[2].daysSince === 3 && data.next.days[2].exerciseCount === 2, 'Per-day recency failed');
+  assert(data.weekly.days.length === 7 && data.weekly.days[0].trained && data.weekly.days[0].isToday && data.weekly.days[1].isFuture, 'Week strip failed');
+  assert(data.weekly.daysLeft === 6, 'Days-left calculation failed');
+  assert(data.weekly.prevWorkouts === 1 && data.weekly.prevVolume === 475, 'Same-point-last-week comparison failed');
+  assert(data.load[7].volume === 500 && data.load[6].workouts === 3 && data.load[6].sets === 4, 'Weekly load totals failed');
+  assert(data.heat.workouts === 6 && data.heat.weeks[16].days[0].level === 2 && data.heat.weeks[15].days[4].level === 4, 'Heatmap intensity failed');
+  assert(data.prs.length === 1 && data.prs[0].exerciseId === 'bench' && data.prs[0].iso === '2026-07-20' && data.prs[0].gain === 6, 'Latest record per exercise failed');
+  assert(data.recent[0].hasPR && data.recent[0].prCount === 1, 'Session record badge failed');
+  assert(data.strengthAuto && data.strength[0].id === 'bench' && data.strength[0].series.join() === '105,111,117', 'Automatic key-lift selection failed');
+  assert(data.strength[0].lastSet.weight === 100 && data.strength[0].recentPB, 'Key-lift detail failed');
+  const legs = data.muscle.find(m => m.name === 'Legs'), chest = data.muscle.find(m => m.name === 'Chest');
+  assert(legs.sets === 2 && legs.daysSince === 3, 'Calves and squats should both count towards legs');
+  assert(chest.sets === 1 && chest.average === 0.5 && chest.daysSince === 0, 'Muscle balance baseline failed');
+  assert(data.totals.workouts === 6 && data.totals.sets === 7 && data.totals.firstIso === '2026-07-06', 'Lifetime totals failed');
+
+  c.prefs.pinnedExerciseIds = ['row'];
+  data = c.calculateDashboardData(now);
+  assert(!data.strengthAuto && data.strength.length === 1 && data.strength[0].id === 'row', 'Pinned lifts should override automatic selection');
+
+  // An unsaved draft is surfaced for resuming on its own day and is never altered.
+  c.state.log.dayId = 'legs';
+  c.state.log.prepared = { squat: [{ set: 1, weight: 120, reps: '5' }] };
+  const before = JSON.stringify(c.state);
+  data = c.calculateDashboardData(now);
+  assert(data.next.resume && data.next.suggestedDayId === 'legs' && data.next.days[2].drafted === 1, 'Draft resume state failed');
+  assert(JSON.stringify(c.state) === before, 'Dashboard calculations must not mutate stored data');
+}
+
+{
+  // Malformed history must never break the dashboard.
+  const c = makeContext();
+  c.state.sessions = [null, 'x', { workoutDate: 'not-a-date' }, { workoutDate: '2026-07-19', exerciseId: 'gone', sets: null }, { dateISO: '2026-07-18T09:00:00.000Z', exerciseId: 'gone', sets: [{ weight: 'abc', reps: -3 }] }];
+  const data = c.calculateDashboardData(now);
+  assert(data.totals.workouts === 2 && data.totals.sets === 0 && data.strength.length === 0 && data.next === null, 'Malformed history handling failed');
+}
+
 console.log('Dashboard calculation tests passed.');
