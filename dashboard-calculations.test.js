@@ -147,9 +147,13 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   assert(data.recent[0].hasPR && data.recent[0].prCount === 1, 'Session record badge failed');
   assert(data.strengthAuto && data.strength[0].id === 'bench' && data.strength[0].series.join() === '105,111,117', 'Automatic key-lift selection failed');
   assert(data.strength[0].lastSet.weight === 100 && data.strength[0].recentPB, 'Key-lift detail failed');
-  const legs = data.muscle.find(m => m.name === 'Legs'), chest = data.muscle.find(m => m.name === 'Chest');
-  assert(legs.sets === 2 && legs.daysSince === 3, 'Calves and squats should both count towards legs');
-  assert(chest.sets === 1 && chest.average === 0.5 && chest.daysSince === 0, 'Muscle balance baseline failed');
+  const group = name => data.muscle.find(m => m.name === name);
+  assert(data.muscle.map(m => m.name).join() === 'Chest,Back,Shoulders,Biceps,Triceps,Quads,Hamstrings,Glutes,Calves,Core', 'Muscle group list failed');
+  assert(group('Quads').direct === 1 && group('Calves').direct === 1 && group('Glutes').assist === 0.5 && group('Quads').daysSince === 3, 'Squat and calf credit failed');
+  assert(group('Chest').direct === 1 && group('Chest').average === 0.5 && group('Chest').daysSince === 0, 'Muscle balance baseline failed');
+  assert(group('Triceps').direct === 0 && group('Triceps').assist === 0.5 && group('Shoulders').assist === 0.5 && group('Triceps').daysSince === 0, 'Bench press should give half credit to triceps and shoulders');
+  assert(group('Back').direct === 1 && group('Back').average === 0.3 && group('Biceps').assist === 0.5 && group('Biceps').average === 0.1 && group('Back').daysSince === 5, 'Row baseline and biceps assistance failed');
+  assert(data.unmappedSets === 0, 'Every exercise in this history should be mapped');
   assert(data.totals.workouts === 6 && data.totals.sets === 7 && data.totals.firstIso === '2026-07-06', 'Lifetime totals failed');
 
   c.prefs.pinnedExerciseIds = ['row'];
@@ -171,6 +175,76 @@ const now = new Date(2026, 6, 20, 12); // Monday, local time.
   c.state.sessions = [null, 'x', { workoutDate: 'not-a-date' }, { workoutDate: '2026-07-19', exerciseId: 'gone', sets: null }, { dateISO: '2026-07-18T09:00:00.000Z', exerciseId: 'gone', sets: [{ weight: 'abc', reps: -3 }] }];
   const data = c.calculateDashboardData(now);
   assert(data.totals.workouts === 2 && data.totals.sets === 0 && data.strength.length === 0 && data.next === null, 'Malformed history handling failed');
+}
+
+// ---- Exercise → muscle mapping: every built-in exercise must be recognised ----
+{
+  const c = makeContext();
+  const libStart = html.indexOf('const EX_LIB = {'), libEnd = html.indexOf('};', libStart);
+  const EX_LIB = vm.runInNewContext('(' + html.slice(libStart + 'const EX_LIB = '.length, libEnd + 1) + ')');
+  const validMuscles = vm.runInContext('DASHBOARD_MUSCLES', c);
+  assert(validMuscles.length === 11, 'Muscle list was not read');
+  const primary = (name, category) => {
+    const muscles = c.dashboardExerciseMuscles({ name, category });
+    assert(muscles, `No muscle mapping for "${name}"`);
+    for (const [muscle, weight] of Object.entries(muscles)) {
+      assert(validMuscles.includes(muscle) && (weight === 1 || weight === 0.5), `Invalid mapping for "${name}"`);
+    }
+    const main = Object.keys(muscles).filter(m => muscles[m] === 1);
+    assert(main.length >= 1, `"${name}" has no primary muscle`);
+    return main;
+  };
+  const allowed = {
+    'Chest': ['Chest'], 'Back': ['Back', 'Glutes'], 'Shoulders': ['Shoulders'], 'Legs – Squat': ['Quads'],
+    'Legs – Hinge': ['Hamstrings', 'Glutes', 'Back'], 'Quads/Hams': ['Quads', 'Hamstrings'], 'Glutes': ['Glutes'],
+    'Biceps': ['Biceps'], 'Triceps': ['Triceps'], 'Calves': ['Calves'], 'Core': ['Core'], 'Other/Machine': ['Back', 'Shoulders']
+  };
+  let checked = 0;
+  for (const [category, names] of Object.entries(EX_LIB)) for (const name of names) {
+    const main = primary(name, category);
+    assert(main.every(m => allowed[category].includes(m)), `"${name}" (${category}) mapped to ${main.join('/')}`);
+    checked++;
+  }
+  assert(checked > 90, 'Exercise library was not read');
+  // Every exercise named in a routine template must be recognised from its name alone.
+  const templateNames = new Set();
+  for (const block of html.slice(0, libStart).matchAll(/ex:\s*\[([\s\S]*?)\]/g)) for (const s of block[1].matchAll(/['"]([^'"\n]+)['"]/g)) templateNames.add(s[1]);
+  assert(templateNames.size > 30, 'Routine templates were not read');
+  for (const name of templateNames) primary(name, '');
+
+  const muscles = (name, category = '') => JSON.stringify(c.dashboardExerciseMuscles({ name, category }));
+  const expectMuscles = (name, expected, category) => assert(muscles(name, category) === JSON.stringify(expected), `"${name}" mapped to ${muscles(name, category)}`);
+  expectMuscles('Barbell Bench Press', { Chest: 1, Triceps: 0.5, Shoulders: 0.5 });
+  expectMuscles('Chest-Supported Row', { Back: 1, Biceps: 0.5 });
+  expectMuscles('Wide-Grip Pulldown', { Back: 1, Biceps: 0.5 });
+  expectMuscles('Straight-Arm Pulldown', { Back: 1 });
+  expectMuscles('Overhead Triceps Extension', { Triceps: 1 });
+  expectMuscles('Overhead Press', { Shoulders: 1, Triceps: 0.5 });
+  expectMuscles('Seated Leg Curl', { Hamstrings: 1 });
+  expectMuscles('Incline DB Curl', { Biceps: 1 });
+  expectMuscles('Leg Press Calf Raise', { Calves: 1 });
+  expectMuscles('Hanging Leg Raise', { Core: 1 });
+  expectMuscles('Cable Lateral Raise', { Shoulders: 1 });
+  expectMuscles('Back Squat', { Quads: 1, Glutes: 0.5 });
+  expectMuscles('Back Extension', { Back: 1, Glutes: 0.5, Hamstrings: 0.5 });
+  expectMuscles('Romanian Deadlift', { Hamstrings: 1, Glutes: 0.5, Back: 0.5 });
+  expectMuscles('Hip Thrust', { Glutes: 1, Hamstrings: 0.5 });
+  expectMuscles('Cable Kickback', { Glutes: 1, Hamstrings: 0.5 }, 'Glutes');
+  expectMuscles('Triceps Kickback', { Triceps: 1 });
+  expectMuscles('Dip', { Triceps: 1, Chest: 0.5, Shoulders: 0.5 }, 'Triceps');
+  expectMuscles('Dips (Chest)', { Chest: 1, Triceps: 0.5, Shoulders: 0.5 }, 'Chest');
+  expectMuscles('Rear Delt Flye', { Shoulders: 1, Back: 0.5 });
+  expectMuscles('Hammer Curl', { Biceps: 1, Forearms: 0.5 });
+  // Custom exercises: an unrecognised name uses its chosen category; a true unknown is left out.
+  expectMuscles('Ben Special', { Triceps: 1 }, 'Triceps');
+  expectMuscles('Mystery Machine', { Quads: 1, Glutes: 0.5 }, 'Legs – Squat');
+  assert(c.dashboardExerciseMuscles({ name: 'Treadmill Walk', category: 'Other/Machine' }) === null, 'Unknown exercises must not be guessed');
+  assert(c.dashboardExerciseMuscles(undefined) === null && c.dashboardExerciseMuscles({}) === null, 'Missing exercise handling failed');
+
+  // Unmatched sets are reported rather than silently dropped.
+  c.state.exerciseNames = { walk: 'Treadmill Walk' };
+  c.state.sessions = [session('2026-07-20', 'd', 'r', 'walk', 0, 10)];
+  assert(c.calculateDashboardData(now).unmappedSets === 1, 'Unmatched set count failed');
 }
 
 console.log('Dashboard calculation tests passed.');

@@ -1714,15 +1714,21 @@ button.cal-cell:focus-visible {
 #dz .dz-avg span{ position:absolute; right:0; bottom:3px; padding:1px 5px; border-radius:6px; background:var(--dz-card); color:var(--muted); font-size:.6rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
 
 /* Muscle balance */
-#dz .dz-key{ display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:.72rem; font-weight:600; white-space:nowrap; padding-top:4px; }
-#dz .dz-key i{ width:2px; height:12px; border-radius:2px; background:var(--text); }
 #dz .dz-mrows{ display:grid; gap:11px; }
-#dz .dz-mrow{ display:grid; grid-template-columns:74px minmax(0,1fr) 26px 52px; align-items:center; gap:10px; font-size:.88rem; }
+#dz .dz-mrow{ display:grid; grid-template-columns:84px minmax(0,1fr) 52px; align-items:center; gap:10px; font-size:.88rem; }
+#dz .dz-mrow.dz-mgap{ margin-top:8px; padding-top:13px; border-top:1px solid var(--dz-line); }
 #dz .dz-mname{ font-weight:600; }
 #dz .dz-mtrack{ position:relative; height:10px; border-radius:999px; background:var(--dz-track); }
-#dz .dz-mtrack i{ display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--primary),var(--primary-2)); transform-origin:left; }
+#dz .dz-mfill{ display:flex; height:100%; border-radius:inherit; overflow:hidden; transform-origin:left; }
+#dz .dz-mfill i{ display:block; height:100%; background:var(--primary); }
+#dz .dz-mfill u{ display:block; height:100%; background:color-mix(in oklab,var(--primary) 50%,var(--dz-card)); }
+#dz .dz-mkey{ display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:14px; color:var(--muted); font-size:.72rem; font-weight:600; }
+#dz .dz-mkey span{ display:inline-flex; align-items:center; gap:6px; }
+#dz .dz-mkey i{ display:block; width:12px; height:8px; border-radius:3px; }
+#dz .dz-mkey .k-direct{ background:var(--primary); }
+#dz .dz-mkey .k-assist{ background:color-mix(in oklab,var(--primary) 50%,var(--dz-card)); }
+#dz .dz-mkey .k-avg{ width:2px; height:12px; border-radius:2px; background:var(--text); }
 #dz .dz-mtrack b{ position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; border-radius:2px; background:var(--text); box-shadow:0 0 0 1.5px var(--dz-card); }
-#dz .dz-mrow strong{ font-family:var(--dz-num); font-weight:800; font-variant-numeric:tabular-nums; text-align:right; }
 #dz .dz-mago{ color:var(--muted); font-size:.74rem; text-align:right; white-space:nowrap; }
 #dz .dz-mago.is-stale{ color:var(--dz-warn); font-weight:700; }
 
@@ -1776,7 +1782,7 @@ button.cal-cell:focus-visible {
 #dz.dz-anim .dz-ring-fill{ animation:dz-ring 1.1s cubic-bezier(.3,.8,.2,1) .2s both; }
 #dz.dz-anim .dz-day.is-done i{ animation:dz-pop .4s cubic-bezier(.3,1.5,.5,1) .35s both; }
 #dz.dz-anim .dz-bar-col i{ animation:dz-grow-y .6s cubic-bezier(.2,.8,.2,1) calc(.3s + var(--i) * .04s) both; }
-#dz.dz-anim .dz-mtrack i{ animation:dz-grow-x .6s cubic-bezier(.2,.8,.2,1) calc(.3s + var(--i) * .05s) both; }
+#dz.dz-anim .dz-mfill{ animation:dz-grow-x .6s cubic-bezier(.2,.8,.2,1) calc(.3s + var(--i) * .05s) both; }
 #dz.dz-anim .dz-spark svg{ animation:dz-wipe .8s ease-out .35s both; }
 #dz.dz-anim .dz-spark i{ animation:dz-pop .3s ease-out 1.05s both; }
 @media (prefers-reduced-motion: reduce){ #dz.dz-anim *, #dz.dz-anim > *{ animation:none !important; } #dz button{ transition:none; } }
@@ -1788,7 +1794,7 @@ button.cal-cell:focus-visible {
 }
 @media (max-width:350px){
   #dz .dz-lift{ grid-template-columns:minmax(0,1fr) 56px 54px; gap:8px; }
-  #dz .dz-mrow{ grid-template-columns:66px minmax(0,1fr) 24px 46px; gap:8px; }
+  #dz .dz-mrow{ grid-template-columns:78px minmax(0,1fr) 46px; gap:8px; }
   #dz .dz-ring{ flex-basis:76px; width:76px; height:76px; }
 }
 .pin-settings-list{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 10px; max-height:220px; overflow:auto; }
@@ -2933,6 +2939,80 @@ function dashboardMuscleGroup(ex){
   };
   return fromCategory(ex?.category) || fromCategory(guessCategory(ex?.name || ''));
 }
+/* ===== Exercise → muscle mapping (dashboard only) =====
+   Each exercise credits its primary muscles with a full set (1) and the muscles that
+   assist with half a set (0.5). Rules are checked in order and the first match wins,
+   so specific movements must stay above the general ones. Nothing here is stored:
+   history is re-read through this table every time the dashboard is drawn. */
+const DASHBOARD_MUSCLES=['Chest','Back','Shoulders','Biceps','Triceps','Forearms','Quads','Hamstrings','Glutes','Calves','Core'];
+const DASHBOARD_MUSCLE_RULES=[
+  // Core (before the generic "raise" and "press" rules)
+  [/plank|pallof|wood ?chop|crunch|sit ?up|ab wheel|rollout|roll out|leg raise|knee raise|toes to bar|russian twist|dead bug|hollow|v up|mountain climber|dragon flag|bicycle|flutter|cable twist|oblique|\babs?\b|\bcore\b/, {Core:1}],
+  [/calf|calves|tibialis/, {Calves:1}],
+  [/wrist|forearm|gripper|farmer|reverse curl|dead hang/, n=>/reverse curl/.test(n)?{Forearms:1,Biceps:0.5}:{Forearms:1}],
+  [/\bneck\b/, {Back:1}],
+  // Hamstring curls must be caught before arm curls
+  [/leg curl|ham curl|hamstring curl|nordic|glute ham|\bghr\b/, {Hamstrings:1}],
+  [/leg extension|sissy/, {Quads:1}],
+  // Triceps
+  [/close grip (bench|press)|jm press/, {Triceps:1,Chest:0.5,Shoulders:0.5}],
+  [/kick ?back/, (n,c)=>/tricep|dumbbell|\bdb\b/.test(n)||c.startsWith('tricep')?{Triceps:1}:{Glutes:1,Hamstrings:0.5}],
+  [/skull|tricep|press ?down|push ?down|french press/, {Triceps:1}],
+  [/\bdips?\b/, (n,c)=>/chest/.test(n)||c.startsWith('chest')?{Chest:1,Triceps:0.5,Shoulders:0.5}:{Triceps:1,Chest:0.5,Shoulders:0.5}],
+  // Biceps
+  [/hammer curl/, {Biceps:1,Forearms:0.5}],
+  [/curl|bicep/, {Biceps:1}],
+  // Rear delts and upper back (before the chest fly rules)
+  [/face pull|rear delt|reverse (fly|flye|pec)|pull apart/, {Shoulders:1,Back:0.5}],
+  [/upright row/, {Shoulders:1,Back:0.5}],
+  [/shrug/, {Back:1}],
+  // Hip hinges and deadlifts (before squats, rows and the generic "back" rule)
+  [/romanian|\brdl\b|stiff leg|straight leg deadlift|good morning/, {Hamstrings:1,Glutes:0.5,Back:0.5}],
+  [/sumo deadlift/, {Glutes:1,Quads:0.5,Hamstrings:0.5,Back:0.5}],
+  [/(trap|hex) bar/, {Quads:1,Glutes:0.5,Hamstrings:0.5,Back:0.5}],
+  [/rack pull/, {Back:1,Glutes:0.5,Hamstrings:0.5}],
+  [/deadlift/, {Back:1,Glutes:0.5,Hamstrings:0.5}],
+  [/clean|snatch/, {Back:1,Glutes:0.5,Hamstrings:0.5,Shoulders:0.5}],
+  [/back extension|hyperextension|reverse hyper/, {Back:1,Glutes:0.5,Hamstrings:0.5}],
+  [/swing/, {Glutes:1,Hamstrings:0.5,Back:0.5}],
+  [/hip thrust|glute bridge|frog pump/, {Glutes:1,Hamstrings:0.5}],
+  [/abduct|adduct|clamshell|donkey kick|glute/, {Glutes:1}],
+  // Quad-dominant leg work ("leg press" must be caught before the pressing rules)
+  [/leg press|squat|lunge|step up|pistol|wall sit/, {Quads:1,Glutes:0.5}],
+  [/sled|prowler/, {Quads:1,Glutes:0.5,Calves:0.5}],
+  [/hamstring/, {Hamstrings:1}],
+  [/quad/, {Quads:1}],
+  // Back
+  [/straight arm|lat prayer|pull ?over/, {Back:1}],
+  [/pull ?up|chin ?up|pull ?down|\brows?\b/, {Back:1,Biceps:0.5}],
+  // Shoulders
+  [/overhead press|\bohp\b|shoulder press|military|arnold|push press|z press|landmine press|viking/, {Shoulders:1,Triceps:0.5}],
+  [/lateral raise|side raise|lat raise|front raise|y raise|\bdelt|shoulder/, {Shoulders:1}],
+  // Chest
+  [/fly|pec deck|cross ?over/, {Chest:1}],
+  [/bench|chest press|push ?up|press up|floor press|incline|decline/, {Chest:1,Triceps:0.5,Shoulders:0.5}],
+  [/chest|\bpecs?\b/, {Chest:1}],
+  [/\blats?\b|\bback\b/, {Back:1}]
+];
+const DASHBOARD_CATEGORY_MUSCLES=[
+  ['chest',{Chest:1}],['back',{Back:1}],['shoulder',{Shoulders:1}],['biceps',{Biceps:1}],['triceps',{Triceps:1}],['forearm',{Forearms:1}],
+  ['legs – squat',{Quads:1,Glutes:0.5}],['legs - squat',{Quads:1,Glutes:0.5}],['legs – hinge',{Hamstrings:1,Glutes:0.5}],['legs - hinge',{Hamstrings:1,Glutes:0.5}],
+  ['quads/hams',{Quads:0.5,Hamstrings:0.5}],['quad',{Quads:1}],['hamstring',{Hamstrings:1}],['glute',{Glutes:1}],['calves',{Calves:1}],['core',{Core:1}],
+  ['legs',{Quads:1,Glutes:0.5,Hamstrings:0.5}]
+];
+function dashboardExerciseMuscles(ex){
+  const name=String(ex?.name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const category=String(ex?.category||'').toLowerCase().trim();
+  if(name) for(const [pattern,muscles] of DASHBOARD_MUSCLE_RULES){
+    if(pattern.test(name)) return typeof muscles==='function'?muscles(name,category):muscles;
+  }
+  // Unrecognised name: fall back to the category chosen for the exercise, then to a guess.
+  for(const value of [category,String(guessCategory(ex?.name||'')||'').toLowerCase()]){
+    if(!value) continue;
+    for(const [prefix,muscles] of DASHBOARD_CATEGORY_MUSCLES) if(value.startsWith(prefix)) return muscles;
+  }
+  return null;
+}
 function dashboardExerciseIndex(){
   const byId=new Map(), all=[];
   for(const r of (state.routines||[])) for(const d of (r.days||[])) for(const ex of (d.exercises||[])){
@@ -3063,18 +3143,26 @@ function calculateDashboardData(now=new Date()){
   const muscleGroups={Chest:0,Back:0,Shoulders:0,Arms:0,Legs:0,Core:0};
   const fourWeekStart=dashboardAddDays(weekStart,-28);
   const last7Start=dashboardAddDays(today,-6), baseStart=dashboardAddDays(last7Start,-28);
+  // Finer groups, weighted: a set counts fully for the muscles it targets and half for those that assist.
   const muscleDetail={};
-  for(const name of Object.keys(muscleGroups)) muscleDetail[name]={name,sets:0,baseline:0,lastDate:null};
+  for(const name of DASHBOARD_MUSCLES) muscleDetail[name]={name,direct:0,assist:0,baseline:0,lastDate:null};
+  let unmappedSets=0;
   for(const g of workouts) for(const s of g.sessions){
-    const group=dashboardMuscleGroup(exerciseIndex.byId.get(s.exerciseId)); if(!group) continue;
     const n=dashboardCompletedSets(s); if(!n) continue;
-    if(g.date>=fourWeekStart&&g.date<weekStart) muscleGroups[group]+=n;
-    const m=muscleDetail[group];
-    if(g.date>=last7Start&&g.date<=today) m.sets+=n;
-    else if(g.date>=baseStart&&g.date<last7Start) m.baseline+=n;
-    if(g.date<=today&&(!m.lastDate||g.date>m.lastDate)) m.lastDate=g.date;
+    const ex=exerciseIndex.byId.get(s.exerciseId);
+    const legacy=dashboardMuscleGroup(ex);
+    if(legacy&&g.date>=fourWeekStart&&g.date<weekStart) muscleGroups[legacy]+=n;
+    const muscles=dashboardExerciseMuscles(ex);
+    if(!muscles){ if(g.date>=last7Start&&g.date<=today) unmappedSets+=n; continue; }
+    for(const [group,weight] of Object.entries(muscles)){
+      const m=muscleDetail[group]; if(!m) continue;
+      if(g.date>=last7Start&&g.date<=today){ if(weight>=1) m.direct+=n*weight; else m.assist+=n*weight; }
+      else if(g.date>=baseStart&&g.date<last7Start) m.baseline+=n*weight;
+      if(g.date<=today&&(!m.lastDate||g.date>m.lastDate)) m.lastDate=g.date;
+    }
   }
-  const muscle=Object.values(muscleDetail).map(m=>({name:m.name,sets:m.sets,average:Math.round(m.baseline/4*10)/10,daysSince:m.lastDate?dayDiff(today,m.lastDate):null}));
+  const muscle=Object.values(muscleDetail).map(m=>({name:m.name,direct:m.direct,assist:m.assist,sets:m.direct+m.assist,average:Math.round(m.baseline/4*10)/10,daysSince:m.lastDate?dayDiff(today,m.lastDate):null}))
+    .filter(m=>m.name!=='Forearms'||m.sets>0||m.average>0);
 
   /* --- Consistency heatmap (17 weeks) and weekly training load (8 weeks) --- */
   const HEAT_WEEKS=17, heatStart=dashboardAddDays(weekStart,-7*(HEAT_WEEKS-1));
@@ -3124,7 +3212,7 @@ function calculateDashboardData(now=new Date()){
       })};
   }
 
-  return {todayIso,weekly,streak:streakData,pinned,strength,strengthAuto,muscleGroups,muscle,heat,load,prs,totals,next,recent:workouts.slice(0,3),exerciseIndex};
+  return {todayIso,weekly,streak:streakData,pinned,strength,strengthAuto,muscleGroups,muscle,unmappedSets,heat,load,prs,totals,next,recent:workouts.slice(0,3),exerciseIndex};
 }
 function renderPinnedExerciseSettings(){
   const root=$('pinnedExerciseSettings'); if(!root) return;
@@ -3292,14 +3380,19 @@ function dzLoad(data,unit){
 function dzMuscle(data){
   const rows=data.muscle, max=Math.max(1,...rows.map(m=>Math.max(m.sets,m.average)));
   if(!rows.some(m=>m.sets>0||m.average>0)) return '';
+  const pct=v=>Math.min(100,Math.round(v/max*1000)/10);
+  const sectionStart=new Set(['Quads','Core']);
   return `<section class="dz-card dz-muscle" aria-label="Muscle balance">
-    <div class="dz-card-head"><div><h3>Muscle balance</h3><p>Sets in the last 7 days</p></div><span class="dz-key"><i></i>4-wk avg</span></div>
+    <div class="dz-card-head"><div><h3>Muscle balance</h3><p>Last 7 days</p></div></div>
     <div class="dz-mrows">${rows.map((m,i)=>{
       const stale=m.daysSince!=null&&m.daysSince>=7;
-      return `<div class="dz-mrow"><span class="dz-mname">${m.name}</span>
-        <span class="dz-mtrack"><i style="width:${Math.round(m.sets/max*100)}%;--i:${i}"></i>${m.average>0?`<b style="left:${Math.min(100,Math.round(m.average/max*100))}%"></b>`:''}</span>
-        <strong>${m.sets}</strong><span class="dz-mago${stale?' is-stale':''}">${m.daysSince==null?'—':m.daysSince===0?'today':`${m.daysSince}d ago`}</span></div>`;
+      const label=`${m.name}: ${dzNumber(m.direct)} direct and ${dzNumber(m.assist)} assisting sets in the last 7 days, 4-week average ${dzNumber(m.average)}`;
+      return `<div class="dz-mrow${sectionStart.has(m.name)?' dz-mgap':''}" role="img" aria-label="${label}"><span class="dz-mname">${m.name}</span>
+        <span class="dz-mtrack"><span class="dz-mfill" style="--i:${i}"><i style="width:${pct(m.direct)}%"></i><u style="width:${pct(m.assist)}%"></u></span>${m.average>0?`<b style="left:${pct(m.average)}%"></b>`:''}</span>
+        <span class="dz-mago${stale?' is-stale':''}">${m.daysSince==null?'—':m.daysSince===0?'today':`${m.daysSince}d ago`}</span></div>`;
     }).join('')}</div>
+    <div class="dz-mkey" aria-hidden="true"><span><i class="k-direct"></i>Direct</span><span><i class="k-assist"></i>Assisting</span><span><i class="k-avg"></i>4-week average</span></div>
+    ${data.unmappedSets>0?`<p class="dz-foot">${dzPlural(data.unmappedSets,'set')} from exercises SnowLog couldn’t match to a muscle ${data.unmappedSets===1?'is':'are'} not shown.</p>`:''}
   </section>`;
 }
 
